@@ -5,6 +5,8 @@ library(dplyr)
 library(ggplot2)
 library(RColorBrewer)
 
+load("01.Cell_Type.RData")
+
 # 1. load data & QC ----
 data.dir <- "/thinker/tb269store/user/liuzhenyu/Project/BLCA_Neuro/Summary/1_Cellranger_result"
 samples <- list.dirs(data.dir, recursive = FALSE, full.names = FALSE)
@@ -149,29 +151,72 @@ dev.off()
 
 ## 2.2. Expression of marker genes ----
 marker.all <- c(
-    "Epcam", "Krt8", # epithelial cell
+    "Epcam", "Krt5", # epithelial cell
     "Pecam1", "Cdh5", # endothelial cell,
     "Ptprc", "Cd3d", "Cd4", "Cd8a", "Nkg7", "Ncam1", "Cd79a", "Ms4a1", "Igkc", "Ighg1", # leukocyte
     "Cd14", "Fcgr3", "Lyz2", "Cd68", # monocyte
     "Cd163", "Mrc1", # macrophage
     "Itgax", "Fcer1a", "Cst3", "Tcf4", # DC
     "S100a8", "S100a9", # granulocyte
-    "Col1a1", "Col1a2", "Dcn"# fibroblast
+    "Col1a1", "Col1a2", "Dcn", # fibroblast,
+    "Tubb3", "Rbfox3",  # PNS neuron
+    "Slc17a7", "Camk2a", "Gad1", "Gad2", # Excitatory / Inhibitory neuron
+    "S100b", "Sox10", # Schwann cell
+    "Fabp7", "P2rx7" # Satellite Glial Cells
 )
 setdiff(marker.all, rownames(blca.obj))
 marker.all[which(duplicated(marker.all))]
 
-pdf("UMAP.MarkerGenes.pdf", 24, 18)
-FeaturePlot(blca.obj, features = marker.all, ncol = 6, cols = c("gray", "red")) +
-    theme_classic()
+p <- FeaturePlot(blca.obj, features = marker.all, ncol = 6, cols = c("gray", "red"))
+pdf("UMAP.MarkerGenes.pdf", 24, 24)
+plot(p)
 dev.off()
+rm(p)
 
-pdf("DotPlot.MarkerGenes.pdf", 10, 6)
+pdf("DotPlot.MarkerGenes.pdf", 8, 8)
 DotPlot(blca.obj, features = marker.all) +
     scale_shape_manual(values = c(21)) +
     scale_color_viridis_c() +
     theme_classic() + coord_flip()
 dev.off()
+
+blca.obj$Cell_Type_1 <- "none"
+blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(21))] <- "Epithelial"
+blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(26, 33))] <- "Enothelial"
+blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(5, 9, 13, 15, 32))] <- "T"
+blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(17, 25))] <- "NK"
+blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(29))] <- "B"
+blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(7, 10, 20, 23, 24))] <- "Macrophage"
+blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(8, 22, 31))] <- "Monocyte"
+blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(16, 27))] <- "DC"
+blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(3))] <- "Granulocyte"
+blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(12, 30))] <- "Fibroblast"
+blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(0, 1, 2, 4, 6, 11, 14, 18, 19, 28))] <- "Neuron/Glial"
+table(blca.obj$seurat_clusters, blca.obj$Cell_Type_1)
+
+blca.obj$Cell_Type_1 <- factor(blca.obj$Cell_Type_1, levels = c(
+    "Epithelial", "Enothelial", "T", "NK", "B",
+    "Macrophage", "Monocyte", "DC", "Granulocyte",
+    "Fibroblast", "Neuron/Glial"
+))
+mycolor$Cell_Type_1 <- c(ggsci::pal_npg()(10), "#FDB462FF") %>%
+    setNames(levels(blca.obj$Cell_Type_1))
+
+pdf("UMAP.Cell_Type_1.pdf", 7, 6)
+DimPlot(blca.obj, reduction = "umap", group.by = "Cell_Type_1", label = TRUE) +
+    scale_color_manual(values = mycolor$Cell_Type_1) +
+    theme_classic() +
+    labs(title = "UMAP plot colored by Cell_Type_1")
+dev.off()
+
+Idents(blca.obj) <- "Cell_Type_1"
+marker.undefined <- FindMarkers(blca.obj,
+    ident.1 = "none",
+    min.pct = 0.25, logfc.threshold = 0.25,
+    max.cells.per.ident = 1000
+)
+marker.undefined <- marker.undefined[order(marker.undefined$avg_log2FC, decreasing = TRUE), ]
+head(marker.undefined, 50) %>% rownames()
 
 # save data ----
 save.image("01.Cell_Type.RData")
