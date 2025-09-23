@@ -139,6 +139,22 @@ DimPlot(blca.obj, reduction = "umap", label = TRUE, split.by = "Sample", ncol = 
     labs(title = "UMAP plot colored by Clusters")
 dev.off()
 
+## 1.4. QC metrics ----
+pdf("VlnPlot.QC.Cluster.pdf", 12, 6)
+VlnPlot(blca.obj,
+    group.by = "seurat_clusters", features = c("nFeature_RNA", "nCount_RNA", "percent.mito", "percent.HB"),
+    ncol = 2, pt.size = 0, cols = mycolor$Cluster
+) +
+    theme_classic()
+dev.off()
+
+pdf("UMAP.QC.Cluster.pdf", 8, 6)
+FeaturePlot(blca.obj,
+    features = c("nFeature_RNA", "nCount_RNA", "percent.mito", "percent.HB"),
+    ncol = 2, cols = c("gray", "red")
+)
+dev.off()
+
 # 2. Cell Type Annotation ----
 ## 2.1. SingleR annotation ----
 table(blca.obj$Cell_Type_SingleR)
@@ -154,13 +170,14 @@ marker.all <- c(
     "Epcam", "Krt5", # epithelial cell
     "Pecam1", "Cdh5", # endothelial cell,
     "Ptprc", "Cd3d", "Cd4", "Cd8a", "Nkg7", "Ncam1", "Cd79a", "Ms4a1", "Igkc", "Ighg1", # leukocyte
-    "Cd14", "Fcgr3", "Lyz2", "Cd68", # monocyte
-    "Cd163", "Mrc1", # macrophage
-    "Itgax", "Fcer1a", "Cst3", "Tcf4", # DC
-    "S100a8", "S100a9", # granulocyte
-    "Col1a1", "Col1a2", "Dcn", # fibroblast,
-    "Tubb3", "Rbfox3",  # PNS neuron
-    "Slc17a7", "Camk2a", "Gad1", "Gad2", # Excitatory / Inhibitory neuron
+    "Cd14", "Fcgr3", "Lyz2", # monocyte
+    "Cd68", "Cd163", "Mrc1", "Adgre1", # macrophage
+    "Itgax", "Fcer1a", "Cst3", # DC
+    "Kit", "Hdc", # mast cell
+    "S100a8", "S100a9", # neutrophils
+    "Col1a1", "Col1a2", "Dcn", "Pdgfra", "Rgs5", "Myl9", # fibroblast,
+    "Ngf",
+    "Tubb3", "Nefl", "Map2", # neuron
     "S100b", "Sox10", # Schwann cell
     "Fabp7", "P2rx7" # Satellite Glial Cells
 )
@@ -180,6 +197,7 @@ DotPlot(blca.obj, features = marker.all) +
     theme_classic() + coord_flip()
 dev.off()
 
+## 2.3. label cell types ----
 blca.obj$Cell_Type_1 <- "none"
 blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(21))] <- "Epithelial"
 blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(26, 33))] <- "Enothelial"
@@ -190,14 +208,29 @@ blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(7, 10, 20, 23, 24))] 
 blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(8, 22, 31))] <- "Monocyte"
 blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(16, 27))] <- "DC"
 blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(3))] <- "Granulocyte"
-blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(12, 30))] <- "Fibroblast"
-blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(0, 1, 2, 4, 6, 11, 14, 18, 19, 28))] <- "Neuron/Glial"
+blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(12, 30))] <- "iCAF"
+blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(0, 1, 2, 4, 6, 11, 14, 18, 19, 28))] <- "Neuron-like CAF"
 table(blca.obj$seurat_clusters, blca.obj$Cell_Type_1)
+
+# undefined cluster markers
+Idents(blca.obj) <- "Cell_Type_1"
+marker.undefined <- FindMarkers(blca.obj,
+    ident.1 = "none",
+    min.pct = 0.25, logfc.threshold = 0.25,
+    max.cells.per.ident = 1000
+)
+marker.undefined <- marker.undefined[order(marker.undefined$avg_log2FC, decreasing = TRUE), ]
+
+p <- FeaturePlot(blca.obj, features = head(marker.undefined, 15) %>% rownames(), ncol = 5, cols = c("gray", "red"))
+pdf("UMAP.MarkerGenes.Undefined.pdf", 20, 10)
+plot(p)
+dev.off()
+rm(p)
 
 blca.obj$Cell_Type_1 <- factor(blca.obj$Cell_Type_1, levels = c(
     "Epithelial", "Enothelial", "T", "NK", "B",
     "Macrophage", "Monocyte", "DC", "Granulocyte",
-    "Fibroblast", "Neuron/Glial"
+    "iCAF", "Neuron-like CAF"
 ))
 mycolor$Cell_Type_1 <- c(ggsci::pal_npg()(10), "#FDB462FF") %>%
     setNames(levels(blca.obj$Cell_Type_1))
@@ -209,14 +242,85 @@ DimPlot(blca.obj, reduction = "umap", group.by = "Cell_Type_1", label = TRUE) +
     labs(title = "UMAP plot colored by Cell_Type_1")
 dev.off()
 
-Idents(blca.obj) <- "Cell_Type_1"
-marker.undefined <- FindMarkers(blca.obj,
-    ident.1 = "none",
-    min.pct = 0.25, logfc.threshold = 0.25,
-    max.cells.per.ident = 1000
+pdf("UMAP.Cell_Type_1.split.Condition.pdf", 16, 6)
+DimPlot(blca.obj, reduction = "umap", group.by = "Cell_Type_1", label = TRUE, , split.by = "Condition") +
+    scale_color_manual(values = mycolor$Cell_Type_1) +
+    theme_classic() +
+    labs(title = "UMAP plot colored by Cell_Type_1")
+dev.off()
+
+# bigger categories
+blca.obj$Cell_Type_0 <- "none"
+blca.obj$Cell_Type_0[which(blca.obj$Cell_Type_1 %in% c("Epithelial"))] <- "Epithelial"
+blca.obj$Cell_Type_0[which(blca.obj$Cell_Type_1 %in% c("iCAF", "Neuron-like CAF", "Enothelial"))] <- "Stromal"
+blca.obj$Cell_Type_0[which(blca.obj$Cell_Type_1 %in% c(
+    "T", "B", "NK", "Macrophage",
+    "Monocyte", "DC", "Granulocyte"
+))] <- "Immune"
+table(blca.obj$Cell_Type_0)
+
+blca.obj$Cell_Type_0 <- factor(blca.obj$Cell_Type_0, levels = c("Epithelial", "Stromal", "Immune"))
+mycolor$Cell_Type_0 <- c(ggsci::pal_jco()(4)[c(1,2,4)]) %>%
+    setNames(levels(blca.obj$Cell_Type_0))
+
+pdf("UMAP.Cell_Type_0.pdf", 7, 6)
+DimPlot(blca.obj, reduction = "umap", group.by = "Cell_Type_0", label = TRUE) +
+    scale_color_manual(values = mycolor$Cell_Type_0) +
+    theme_classic() +
+    labs(title = "UMAP plot colored by Cell_Type_0")
+dev.off()
+
+pdf("UMAP.Cell_Type_0.split.Condition.pdf", 16, 6)
+DimPlot(blca.obj, reduction = "umap", group.by = "Cell_Type_0", label = TRUE, , split.by = "Condition") +
+    scale_color_manual(values = mycolor$Cell_Type_0) +
+    theme_classic() +
+    labs(title = "UMAP plot colored by Cell_Type_0")
+dev.off()
+
+## 2.4. Cell Types Cross Conditions ----
+plot.data <- as.data.frame(table(blca.obj$Cell_Type_1, blca.obj$Condition))
+colnames(plot.data) <- c("Cell_Type_1", "Condition", "Count")
+
+pdf("Barplot.Cell_Type_1.Condition.pdf", 8, 5)
+patchwork::wrap_plots(
+    ggplot(plot.data, aes(x = Cell_Type_1, y = Count, fill = Condition)) +
+        geom_bar(stat = "identity", position = "fill") +
+        scale_fill_manual(values = mycolor$Condition) +
+        theme_classic() +
+        labs(title = "Cell Type composition across Conditions") +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1)),
+    ggplot(plot.data, aes(x = Condition, y = Count, fill = Cell_Type_1)) +
+        geom_bar(stat = "identity", position = "fill") +
+        scale_fill_manual(values = mycolor$Cell_Type_1) +
+        theme_classic() +
+        labs(title = "Cell Type composition across Conditions") +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1)),
+    ncol = 2
 )
-marker.undefined <- marker.undefined[order(marker.undefined$avg_log2FC, decreasing = TRUE), ]
-head(marker.undefined, 50) %>% rownames()
+dev.off()
+
+plot.data <- as.data.frame(table(blca.obj$Cell_Type_0, blca.obj$Condition))
+colnames(plot.data) <- c("Cell_Type_0", "Condition", "Count")
+
+pdf("Barplot.Cell_Type_0.Condition.pdf", 8, 5)
+patchwork::wrap_plots(
+    ggplot(plot.data, aes(x = Cell_Type_0, y = Count, fill = Condition)) +
+        geom_bar(stat = "identity", position = "fill") +
+        scale_fill_manual(values = mycolor$Condition) +
+        theme_classic() +
+        labs(title = "Cell Type composition across Conditions") +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1)),
+    ggplot(plot.data, aes(x = Condition, y = Count, fill = Cell_Type_0)) +
+        geom_bar(stat = "identity", position = "fill") +
+        scale_fill_manual(values = mycolor$Cell_Type_0) +
+        theme_classic() +
+        labs(title = "Cell Type composition across Conditions") +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1)),
+    ncol = 2
+)
+dev.off()
+
+rm(plot.data)
 
 # save data ----
 save.image("01.Cell_Type.RData")
