@@ -166,46 +166,47 @@ DimPlot(blca.obj, reduction = "umap", group.by = "Cell_Type_SingleR", label = TR
 dev.off()
 
 ## 2.2. Expression of marker genes ----
-marker.all <- c(
+marker.genes <- list()
+
+marker.genes[["All"]] <- c(
     "Epcam", "Krt5", "Krt8", "Krt18", # epithelial cell
     "Pecam1", "Cdh5", # endothelial cell,
-    "Ptprc", "Cd3d", "Cd4", "Cd8a", "Nkg7", "Ncam1", "Cd79a", "Ms4a1", "Igkc", "Ighg1", # leukocyte
-    "Cd14", "Fcgr3", "Lyz2", # monocyte
-    "Cd68", "Cd163", "Mrc1", "Adgre1", # macrophage
+    "Ptprc", "Cd3d", "Cd3g", "Cd4", "Cd8a", "Nkg7", "Klrb1c", "Cd79a", "Ms4a1", "Sdc1", # leukocyte
+    "Cd14", "Cd68", "Lyz2", # monocyte
+    "Cd163", "Mrc1", "Adgre1", # macrophage
     "Itgax", "Fcer1a", "Cst3", # DC
     "S100a8", "S100a9", # neutrophils
     "Kit", "Hdc", # mast cell
     "Col1a2", "Dcn", "Pdgfra", # fibroblast,
     "Tubb3", "Nefl", "Map2", # neuron
     "S100b", "Sox10", # Schwann cell
-    "Fabp7", "P2rx7" # Satellite glial cells
+    "Fabp7", "P2rx7", # Satellite glial cells,
+    "Mki67", "Top2a" # cycling
 )
-setdiff(marker.all, rownames(blca.obj))
-marker.all[which(duplicated(marker.all))]
+setdiff(marker.genes$All, rownames(blca.obj))
+marker.genes$All[which(duplicated(marker.genes$All))]
 
-p <- FeaturePlot(blca.obj, features = marker.all, ncol = 6, cols = c("gray", "red"))
+p <- FeaturePlot(blca.obj, features = marker.genes$All, ncol = 6, cols = c("gray", "red"))
 pdf("UMAP.MarkerGenes.pdf", 24, 24)
 plot(p)
 dev.off()
 rm(p)
 
-pdf("DotPlot.MarkerGenes.pdf", 8, 8)
-DotPlot(blca.obj, features = marker.all) +
+pdf("DotPlot.MarkerGenes.pdf", 9, 8)
+DotPlot(blca.obj, features = marker.genes$All) +
     scale_color_viridis_c() +
     theme_classic() + coord_flip()
 dev.off()
 
 ## 2.3. Label cell types ----
 blca.obj$Cell_Type_1 <- "none"
-blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(21))] <- "Epithelial"
+blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(21))] <- "Bladder_epithelial"
 blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(0, 1, 2, 4, 6, 11, 14, 18, 19, 28))] <- "Cancer"
-blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(26, 33))] <- "Enothelial"
-blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(5, 9, 13, 15, 32))] <- "T"
-blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(17, 25))] <- "NK"
+blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(26, 33))] <- "Endothelial"
+blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(5, 9, 13, 15, 25, 32))] <- "T"
+blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(17))] <- "NK"
 blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(29))] <- "B"
-blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(7, 10, 20, 23, 24))] <- "Macrophage"
-blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(8, 22, 31))] <- "Monocyte"
-blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(16, 27))] <- "DC"
+blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(7, 8, 10, 16, 20, 22, 23, 24, 27, 31))] <- "Myeloid"
 blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(3))] <- "Granulocyte"
 blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(12, 30))] <- "Fibroblast"
 table(blca.obj$seurat_clusters, blca.obj$Cell_Type_1)
@@ -213,11 +214,12 @@ table(blca.obj$seurat_clusters, blca.obj$Cell_Type_1)
 Idents(blca.obj) <- "Cell_Type_1"
 
 blca.obj$Cell_Type_1 <- factor(blca.obj$Cell_Type_1, levels = c(
-    "Epithelial", "Enothelial", "T", "NK", "B",
-    "Macrophage", "Monocyte", "DC", "Granulocyte",
-    "Fibroblast", "Cancer"
+    "Bladder_epithelial", "Cancer",
+    "Endothelial", "Fibroblast",
+    "T", "B", "NK",
+    "Granulocyte", "Myeloid"
 ))
-mycolor$Cell_Type_1 <- c(ggsci::pal_npg()(10), "#FDB462FF") %>%
+mycolor$Cell_Type_1 <- c(ggsci::pal_npg()(9)) %>%
     setNames(levels(blca.obj$Cell_Type_1))
 
 pdf("UMAP.Cell_Type_1.pdf", 7, 6)
@@ -236,12 +238,9 @@ dev.off()
 
 # bigger categories
 blca.obj$Cell_Type_0 <- "none"
-blca.obj$Cell_Type_0[which(blca.obj$Cell_Type_1 %in% c("Epithelial", "Cancer"))] <- "Epithelial"
-blca.obj$Cell_Type_0[which(blca.obj$Cell_Type_1 %in% c("Fibroblast", "Enothelial"))] <- "Stromal"
-blca.obj$Cell_Type_0[which(blca.obj$Cell_Type_1 %in% c(
-    "T", "B", "NK", "Macrophage",
-    "Monocyte", "DC", "Granulocyte"
-))] <- "Immune"
+blca.obj$Cell_Type_0[which(blca.obj$Cell_Type_1 %in% c("Bladder_epithelial", "Cancer"))] <- "Epithelial"
+blca.obj$Cell_Type_0[which(blca.obj$Cell_Type_1 %in% c("Fibroblast", "Endothelial"))] <- "Stromal"
+blca.obj$Cell_Type_0[which(blca.obj$Cell_Type_1 %in% c("T", "B", "NK", "Myeloid", "Granulocyte"))] <- "Immune"
 table(blca.obj$Cell_Type_0)
 
 blca.obj$Cell_Type_0 <- factor(blca.obj$Cell_Type_0, levels = c("Epithelial", "Stromal", "Immune"))
@@ -304,31 +303,60 @@ patchwork::wrap_plots(
     ncol = 2
 )
 dev.off()
-rm(plot.data)
 
-# 3. Detailed cell type ----
-## 3.1. pan-Lymphocyte ----
-dir.create("sub1_Lymphocyte")
+# fraction compare
+plot.data <- as.data.frame(table(blca.obj$Cell_Type_0, blca.obj$Sample))
+colnames(plot.data) <- c("Cell_Type_0", "Sample", "Count")
+plot.data$Condition <- gsub("_00.+?*$", "", plot.data$Sample)
+table(plot.data$Condition)
+table(plot.data$Sample)
 
-sub1.obj <- subset(blca.obj, subset = Cell_Type_1 %in% c("T", "B", "NK")) # 49423 cells
+temp <- table(blca.obj$Sample)
+plot.data$Fraction <- plot.data$Count / temp[plot.data$Sample] * 100
+plot.data$Condition <- factor(plot.data$Condition, levels = c("CTRL", "Capsaicin", "LC_60HDA"))
 
-sub1.obj <- sub1.obj %>%
+pdf("Boxplot.Fraction.pdf", 5, 3)
+ggplot(plot.data, aes(x = Condition, y = Fraction)) +
+    geom_boxplot(aes(fill = Cell_Type_0), outlier.shape = NA, alpha = 0.5) +
+    geom_jitter(width = 0.2, size = 0.5, alpha = 1) +
+    ggpubr::stat_compare_means(
+        label = "p.signif", label.y.npc = 1, size = 2.5,
+        comparisons = list(c("CTRL", "Capsaicin"), c("Capsaicin", "LC_60HDA"), c("CTRL", "LC_60HDA"))
+    ) +
+    facet_wrap(~Cell_Type_0, ncol = 3, scales = "free") +
+    labs(title = "Cell Type composition across Samples") +
+    ylab("Fraction (%)") +
+    scale_fill_manual(values = mycolor$Cell_Type_0) +
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    NoLegend()
+dev.off()
+
+rm(plot.data, temp)
+
+# 3. Immune compartment ----
+##  3.1. Detailed cell typing ----
+dir.create("sub1_Immune")
+
+immune.obj <- subset(blca.obj, subset = Cell_Type_0 == "Immune") # 122993 cells
+
+immune.obj <- immune.obj %>%
     NormalizeData() %>%
-    FindVariableFeatures(selection.method = "vst", nfeatures = 2000) %>%
+    FindVariableFeatures(selection.method = "vst", nfeatures = 3000) %>%
     ScaleData() %>%
     RunPCA(verbose = FALSE)
 
-pdf("sub1_Lymphocyte/ElbowPlot.PCA.pdf", 6, 4)
-ElbowPlot(sub1.obj, ndims = 50)
+pdf("sub1_Immune/ElbowPlot.PCA.pdf", 6, 4)
+ElbowPlot(immune.obj, ndims = 50)
 dev.off()
 
-sub1.obj <- FindNeighbors(sub1.obj, dims = 1:20)
-sub1.obj <- FindClusters(sub1.obj, resolution = 0.8)
+immune.obj <- FindNeighbors(immune.obj, dims = 1:30)
+immune.obj <- FindClusters(immune.obj, resolution = 1.0)
 
-sub1.obj <- RunUMAP(sub1.obj, dims = 1:20)
+immune.obj <- RunUMAP(immune.obj, dims = 1:30)
 
-pdf("sub1_Lymphocyte/UMAP.Clusters.pdf", 7, 6)
-DimPlot(sub1.obj,
+pdf("sub1_Immune/UMAP.Clusters.pdf", 7, 6)
+DimPlot(immune.obj,
     reduction = "umap", group.by = "seurat_clusters", label = TRUE,
     cols = mycolor$Cluster, raster = TRUE
 ) +
@@ -336,8 +364,8 @@ DimPlot(sub1.obj,
     labs(title = "UMAP plot colored by clusters")
 dev.off()
 
-pdf("sub1_Lymphocyte/UMAP.Clusters.split.pdf", 12, 4)
-DimPlot(sub1.obj,
+pdf("sub1_Immune/UMAP.Clusters.split.pdf", 12, 4)
+DimPlot(immune.obj,
     reduction = "umap", group.by = "seurat_clusters", split.by = "Condition",
     label = TRUE, cols = mycolor$Cluster, raster = TRUE
 ) +
@@ -345,8 +373,16 @@ DimPlot(sub1.obj,
     labs(title = "UMAP plot colored by clusters")
 dev.off()
 
-pdf("sub1_Lymphocyte/UMAP.Cell_Type_1.pdf", 7, 6)
-DimPlot(sub1.obj,
+table(immune.obj$Cell_Type_SingleR)
+pdf("sub1_Immune/UMAP.SingleR.pdf", 7, 6)
+DimPlot(immune.obj, reduction = "umap", group.by = "Cell_Type_SingleR", label = TRUE, raster = TRUE) +
+    scale_color_manual(values = brewer.pal(9, "Set3")) +
+    theme_classic() +
+    labs(title = "UMAP plot colored by SingleR annotation")
+dev.off()
+
+pdf("sub1_Immune/UMAP.Cell_Type_1.pdf", 7, 6)
+DimPlot(immune.obj,
     reduction = "umap", group.by = "Cell_Type_1", label = TRUE,
     cols = mycolor$Cell_Type_1, raster = TRUE
 ) +
@@ -354,81 +390,188 @@ DimPlot(sub1.obj,
     labs(title = "UMAP plot colored by Cell_Type_1")
 dev.off()
 
-marker.sub <- list()
-marker.sub[["Lymphocyte"]] <- c(
+marker.genes[["Immune"]] <- c(
     "Ptprc",
     "Cd3d", "Cd3g", "Cd4", "Foxp3",
     "Cd8a", "Gzma", "Gzmb", "Havcr2", "Pdcd1",
     "Nkg7", "Ncam1", "Klrb1c",
     "Cd79a", "Ms4a1", "Igkc", "Sdc1",
-    "Cxcr2", "S100a9", "Trem1",
-    "Kit", "Hdc", "Ms4a2",
-    "Siglech", "Flt3"
+    "Cd14", "Fcgr3", "Lyz2", "Ly6c1", # monocyte
+    "Cd68", "Cd163", "Mrc1", "Adgre1", # macrophage
+    "Itgax", "Fcer1a", "Cst3", # DC
+    "Siglech", "Flt3", # pDC
+    "Itgam", "Ly6g", "Ly6c2", # MDSC
+    "Cxcr2", "S100a8", "S100a9", "Trem1", # neutrophils
+    "Kit", "Hdc", "Ms4a2", # mast cell
+    "Mki67", "Top2a" # cycling
 )
-length(marker.sub[["Lymphocyte"]])
-setdiff(marker.sub[["Lymphocyte"]], rownames(sub1.obj))
+length(marker.genes[["Immune"]])
+setdiff(marker.genes[["Immune"]], rownames(immune.obj))
+which(duplicated(marker.genes[["Immune"]]))
 
-pdf("sub1_Lymphocyte/UMAP.MarkerGenes.pdf", 20, 18)
-FeaturePlot(sub1.obj,
-    features = marker.sub[["Lymphocyte"]],
-    ncol = 5, cols = c("gray", "red"), raster = TRUE
+p <- FeaturePlot(immune.obj,
+    features = marker.genes[["Immune"]],
+    ncol = 6, cols = c("gray", "red"), raster = TRUE
 )
+pdf("sub1_Immune/UMAP.MarkerGenes.pdf", 24, 24)
+plot(p)
 dev.off()
+rm(p)
 
-pdf("sub1_Lymphocyte/DotPlot.MarkerGenes.pdf", 8, 6)
-DotPlot(sub1.obj, features = marker.sub[["Lymphocyte"]]) +
+pdf("sub1_Immune/DotPlot.MarkerGenes.pdf", 9, 7)
+DotPlot(immune.obj, features = marker.genes[["Immune"]]) +
     scale_color_viridis_c() +
     theme_classic() + coord_flip()
 dev.off()
 
 # undefined cluster markers
-marker.undefined.T_11 <- FindMarkers(sub1.obj,
-    ident.1 = 11,
+marker.undefined.C9 <- FindMarkers(immune.obj,
+    ident.1 = 9,
     min.pct = 0.25, logfc.threshold = 0.25,
     max.cells.per.ident = 1000
 )
-marker.undefined.T_11 <- marker.undefined.T_11[order(marker.undefined.T_11$avg_log2FC, decreasing = TRUE), ]
-head(rownames(marker.undefined.T_11), 20) # Neutrophil markers: S100a9, S100a8, Cxcr2, Trem1
+marker.undefined.C9 <- marker.undefined.C9[order(marker.undefined.C9$avg_log2FC, decreasing = TRUE), ]
+head(rownames(marker.undefined.C9), 50) # Neurogenic markers: Ngf, Ncam1, Sox5, Tenm4
 
-marker.undefined.T_2022 <- FindMarkers(sub1.obj,
-    ident.1 = c(20, 22),
+marker.undefined.C20 <- FindMarkers(immune.obj,
+    ident.1 = c(20),
     min.pct = 0.25, logfc.threshold = 0.25,
     max.cells.per.ident = 1000
 )
-marker.undefined.T_2022 <- marker.undefined.T_2022[order(marker.undefined.T_2022$avg_log2FC, decreasing = TRUE), ]
-head(rownames(marker.undefined.T_2022), 20) # Mast markers: Hdc, Tpsb2, Ms4a2
+marker.undefined.C20 <- marker.undefined.C20[order(marker.undefined.C20$avg_log2FC, decreasing = TRUE), ]
+head(rownames(marker.undefined.C20), 50) #  Macrophage markers: C1qa Ms4a7 Ccl8
 
-marker.undefined.T_17 <- FindMarkers(sub1.obj,
-    ident.1 = c(17),
+marker.undefined.C22 <- FindMarkers(immune.obj,
+    ident.1 = 22,
     min.pct = 0.25, logfc.threshold = 0.25,
     max.cells.per.ident = 1000
 )
-marker.undefined.T_17 <- marker.undefined.T_17[order(marker.undefined.T_17$avg_log2FC, decreasing = TRUE), ]
-head(rownames(marker.undefined.T_17), 20) # pDC markers: Siglech, Flt3
+marker.undefined.C22 <- marker.undefined.C22[order(marker.undefined.C22$avg_log2FC, decreasing = TRUE), ]
+head(rownames(marker.undefined.C22), 100) #  markers:
 
-sub1.obj$Cell_Type_2 <- "none"
-sub1.obj$Cell_Type_2[which(sub1.obj$seurat_clusters %in% c(9))] <- "T_CD4"
-sub1.obj$Cell_Type_2[which(sub1.obj$seurat_clusters %in% c(0:2, 4:6, 8:10, 12:14, 18, 19))] <- "T_CD8"
-sub1.obj$Cell_Type_2[which(sub1.obj$seurat_clusters %in% c(11))] <- "T_CD8_Neutrophil_like"
-sub1.obj$Cell_Type_2[which(sub1.obj$seurat_clusters %in% c(20, 22))] <- "Mast"
-sub1.obj$Cell_Type_2[which(sub1.obj$seurat_clusters %in% c(17))] <- "pDC"
-sub1.obj$Cell_Type_2[which(sub1.obj$seurat_clusters %in% c(3, 16))] <- "Treg"
-sub1.obj$Cell_Type_2[which(sub1.obj$seurat_clusters %in% c(7))] <- "NK"
-sub1.obj$Cell_Type_2[which(sub1.obj$seurat_clusters %in% c(15))] <- "B"
-sub1.obj$Cell_Type_2[which(sub1.obj$seurat_clusters %in% c(21))] <- "Plasma"
+immune.obj$Cell_Type_2 <- "none"
+immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(12, 16))] <- "T_CD4"
+immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(29))] <- "T_CD4_Cycling"
+immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(10, 33))] <- "Treg"
+immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(0, 1, 18, 21, 28))] <- "T_CD8"
+immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(11))] <- "T_CD8_Cycling"
+immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(22))] <- "T_CD8_Neutrophil_like"
+immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(13))] <- "NK"
+immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(27))] <- "B"
+immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(3, 4, 6, 8, 14, 19, 20))] <- "Macrophage"
+immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(7, 24))] <- "Monocyte"
+immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(15, 23, 26, 32))] <- "cDC"
+immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(30))] <- "pDC"
+immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(2, 5, 25))] <- "Neurophil"
+immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(9))] <- "Myeloid_Neuro_like"
+immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(17, 31))] <- "Myeloid_Cycling"
 
-pdf("sub1_Lymphocyte/UMAP.Cell_Type_2.pdf", 7, 6)
-DimPlot(sub1.obj,
+table(immune.obj$seurat_clusters, immune.obj$Cell_Type_2)
+
+immune.obj$Cell_Type_2 <- factor(immune.obj$Cell_Type_2, levels = c(
+    "T_CD4", "T_CD4_Cycling", "Treg",
+    "T_CD8", "T_CD8_Cycling", "T_CD8_Neutrophil_like",
+    "NK",
+    "B",
+    "Macrophage", "Monocyte",
+    "cDC", "pDC",
+    "Neurophil", "Myeloid_Neuro_like", "Myeloid_Cycling"
+))
+mycolor$Cell_Type_2 <- colorRampPalette(ggsci::pal_npg()(9))(length(levels(immune.obj$Cell_Type_2))) %>%
+    setNames(levels(immune.obj$Cell_Type_2))
+
+pdf("sub1_Immune/UMAP.Cell_Type_2.pdf", 13, 6)
+DimPlot(immune.obj,
     reduction = "umap", group.by = "Cell_Type_2", label = TRUE, raster = TRUE,
-    cols = mycolor$Cell_Type_1 %>% unname()
+    cols = mycolor$Cell_Type_2
 ) +
+    theme_classic() +
+    labs(title = "UMAP plot colored by Cell_Type_2") + NoLegend() +
+    DimPlot(immune.obj,
+        reduction = "umap", group.by = "Cell_Type_2", label = FALSE, raster = TRUE,
+        cols = mycolor$Cell_Type_2
+    ) +
     theme_classic() +
     labs(title = "UMAP plot colored by Cell_Type_2")
 dev.off()
-saveRDS(sub1.obj, file = "sub1_Lymphocyte/sub1.obj.rds")
-rm(sub1.obj, marker.undefined.T_11, marker.undefined.T_2022, marker.undefined.T_17)
 
-## 3.2. pan-Myeloid ----
+## 3.2. Marker gene expression ----
+Idents(immune.obj) <- immune.obj$Cell_Type_2
+levels(Idents(immune.obj))
+
+gene.selected <- c(
+    "Cd3d", "Cd4", "Foxp3", "Cd8a", "Klrb1c", "Cd79a",
+    "Cd68", "Mrc1", "Lrc2", "Cst3", "Siglech", "S100a8", "Hdc",
+    "Ngf", "Dclk1", "Ncam1", "Mki67"
+)
+
+pdf("sub1_Immune/DotPlot.Cell_Type_2.pdf", 7, 4)
+DotPlot(immune.obj, features = gene.selected) +
+    scale_color_viridis_c() +
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+dev.off()
+
+rm(list = grep("marker.undefined", ls(), value = TRUE))
+rm(gene.selected)
+
+## 3.3. Percentage changes ----
+# barplot composition
+plot.data <- as.data.frame(table(immune.obj$Cell_Type_2, immune.obj$Condition))
+colnames(plot.data) <- c("Cell_Type_2", "Condition", "Count")
+
+pdf("sub1_Immune/Barplot.Cell_Type_2.Condition.pdf", 9, 5)
+patchwork::wrap_plots(
+    ggplot(plot.data, aes(x = Cell_Type_2, y = Count, fill = Condition)) +
+        geom_bar(stat = "identity", position = "fill") +
+        scale_fill_manual(values = mycolor$Condition) +
+        theme_classic() +
+        labs(title = "Cell Type composition across Conditions") +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1)),
+    ggplot(plot.data, aes(x = Condition, y = Count, fill = Cell_Type_2)) +
+        geom_bar(stat = "identity", position = "fill") +
+        scale_fill_manual(values = mycolor$Cell_Type_2) +
+        theme_classic() +
+        labs(title = "Cell Type composition across Conditions") +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1)),
+    ncol = 2
+)
+dev.off()
+
+# fraction compare
+plot.data <- as.data.frame(table(immune.obj$Cell_Type_2, immune.obj$Sample))
+colnames(plot.data) <- c("Cell_Type_2", "Sample", "Count")
+plot.data$Condition <- gsub("_00.+?*$", "", plot.data$Sample)
+table(plot.data$Condition)
+table(plot.data$Sample)
+
+temp <- table(immune.obj$Sample)
+plot.data$Fraction <- plot.data$Count / temp[plot.data$Sample] * 100
+plot.data$Condition <- factor(plot.data$Condition, levels = c("CTRL", "Capsaicin", "LC_60HDA"))
+
+pdf("sub1_Immune/Boxplot.Fraction.pdf", 8, 7)
+ggplot(plot.data, aes(x = Condition, y = Fraction)) +
+    geom_boxplot(aes(fill = Cell_Type_2), outlier.shape = NA, alpha = 0.5) +
+    geom_jitter(width = 0.2, size = 0.5, alpha = 1) +
+    ggpubr::stat_compare_means(
+        label = "p.signif", label.y.npc = 1, size = 2.5,
+        comparisons = list(c("CTRL", "Capsaicin"), c("Capsaicin", "LC_60HDA"), c("CTRL", "LC_60HDA"))
+    ) +
+    facet_wrap(~Cell_Type_2, ncol = 5, scales = "free") +
+    labs(title = "Cell Type composition across Samples") +
+    ylab("Fraction within immune compartment (%)") +
+    scale_fill_manual(values = mycolor$Cell_Type_2) +
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    NoLegend()
+dev.off()
+rm(plot.data, temp)
+
+## 3.4. Functional signatures ----
+
+saveRDS(immune.obj, file = "sub1_Immune/immune.obj.rds")
+
+# 4. Epithelial compartment ----
 dir.create("sub2_Myeloid")
 sub2.obj <- subset(blca.obj, subset = Cell_Type_1 %in% c("Macrophage", "Monocyte", "DC", "Granulocyte")) # 274268 cells
 
@@ -474,30 +617,54 @@ DimPlot(sub2.obj,
     labs(title = "UMAP plot colored by Cell_Type_1")
 dev.off()
 
-marker.sub[["Myeloid"]] <- c(
+table(sub2.obj$Cell_Type_SingleR)
+pdf("sub2_Myeloid/UMAP.SingleR.pdf", 7, 6)
+DimPlot(sub2.obj, reduction = "umap", group.by = "Cell_Type_SingleR", label = TRUE, raster = TRUE) +
+    scale_color_manual(values = brewer.pal(9, "Set3")) +
+    theme_classic() +
+    labs(title = "UMAP plot colored by SingleR annotation")
+dev.off()
+
+marker.genes[["Myeloid"]] <- c(
     "Ptprc",
-    "Cd14", "Fcgr3", "Lyz2", # monocyte
-    "Cd68", "Cd163", "Mrc1", "Adgre1", # macrophage
-    "Itgax", "Fcer1a", "Cst3", # DC
-    "Siglech", "Flt3", # pDC
-    "Cxcr2", "S100a8", "S100a9", "Trem1", # neutrophils
-    "Kit", "Hdc", "Ms4a2" # mast cell
 
 )
-length(marker.sub[["Myeloid"]])
-setdiff(marker.sub[["Myeloid"]], rownames(sub2.obj))
+length(marker.genes[["Myeloid"]])
+setdiff(marker.genes[["Myeloid"]], rownames(sub2.obj))
 
 pdf("sub2_Myeloid/UMAP.MarkerGenes.pdf", 20, 14)
 FeaturePlot(sub2.obj,
-    features = marker.sub[["Myeloid"]],
+    features = marker.genes[["Myeloid"]],
     ncol = 5, cols = c("gray", "red"), raster = TRUE
 )
 dev.off()
 
 pdf("sub2_Myeloid/DotPlot.MarkerGenes.pdf", 8, 6)
-DotPlot(sub2.obj, features = marker.sub[["Myeloid"]]) +
+DotPlot(sub2.obj, features = marker.genes[["Myeloid"]]) +
     scale_color_viridis_c() +
     theme_classic() + coord_flip()
+dev.off()
+
+sub2.obj$Cell_Type_2 <- "none"
+sub2.obj$Cell_Type_2[which(sub2.obj$seurat_clusters %in% c())] <- "Macrophage"
+sub2.obj$Cell_Type_2[which(sub2.obj$seurat_clusters %in% c())] <- "Monocyte"
+sub2.obj$Cell_Type_2[which(sub2.obj$seurat_clusters %in% c())] <- "cDC"
+# sub2.obj$Cell_Type_2[which(sub2.obj$seurat_clusters %in% c())] <- "pDC"
+sub2.obj$Cell_Type_2[which(sub2.obj$seurat_clusters %in% c(0, 2, 10, 13))] <- "Neutrophil"
+sub2.obj$Cell_Type_2[which(sub2.obj$seurat_clusters %in% c())] <- ""
+sub2.obj$Cell_Type_2[which(sub2.obj$seurat_clusters %in% c())] <- ""
+sub2.obj$Cell_Type_2[which(sub2.obj$seurat_clusters %in% c())] <- ""
+sub2.obj$Cell_Type_2[which(sub2.obj$seurat_clusters %in% c())] <- ""
+sub2.obj$Cell_Type_2[which(sub2.obj$seurat_clusters %in% c())] <- ""
+
+
+pdf("sub1_Immune/UMAP.Cell_Type_2.pdf", 7, 6)
+DimPlot(immune.obj,
+    reduction = "umap", group.by = "Cell_Type_2", label = TRUE, raster = TRUE,
+    cols = mycolor$Cell_Type_1 %>% unname()
+) +
+    theme_classic() +
+    labs(title = "UMAP plot colored by Cell_Type_2")
 dev.off()
 
 saveRDS(sub2.obj, file = "sub2_Myeloid/sub2.obj.rds")
