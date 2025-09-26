@@ -657,26 +657,33 @@ saveRDS(immune.obj, file = "sub1_Immune/immune.obj.rds")
 rm(immune.obj)
 
 # 4. Epithelial compartment ----
-dir.create("sub2_Myeloid")
-sub2.obj <- subset(blca.obj, subset = Cell_Type_1 %in% c("Macrophage", "Monocyte", "DC", "Granulocyte")) # 274268 cells
+##  4.1. Clustering of cell states ----
+dir.create("sub2_Cancer")
+cancer.obj <- subset(blca.obj, subset = Cell_Type_1 %in% c("Cancer")) # 136537 cells
 
-sub2.obj <- sub2.obj %>%
+cancer.obj <- cancer.obj %>%
     NormalizeData() %>%
     FindVariableFeatures(selection.method = "vst", nfeatures = 2000) %>%
     ScaleData() %>%
     RunPCA(verbose = FALSE)
 
-pdf("sub2_Myeloid/ElbowPlot.PCA.pdf", 6, 4)
-ElbowPlot(sub2.obj, ndims = 50)
+pdf("sub2_Cancer/ElbowPlot.PCA.pdf", 6, 4)
+ElbowPlot(cancer.obj, ndims = 50)
 dev.off()
 
-sub2.obj <- FindNeighbors(sub2.obj, dims = 1:20)
-sub2.obj <- FindClusters(sub2.obj, resolution = 0.8)
+cancer.obj <- RunUMAP(cancer.obj, dims = 1:30)
 
-sub2.obj <- RunUMAP(sub2.obj, dims = 1:20)
+cancer.obj <- FindNeighbors(cancer.obj, dims = 1:30)
+cancer.obj <- FindClusters(cancer.obj, resolution = 0.3)
 
-pdf("sub2_Myeloid/UMAP.Clusters.pdf", 7, 6)
-DimPlot(sub2.obj,
+library(ggraph)
+pdf("sub2_Cancer/ClusteringTree.pdf", 8, 6)
+clustree::clustree(cancer.obj, prefix = "RNA_snn_res.")
+dev.off()
+
+cancer.obj$seurat_clusters <- cancer.obj$RNA_snn_res.0.3
+pdf("sub2_Cancer/UMAP.Clusters.pdf", 7, 6)
+DimPlot(cancer.obj,
     reduction = "umap", group.by = "seurat_clusters", label = TRUE,
     cols = mycolor$Cluster, raster = TRUE
 ) +
@@ -684,8 +691,8 @@ DimPlot(sub2.obj,
     labs(title = "UMAP plot colored by clusters")
 dev.off()
 
-pdf("sub2_Myeloid/UMAP.Clusters.split.pdf", 12, 4)
-DimPlot(sub2.obj,
+pdf("sub2_Cancer/UMAP.Clusters.split.pdf", 12, 4)
+DimPlot(cancer.obj,
     reduction = "umap", group.by = "seurat_clusters", split.by = "Condition",
     label = TRUE, cols = mycolor$Cluster, raster = TRUE
 ) +
@@ -693,8 +700,8 @@ DimPlot(sub2.obj,
     labs(title = "UMAP plot colored by clusters")
 dev.off()
 
-pdf("sub2_Myeloid/UMAP.Cell_Type_1.pdf", 7, 6)
-DimPlot(sub2.obj,
+pdf("sub2_Cancer/UMAP.Cell_Type_1.pdf", 7, 6)
+DimPlot(cancer.obj,
     reduction = "umap", group.by = "Cell_Type_1", label = TRUE,
     cols = mycolor$Cell_Type_1, raster = TRUE
 ) +
@@ -702,56 +709,189 @@ DimPlot(sub2.obj,
     labs(title = "UMAP plot colored by Cell_Type_1")
 dev.off()
 
-table(sub2.obj$Cell_Type_SingleR)
-pdf("sub2_Myeloid/UMAP.SingleR.pdf", 7, 6)
-DimPlot(sub2.obj, reduction = "umap", group.by = "Cell_Type_SingleR", label = TRUE, raster = TRUE) +
+table(cancer.obj$Cell_Type_SingleR)
+pdf("sub2_Cancer/UMAP.SingleR.pdf", 7, 6)
+DimPlot(cancer.obj, reduction = "umap", group.by = "Cell_Type_SingleR", label = TRUE, raster = TRUE) +
     scale_color_manual(values = brewer.pal(9, "Set3")) +
     theme_classic() +
     labs(title = "UMAP plot colored by SingleR annotation")
 dev.off()
 
-marker.genes[["Myeloid"]] <- c(
-    "Ptprc",
-
+## 4.2. Cell states annotation ----
+DEG.cancer.clusters <- FindAllMarkers(cancer.obj,
+    group.by = "seurat_clusters",
+    min.pct = 0.25, logfc.threshold = 0.25,
+    max.cells.per.ident = 1000
 )
-length(marker.genes[["Myeloid"]])
-setdiff(marker.genes[["Myeloid"]], rownames(sub2.obj))
+DEG.cancer.clusters <- DEG.cancer.clusters[order(
+    DEG.cancer.clusters$cluster,
+    0 - DEG.cancer.clusters$avg_log2FC
+), ]
 
-pdf("sub2_Myeloid/UMAP.MarkerGenes.pdf", 20, 14)
-FeaturePlot(sub2.obj,
-    features = marker.genes[["Myeloid"]],
-    ncol = 5, cols = c("gray", "red"), raster = TRUE
+split(DEG.cancer.clusters$gene, DEG.cancer.clusters$cluster) %>% lapply(head, 50)
+
+FeaturePlot(cancer.obj,
+    features = c("Ptprc", "Krt18", "Krt8"),
+    ncol = 2, cols = c("gray", "red"), raster = TRUE
 )
-dev.off()
 
-pdf("sub2_Myeloid/DotPlot.MarkerGenes.pdf", 8, 6)
-DotPlot(sub2.obj, features = marker.genes[["Myeloid"]]) +
-    scale_color_viridis_c() +
-    theme_classic() + coord_flip()
-dev.off()
+cancer.obj$Cell_Type_2 <- "none"
+cancer.obj$Cell_Type_2[which(cancer.obj$seurat_clusters %in% c(3, 5, 9))] <- "C1: Proliferative (Cell Cycle)"
+cancer.obj$Cell_Type_2[which(cancer.obj$seurat_clusters %in% c(1, 4))] <- "C2: Quiescent & Stress-Adapted"
+cancer.obj$Cell_Type_2[which(cancer.obj$seurat_clusters %in% c(0))] <- "C3: Basal & Immunogenic"
+cancer.obj$Cell_Type_2[which(cancer.obj$seurat_clusters %in% c(6))] <- "C4: Invasive (Neurogenic/EMT)"
+cancer.obj$Cell_Type_2[which(cancer.obj$seurat_clusters %in% c(2, 7, 8))] <- "C5: Evasive (Immune Mimic)"
+table(cancer.obj$seurat_clusters, cancer.obj$Cell_Type_2)
 
-sub2.obj$Cell_Type_2 <- "none"
-sub2.obj$Cell_Type_2[which(sub2.obj$seurat_clusters %in% c())] <- "Macrophage"
-sub2.obj$Cell_Type_2[which(sub2.obj$seurat_clusters %in% c())] <- "Monocyte"
-sub2.obj$Cell_Type_2[which(sub2.obj$seurat_clusters %in% c())] <- "cDC"
-# sub2.obj$Cell_Type_2[which(sub2.obj$seurat_clusters %in% c())] <- "pDC"
-sub2.obj$Cell_Type_2[which(sub2.obj$seurat_clusters %in% c(0, 2, 10, 13))] <- "Neutrophil"
-sub2.obj$Cell_Type_2[which(sub2.obj$seurat_clusters %in% c())] <- ""
-sub2.obj$Cell_Type_2[which(sub2.obj$seurat_clusters %in% c())] <- ""
-sub2.obj$Cell_Type_2[which(sub2.obj$seurat_clusters %in% c())] <- ""
-sub2.obj$Cell_Type_2[which(sub2.obj$seurat_clusters %in% c())] <- ""
-sub2.obj$Cell_Type_2[which(sub2.obj$seurat_clusters %in% c())] <- ""
+cancer.obj$Cell_Type_2 <- factor(cancer.obj$Cell_Type_2, levels = c(
+    "C1: Proliferative (Cell Cycle)", "C2: Quiescent & Stress-Adapted", "C3: Basal & Immunogenic",
+    "C4: Invasive (Neurogenic/EMT)", "C5: Evasive (Immune Mimic)"
+))
 
+mycolor$Cell_Type_2 <- mycolor$Cell_Type_2[1:15]
+mycolor$Cell_Type_2 <- c(
+    mycolor$Cell_Type_2,
+    setNames(ggsci::pal_jco()(5), levels(cancer.obj$Cell_Type_2))
+)
 
-pdf("sub1_Immune/UMAP.Cell_Type_2.pdf", 7, 6)
-DimPlot(immune.obj,
+pdf("sub2_Cancer/UMAP.Cell_Type_2.pdf", 8, 6)
+DimPlot(cancer.obj,
     reduction = "umap", group.by = "Cell_Type_2", label = TRUE, raster = TRUE,
-    cols = mycolor$Cell_Type_1 %>% unname()
+    cols = mycolor$Cell_Type_2
 ) +
     theme_classic() +
     labs(title = "UMAP plot colored by Cell_Type_2")
 dev.off()
 
-saveRDS(sub2.obj, file = "sub2_Myeloid/sub2.obj.rds")
+## 4.3. State marker genes ----
+DEG.cancer.states <- FindAllMarkers(cancer.obj,
+    group.by = "Cell_Type_2",
+    min.pct = 0.25, logfc.threshold = 0.25,
+    max.cells.per.ident = 1000
+)
+
+DEG.cancer.states <- DEG.cancer.states[order(
+    DEG.cancer.states$cluster,
+    0 - DEG.cancer.states$avg_log2FC
+), ]
+
+split(DEG.cancer.states$gene, DEG.cancer.states$cluster) %>% lapply(head, 50)
+
+marker.genes[["Cancer"]] <- c(
+    # C1: Proliferative (Cell Cycle)
+    "Cenpf", "Cenpe", "Ttk", "Aurkb", "Brca1", "Exo1", "Polq", "Cdc20", "Cdc25c", "Mxd3",
+    # C2: Quiescent & Stress-Adapted
+    "Slc2a1", "Hmox1", "Gsta1", "Cryab", "Gdf15", "Adm", "Ftl1", "Hspb1", "Pgk1", "Ddit3",
+    # C3: Basal & Immunogenic
+    "H2-Ab1", "H2-Eb1", "H2-Aa", "C3", "C1ra", "C2", "Ager", "Lrrc26", "Pltp", "Il18",
+    # C4: Invasive (Neurogenic/EMT)
+    "Dclk1", "Ntrk3", "Robo2", "Efna5", "Sox5", "Lama3", "Adamts6", "Pdgfc", "Wwox", "Pbx1",
+    # C5: Evasive (Immune Mimic)
+    "Itk", "Fyn", "S100a9", "Ccl4", "C1qc", "Apoe", "Ptprc", "Itga4", "Rgs1", "Il1b"
+)
+
+length(marker.genes[["Cancer"]])
+setdiff(marker.genes[["Cancer"]], rownames(cancer.obj))
+
+cell.selected <- split(cancer.obj$Cell, cancer.obj$Cell_Type_2) %>%
+    lapply(function(x) {
+        sample(x, 500)
+    }) %>%
+    unlist() %>%
+    unique()
+pdf("sub2_Cancer/Heatmap.State.marker.pdf", 8, 7)
+DoHeatmap(cancer.obj %>% ScaleData(., features = marker.genes[["Cancer"]]),
+    cells = cell.selected,
+    features = marker.genes[["Cancer"]],
+    group.by = "Cell_Type_2",
+    group.colors = mycolor$Cell_Type_2,
+    size = 3,
+    raster = TRUE
+) +
+    scale_fill_gradientn(colors = RColorBrewer::brewer.pal(9, "RdYlBu") %>% rev()) +
+    theme(axis.text.x = element_blank())
+dev.off()
+rm(cell.selected)
+
+gene.selected <- c(
+    "Cenpf", "Cdk1", "Brca1", "Exo1", "Cdc20", # C1: Proliferative (Cell Cycle)
+    "Slc2a1", "Hmox1", "Gdf15", "Ddit3", "Ftl1", # C2: Quiescent & Stress-Adapted
+    "H2-Ab1", "Ager", "C3", "C1ra", "Il18", # C3: Basal & Immunogenic
+    "Dclk1", "Ntrk3", "Robo2", "Lama3", "Adamts6", # C4: Invasive (Neurogenic/EMT)
+    "S100a9", "C1qc", "Ptprc", "Gzmb", "Ccl4" # C5: Evasive (Immune Mimic)
+)
+
+pdf("sub2_Cancer/DotPlot.State.marker.pdf", 9, 3)
+DotPlot(cancer.obj, features = gene.selected, group.by = "Cell_Type_2") +
+    scale_color_viridis_c() +
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+dev.off()
+
+pdf("sub2_Cancer/Violin.State.marker.pdf", 14, 18)
+VlnPlot(cancer.obj,
+    features = gene.selected, group.by = "Cell_Type_2",
+    cols = mycolor$Cell_Type_2, ncol = 5, pt.size = 0
+)
+dev.off()
+rm(gene.selected)
+
+## 4.4. Percentage changes ----
+# barplot composition
+plot.data <- as.data.frame(table(cancer.obj$Cell_Type_2, cancer.obj$Condition))
+colnames(plot.data) <- c("Cell_Type_2", "Condition", "Count")
+
+pdf("sub2_Cancer/Barplot.Cell_Type_2.Condition.pdf", 9, 5)
+patchwork::wrap_plots(
+    ggplot(plot.data, aes(x = Cell_Type_2, y = Count, fill = Condition)) +
+        geom_bar(stat = "identity", position = "fill") +
+        scale_fill_manual(values = mycolor$Condition) +
+        theme_classic() +
+        labs(title = "Cell Type composition across Conditions") +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1)),
+    ggplot(plot.data, aes(x = Condition, y = Count, fill = Cell_Type_2)) +
+        geom_bar(stat = "identity", position = "fill") +
+        scale_fill_manual(values = mycolor$Cell_Type_2) +
+        theme_classic() +
+        labs(title = "Cell Type composition across Conditions") +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1)),
+    ncol = 2
+)
+dev.off()
+
+# fraction compare
+plot.data <- as.data.frame(table(cancer.obj$Cell_Type_2, cancer.obj$Sample))
+colnames(plot.data) <- c("Cell_Type_2", "Sample", "Count")
+plot.data$Condition <- gsub("_00.+?*$", "", plot.data$Sample)
+table(plot.data$Condition)
+table(plot.data$Sample)
+
+temp <- table(cancer.obj$Sample)
+plot.data$Fraction <- plot.data$Count / temp[plot.data$Sample] * 100
+plot.data$Condition <- factor(plot.data$Condition, levels = c("CTRL", "Capsaicin", "LC_60HDA"))
+
+pdf("sub2_Cancer/Boxplot.Fraction.pdf", 8, 2.8)
+ggplot(plot.data, aes(x = Condition, y = Fraction)) +
+    geom_boxplot(aes(fill = Cell_Type_2), outlier.shape = NA, alpha = 0.5) +
+    geom_jitter(width = 0.2, size = 0.5, alpha = 1) +
+    ggpubr::stat_compare_means(
+        label = "p.signif", label.y.npc = 1, size = 2.5,
+        comparisons = list(c("CTRL", "Capsaicin"), c("Capsaicin", "LC_60HDA"), c("CTRL", "LC_60HDA"))
+    ) +
+    facet_wrap(~Cell_Type_2, ncol = 5, scales = "free") +
+    labs(title = "Cell State composition across Samples") +
+    ylab("Fraction of cancer cells (%)") +
+    scale_fill_manual(values = mycolor$Cell_Type_2) +
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    NoLegend()
+dev.off()
+rm(plot.data, temp)
+
+saveRDS(cancer.obj, file = "sub2_Cancer/cancer.obj.rds")
+rm(cancer.obj)
+
+
+
 # save data ----
 save.image("01.Cell_Type.RData")
