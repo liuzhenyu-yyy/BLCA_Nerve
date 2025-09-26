@@ -624,6 +624,7 @@ plot.data$DEG[which(plot.data$p_val_adj < 0.05 & plot.data$avg_log2FC > 0.25)] <
 plot.data$DEG[which(plot.data$p_val_adj < 0.05 & plot.data$avg_log2FC < -0.25)] <- "Down"
 table(plot.data$Cell_Type_2, plot.data$Comparison, plot.data$DEG)
 
+plot.data$Cell_Type_2 <- factor(plot.data$Cell_Type_2, levels = levels(immune.obj$Cell_Type_2))
 pdf("sub1_Immune/DEG/Volcano.Capsaicin_vs_CTRL.pdf", 9, 7)
 ggplot(plot.data %>% filter(Comparison == "Capsaicin_vs_CTRL"), aes(x = avg_log2FC, y = -log10(p_val_adj))) +
     geom_point(aes(color = Cell_Type_2), alpha = 0.5, size = 0.5) +
@@ -891,7 +892,300 @@ rm(plot.data, temp)
 saveRDS(cancer.obj, file = "sub2_Cancer/cancer.obj.rds")
 rm(cancer.obj)
 
+# 5. Stromal compartment ----
+##  5.1. Detailed cell typing ----
+dir.create("sub3_Stromal")
 
+stromal.obj <- subset(blca.obj, subset = Cell_Type_0 == "Stromal") # 12146 cells
+
+stromal.obj <- stromal.obj %>%
+    NormalizeData() %>%
+    FindVariableFeatures(selection.method = "vst", nfeatures = 3000) %>%
+    ScaleData() %>%
+    RunPCA(verbose = FALSE)
+
+pdf("sub3_Stromal/ElbowPlot.PCA.pdf", 6, 4)
+ElbowPlot(stromal.obj, ndims = 50)
+dev.off()
+
+stromal.obj <- FindNeighbors(stromal.obj, dims = 1:30)
+stromal.obj <- FindClusters(stromal.obj, resolution = 1.0)
+
+stromal.obj <- RunUMAP(stromal.obj, dims = 1:30)
+
+pdf("sub3_Stromal/UMAP.Clusters.pdf", 7, 6)
+DimPlot(stromal.obj,
+    reduction = "umap", group.by = "seurat_clusters", label = TRUE,
+    cols = mycolor$Cluster, raster = TRUE
+) +
+    theme_classic() +
+    labs(title = "UMAP plot colored by clusters")
+dev.off()
+
+pdf("sub3_Stromal/UMAP.Clusters.split.pdf", 12, 4)
+DimPlot(stromal.obj,
+    reduction = "umap", group.by = "seurat_clusters", split.by = "Condition",
+    label = TRUE, cols = mycolor$Cluster, raster = TRUE
+) +
+    theme_classic() +
+    labs(title = "UMAP plot colored by clusters")
+dev.off()
+
+table(stromal.obj$Cell_Type_SingleR)
+pdf("sub3_Stromal/UMAP.SingleR.pdf", 7, 6)
+DimPlot(stromal.obj, reduction = "umap", group.by = "Cell_Type_SingleR", label = TRUE, raster = TRUE) +
+    scale_color_manual(values = brewer.pal(9, "Set3")) +
+    theme_classic() +
+    labs(title = "UMAP plot colored by SingleR annotation")
+dev.off()
+
+pdf("sub3_Stromal/UMAP.Cell_Type_1.pdf", 7, 6)
+DimPlot(stromal.obj,
+    reduction = "umap", group.by = "Cell_Type_1", label = TRUE,
+    cols = mycolor$Cell_Type_1, raster = TRUE
+) +
+    theme_classic() +
+    labs(title = "UMAP plot colored by Cell_Type_1")
+dev.off()
+
+marker.genes[["Stromal"]] <- c(
+    "Pecam1", "Cdh5", "Vwf", # endothelial
+    "Prox1", "Pdpn", "Lyve1", # lymphatic endothelial
+    "Cd34", # vascular
+    "Col1a1", "Col1a2", "Dcn", # fibroblast
+    "Lum", "Pdgfra",  # iCAF
+    "Pdgfrb", "Rgs5", "Myh11", # myCAF
+    "Acta2", "Tagln", "Myl9", # smooth muscle
+    "Tubb3", "Nefl", "Map2", # neuron
+    "S100b", "Sox10", # Schwann cell
+    "Fabp7", "P2rx7", # Satellite glial cells,
+    "Mki67", "Top2a" # cycling
+)
+length(marker.genes[["Stromal"]])
+setdiff(marker.genes[["Stromal"]], rownames(stromal.obj))
+which(duplicated(marker.genes[["Stromal"]]))
+
+p <- FeaturePlot(stromal.obj,
+    features = marker.genes[["Stromal"]],
+    ncol = 6, cols = c("gray", "red"), raster = TRUE
+)
+pdf("sub3_Stromal/UMAP.MarkerGenes.pdf", 24, 18)
+plot(p)
+dev.off()
+rm(p)
+
+pdf("sub3_Stromal/DotPlot.MarkerGenes.pdf", 9, 7)
+DotPlot(stromal.obj, features = marker.genes[["Stromal"]]) +
+    scale_color_viridis_c() +
+    theme_classic() + coord_flip()
+dev.off()
+
+marker.undefined.C24 <- FindMarkers(stromal.obj,
+    ident.1 = 24,
+    min.pct = 0.25, logfc.threshold = 0.25,
+    max.cells.per.ident = 1000
+)
+marker.undefined.C24 <- marker.undefined.C24[order(marker.undefined.C24$avg_log2FC, decreasing = TRUE), ]
+head(rownames(marker.undefined.C24), 100) #  Adipocyte  markers: Adipoq Pck1
+
+stromal.obj$Cell_Type_2 <- "none"
+stromal.obj$Cell_Type_2[which(stromal.obj$seurat_clusters %in% c(4, 16, 20, 23))] <- "Vescular_Endothelial"
+stromal.obj$Cell_Type_2[which(stromal.obj$seurat_clusters %in% c(13, 25))] <- "Lymphatic_Endothelial"
+stromal.obj$Cell_Type_2[which(stromal.obj$seurat_clusters %in% c(0:3, 5:11, 14, 15, 17:19))] <- "iCAF"
+stromal.obj$Cell_Type_2[which(stromal.obj$seurat_clusters %in% c(12))] <- "myCAF"
+stromal.obj$Cell_Type_2[which(stromal.obj$seurat_clusters %in% c(21))] <- "Smooth_Muscle"
+stromal.obj$Cell_Type_2[which(stromal.obj$seurat_clusters %in% c(22))] <- "Schwann"
+stromal.obj$Cell_Type_2[which(stromal.obj$seurat_clusters %in% c(24))] <- "Adipocyte"
+
+table(stromal.obj$seurat_clusters, stromal.obj$Cell_Type_2)
+
+stromal.obj$Cell_Type_2 <- factor(stromal.obj$Cell_Type_2, levels = c(
+    "Vescular_Endothelial", "Lymphatic_Endothelial",
+    "iCAF", "myCAF", "Smooth_Muscle", "Schwann", "Adipocyte"
+))
+
+mycolor$Cell_Type_2 <- mycolor$Cell_Type_2[1:20]
+mycolor$Cell_Type_2 <- c(
+    mycolor$Cell_Type_2,
+    setNames(ggsci::pal_lancet()(7), levels(stromal.obj$Cell_Type_2))
+)
+
+pdf("sub3_Stromal/UMAP.Cell_Type_2.pdf", 13, 6)
+DimPlot(stromal.obj,
+    reduction = "umap", group.by = "Cell_Type_2", label = TRUE, raster = TRUE,
+    cols = mycolor$Cell_Type_2
+) +
+    theme_classic() +
+    labs(title = "UMAP plot colored by Cell_Type_2") + NoLegend() +
+    DimPlot(stromal.obj,
+        reduction = "umap", group.by = "Cell_Type_2", label = FALSE, raster = TRUE,
+        cols = mycolor$Cell_Type_2
+    ) +
+    theme_classic() +
+    labs(title = "UMAP plot colored by Cell_Type_2")
+dev.off()
+
+## 5.2. Marker gene expression ----
+Idents(stromal.obj) <- stromal.obj$Cell_Type_2
+levels(Idents(stromal.obj))
+
+gene.selected <- c(
+    "Cdh5", "Pecam1", "Prox1", "Lyve1", "Col1a2", "Lum",
+    "Pdgfra", "Rgs5", "Acta2", "Myh11", "Sox10", "S100b",
+    "Adipoq", "Pck1"
+)
+
+pdf("sub3_Stromal/DotPlot.Cell_Type_2.pdf", 6, 2.6)
+DotPlot(stromal.obj, features = gene.selected) +
+    scale_color_viridis_c() +
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+dev.off()
+
+rm(list = grep("marker.undefined", ls(), value = TRUE))
+rm(gene.selected, p)
+
+## 5.3. Percentage changes ----
+# barplot composition
+plot.data <- as.data.frame(table(stromal.obj$Cell_Type_2, stromal.obj$Condition))
+colnames(plot.data) <- c("Cell_Type_2", "Condition", "Count")
+
+pdf("sub3_Stromal/Barplot.Cell_Type_2.Condition.pdf", 9, 5)
+patchwork::wrap_plots(
+    ggplot(plot.data, aes(x = Cell_Type_2, y = Count, fill = Condition)) +
+        geom_bar(stat = "identity", position = "fill") +
+        scale_fill_manual(values = mycolor$Condition) +
+        theme_classic() +
+        labs(title = "Cell Type composition across Conditions") +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1)),
+    ggplot(plot.data, aes(x = Condition, y = Count, fill = Cell_Type_2)) +
+        geom_bar(stat = "identity", position = "fill") +
+        scale_fill_manual(values = mycolor$Cell_Type_2) +
+        theme_classic() +
+        labs(title = "Cell Type composition across Conditions") +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1)),
+    ncol = 2
+)
+dev.off()
+
+# fraction compare
+plot.data <- as.data.frame(table(stromal.obj$Cell_Type_2, stromal.obj$Sample))
+colnames(plot.data) <- c("Cell_Type_2", "Sample", "Count")
+plot.data$Condition <- gsub("_00.+?*$", "", plot.data$Sample)
+table(plot.data$Condition)
+table(plot.data$Sample)
+
+temp <- table(stromal.obj$Sample)
+plot.data$Fraction <- plot.data$Count / temp[plot.data$Sample] * 100
+plot.data$Condition <- factor(plot.data$Condition, levels = c("CTRL", "Capsaicin", "LC_60HDA"))
+
+pdf("sub3_Stromal/Boxplot.Fraction.pdf", 6.5, 4.8)
+ggplot(plot.data, aes(x = Condition, y = Fraction)) +
+    geom_boxplot(aes(fill = Cell_Type_2), outlier.shape = NA, alpha = 0.5) +
+    geom_jitter(width = 0.2, size = 0.5, alpha = 1) +
+    ggpubr::stat_compare_means(
+        label = "p.signif", label.y.npc = 1, size = 2.5,
+        comparisons = list(c("CTRL", "Capsaicin"), c("Capsaicin", "LC_60HDA"), c("CTRL", "LC_60HDA"))
+    ) +
+    facet_wrap(~Cell_Type_2, ncol = 5, scales = "free") +
+    labs(title = "Cell Type composition across Samples") +
+    ylab("Fraction within immune compartment (%)") +
+    scale_fill_manual(values = mycolor$Cell_Type_2) +
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    NoLegend()
+dev.off()
+rm(plot.data, temp)
+
+## 5.4. Differential analysis ----
+dir.create("sub3_Stromal/DEG")
+
+unique(sample.info$Condition)
+DEG.stromal.Capsaicin <- list()
+DEG.stromal.LC_60HDA <- list()
+
+for (cell_type in levels(stromal.obj$Cell_Type_2)) {
+    message(Sys.time(), ": Processing: ", cell_type)
+    stromal.sub <- subset(stromal.obj, subset = Cell_Type_2 == cell_type)
+
+    temp <- FindMarkers(stromal.sub,
+        ident.1 = "Capsaicin", ident.2 = "CTRL",
+        group.by = "Condition",
+        min.pct = 0.25, logfc.threshold = 0.25,
+        max.cells.per.ident = 1000
+    )
+    temp <- temp[order(temp$avg_log2FC, decreasing = TRUE), ]
+    temp$gene <- rownames(temp)
+    temp$Cell_Type_2 <- cell_type
+    DEG.stromal.Capsaicin[[cell_type]] <- temp
+
+    temp <- FindMarkers(stromal.sub,
+        ident.1 = "LC_60HDA", ident.2 = "CTRL",
+        group.by = "Condition",
+        min.pct = 0.25, logfc.threshold = 0.25,
+        max.cells.per.ident = 1000
+    )
+    temp <- temp[order(temp$avg_log2FC, decreasing = TRUE), ]
+    temp$gene <- rownames(temp)
+    temp$Cell_Type_2 <- cell_type
+    DEG.stromal.LC_60HDA[[cell_type]] <- temp
+}
+rm(stromal.sub, cell_type, temp)
+
+lapply(names(DEG.stromal.Capsaicin), function(x) {
+    write.csv(DEG.stromal.Capsaicin[[x]],
+        file = paste0("sub3_Stromal/DEG/DEG_Capsaicin_vs_CTRL_in_", x, ".csv"),
+        row.names = FALSE
+    )
+})
+lapply(names(DEG.stromal.LC_60HDA), function(x) {
+    write.csv(DEG.stromal.LC_60HDA[[x]],
+        file = paste0("sub3_Stromal/DEG/DEG_LC_60HDA_vs_CTRL_in_", x, ".csv"),
+        row.names = FALSE
+    )
+})
+
+plot.data <- rbind(
+    do.call(rbind, DEG.stromal.Capsaicin) %>% mutate(Comparison = "Capsaicin_vs_CTRL"),
+    do.call(rbind, DEG.stromal.LC_60HDA) %>% mutate(Comparison = "LC_60HDA_vs_CTRL")
+)
+plot.data$DEG <- "Stable"
+plot.data$DEG[which(plot.data$p_val_adj < 0.05 & plot.data$avg_log2FC > 0.25)] <- "Up"
+plot.data$DEG[which(plot.data$p_val_adj < 0.05 & plot.data$avg_log2FC < -0.25)] <- "Down"
+table(plot.data$Cell_Type_2, plot.data$Comparison, plot.data$DEG)
+
+plot.data$Cell_Type_2 <- factor(plot.data$Cell_Type_2, levels = levels(stromal.obj$Cell_Type_2))
+pdf("sub3_Stromal/DEG/Volcano.Capsaicin_vs_CTRL.pdf", 9, 7)
+ggplot(plot.data %>% filter(Comparison == "Capsaicin_vs_CTRL"), aes(x = avg_log2FC, y = -log10(p_val_adj))) +
+    geom_point(aes(color = Cell_Type_2), alpha = 0.5, size = 0.5) +
+    scale_color_manual(values = mycolor$Cell_Type_2) +
+    facet_wrap(~Cell_Type_2, ncol = 5) +
+    theme_classic() +
+    labs(title = "Volcano plot of DEGs in each cell type") +
+    xlab("Average log2 fold change") +
+    ylab("-log10 adjusted p value") +
+    geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "#ec8a8a", linewidth = 0.5) +
+    geom_vline(xintercept = c(-0.25, 0.25), linetype = "dashed", color = "#ec8a8a", linewidth = 0.5) +
+    theme(legend.position = "none")
+dev.off()
+
+pdf("sub3_Stromal/DEG/Volcano.LC_60HDA_vs_CTRL.pdf", 9, 7)
+ggplot(plot.data %>% filter(Comparison == "LC_60HDA_vs_CTRL"), aes(x = avg_log2FC, y = -log10(p_val_adj))) +
+    geom_point(aes(color = Cell_Type_2), alpha = 0.5, size = 0.5) +
+    scale_color_manual(values = mycolor$Cell_Type_2) +
+    facet_wrap(~Cell_Type_2, ncol = 5) +
+    theme_classic() +
+    labs(title = "Volcano plot of DEGs in each cell type") +
+    xlab("Average log2 fold change") +
+    ylab("-log10 adjusted p value") +
+    geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "#ec8a8a", linewidth = 0.5) +
+    geom_vline(xintercept = c(-0.25, 0.25), linetype = "dashed", color = "#ec8a8a", linewidth = 0.5) +
+    theme(legend.position = "none")
+dev.off()
+rm(plot.data)
+
+saveRDS(stromal.obj, file = "sub3_Stromal/stromal.obj.rds")
+rm(stromal.obj)
 
 # save data ----
 save.image("01.Cell_Type.RData")
