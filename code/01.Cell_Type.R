@@ -567,9 +567,94 @@ ggplot(plot.data, aes(x = Condition, y = Fraction)) +
 dev.off()
 rm(plot.data, temp)
 
-## 3.4. Functional signatures ----
+## 3.4. Differential analysis ----
+dir.create("sub1_Immune/DEG")
+
+unique(sample.info$Condition)
+DEG.immune.Capsaicin <- list()
+DEG.immune.LC_60HDA <- list()
+
+for (cell_type in levels(immune.obj$Cell_Type_2)) {
+    message(Sys.time(), ": Processing: ", cell_type)
+    immune.sub <- subset(immune.obj, subset = Cell_Type_2 == cell_type)
+
+    temp <- FindMarkers(immune.sub,
+        ident.1 = "Capsaicin", ident.2 = "CTRL",
+        group.by = "Condition",
+        min.pct = 0.25, logfc.threshold = 0.25,
+        max.cells.per.ident = 1000
+    )
+    temp <- temp[order(temp$avg_log2FC, decreasing = TRUE), ]
+    temp$gene <- rownames(temp)
+    temp$Cell_Type_2 <- cell_type
+    DEG.immune.Capsaicin[[cell_type]] <- temp
+
+    temp <- FindMarkers(immune.sub,
+        ident.1 = "LC_60HDA", ident.2 = "CTRL",
+        group.by = "Condition",
+        min.pct = 0.25, logfc.threshold = 0.25,
+        max.cells.per.ident = 1000
+    )
+    temp <- temp[order(temp$avg_log2FC, decreasing = TRUE), ]
+    temp$gene <- rownames(temp)
+    temp$Cell_Type_2 <- cell_type
+    DEG.immune.LC_60HDA[[cell_type]] <- temp
+}
+rm(immune.sub, cell_type, temp)
+
+lapply(names(DEG.immune.Capsaicin), function(x) {
+    write.csv(DEG.immune.Capsaicin[[x]],
+        file = paste0("sub1_Immune/DEG/DEG_Capsaicin_vs_CTRL_in_", x, ".csv"),
+        row.names = FALSE
+    )
+})
+lapply(names(DEG.immune.LC_60HDA), function(x) {
+    write.csv(DEG.immune.LC_60HDA[[x]],
+        file = paste0("sub1_Immune/DEG/DEG_LC_60HDA_vs_CTRL_in_", x, ".csv"),
+        row.names = FALSE
+    )
+})
+
+plot.data <- rbind(
+    do.call(rbind, DEG.immune.Capsaicin) %>% mutate(Comparison = "Capsaicin_vs_CTRL"),
+    do.call(rbind, DEG.immune.LC_60HDA) %>% mutate(Comparison = "LC_60HDA_vs_CTRL")
+)
+plot.data$DEG <- "Stable"
+plot.data$DEG[which(plot.data$p_val_adj < 0.05 & plot.data$avg_log2FC > 0.25)] <- "Up"
+plot.data$DEG[which(plot.data$p_val_adj < 0.05 & plot.data$avg_log2FC < -0.25)] <- "Down"
+table(plot.data$Cell_Type_2, plot.data$Comparison, plot.data$DEG)
+
+pdf("sub1_Immune/DEG/Volcano.Capsaicin_vs_CTRL.pdf", 9, 7)
+ggplot(plot.data %>% filter(Comparison == "Capsaicin_vs_CTRL"), aes(x = avg_log2FC, y = -log10(p_val_adj))) +
+    geom_point(aes(color = Cell_Type_2), alpha = 0.5, size = 0.5) +
+    scale_color_manual(values = mycolor$Cell_Type_2) +
+    facet_wrap(~Cell_Type_2, ncol = 5) +
+    theme_classic() +
+    labs(title = "Volcano plot of DEGs in each cell type") +
+    xlab("Average log2 fold change") +
+    ylab("-log10 adjusted p value") +
+    geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "#ec8a8a", linewidth = 0.5) +
+    geom_vline(xintercept = c(-0.25, 0.25), linetype = "dashed", color = "#ec8a8a", linewidth = 0.5) +
+    theme(legend.position = "none")
+dev.off()
+
+pdf("sub1_Immune/DEG/Volcano.LC_60HDA_vs_CTRL.pdf", 9, 7)
+ggplot(plot.data %>% filter(Comparison == "LC_60HDA_vs_CTRL"), aes(x = avg_log2FC, y = -log10(p_val_adj))) +
+    geom_point(aes(color = Cell_Type_2), alpha = 0.5, size = 0.5) +
+    scale_color_manual(values = mycolor$Cell_Type_2) +
+    facet_wrap(~Cell_Type_2, ncol = 5) +
+    theme_classic() +
+    labs(title = "Volcano plot of DEGs in each cell type") +
+    xlab("Average log2 fold change") +
+    ylab("-log10 adjusted p value") +
+    geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "#ec8a8a", linewidth = 0.5) +
+    geom_vline(xintercept = c(-0.25, 0.25), linetype = "dashed", color = "#ec8a8a", linewidth = 0.5) +
+    theme(legend.position = "none")
+dev.off()
+rm(plot.data)
 
 saveRDS(immune.obj, file = "sub1_Immune/immune.obj.rds")
+rm(immune.obj)
 
 # 4. Epithelial compartment ----
 dir.create("sub2_Myeloid")
