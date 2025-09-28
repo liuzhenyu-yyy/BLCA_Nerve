@@ -236,6 +236,23 @@ DimPlot(blca.obj, reduction = "umap", group.by = "Cell_Type_1", label = TRUE, , 
     labs(title = "UMAP plot colored by Cell_Type_1")
 dev.off()
 
+gene.selected <- c(
+    "Epcam", "Krt8", "Krt18", # epithelial
+    "Pecam1", "Cdh5", # endothelial
+    "Col1a2", "Dcn", "Pdgfra", # fibroblast
+    "Ptprc", # leukocyte
+    "Cd3d", "Cd3g", "Cd79a", "Klrb1c", # lymphocyte
+    "S100a8", "S100a9", # neutrophils
+    "Cd14", "Cd68" # myeloid
+)
+blca.obj$Cell_Type_1
+pdf("DotPlot.Cell_Type_1.pdf", 7, 3)
+DotPlot(blca.obj, features = gene.selected, group.by = "Cell_Type_1") +
+    scale_color_viridis_c() +
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+dev.off()
+
 # bigger categories
 blca.obj$Cell_Type_0 <- "none"
 blca.obj$Cell_Type_0[which(blca.obj$Cell_Type_1 %in% c("Bladder_epithelial", "Cancer"))] <- "Epithelial"
@@ -315,7 +332,7 @@ temp <- table(blca.obj$Sample)
 plot.data$Fraction <- plot.data$Count / temp[plot.data$Sample] * 100
 plot.data$Condition <- factor(plot.data$Condition, levels = c("CTRL", "Capsaicin", "LC_60HDA"))
 
-pdf("Boxplot.Fraction.pdf", 5, 3)
+pdf("Boxplot.Fraction.Cell_Type_0.pdf", 5, 3)
 ggplot(plot.data, aes(x = Condition, y = Fraction)) +
     geom_boxplot(aes(fill = Cell_Type_0), outlier.shape = NA, alpha = 0.5) +
     geom_jitter(width = 0.2, size = 0.5, alpha = 1) +
@@ -332,6 +349,32 @@ ggplot(plot.data, aes(x = Condition, y = Fraction)) +
     NoLegend()
 dev.off()
 
+plot.data <- as.data.frame(table(blca.obj$Cell_Type_1, blca.obj$Sample))
+colnames(plot.data) <- c("Cell_Type_1", "Sample", "Count")
+plot.data$Condition <- gsub("_00.+?*$", "", plot.data$Sample)
+table(plot.data$Condition)
+table(plot.data$Sample)
+
+temp <- table(blca.obj$Sample)
+plot.data$Fraction <- plot.data$Count / temp[plot.data$Sample] * 100
+plot.data$Condition <- factor(plot.data$Condition, levels = c("CTRL", "Capsaicin", "LC_60HDA"))
+
+pdf("Boxplot.Fraction.Cell_Type_1.pdf", 8, 5)
+ggplot(plot.data, aes(x = Condition, y = Fraction)) +
+    geom_boxplot(aes(fill = Cell_Type_1), outlier.shape = NA, alpha = 0.5) +
+    geom_jitter(width = 0.2, size = 0.5, alpha = 1) +
+    ggpubr::stat_compare_means(
+        label = "p.signif", label.y.npc = 1, size = 2.5,
+        comparisons = list(c("CTRL", "Capsaicin"), c("Capsaicin", "LC_60HDA"), c("CTRL", "LC_60HDA"))
+    ) +
+    facet_wrap(~Cell_Type_1, ncol = 5, scales = "free") +
+    labs(title = "Cell Type composition across Samples") +
+    ylab("Fraction (%)") +
+    scale_fill_manual(values = mycolor$Cell_Type_1) +
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    NoLegend()
+dev.off()
 rm(plot.data, temp)
 
 # 3. Immune compartment ----
@@ -876,7 +919,7 @@ ggplot(plot.data, aes(x = Condition, y = Fraction)) +
     geom_boxplot(aes(fill = Cell_Type_2), outlier.shape = NA, alpha = 0.5) +
     geom_jitter(width = 0.2, size = 0.5, alpha = 1) +
     ggpubr::stat_compare_means(
-        label = "p.signif", label.y.npc = 1, size = 2.5,
+        label = "p.value", label.y.npc = 1, size = 2.5,
         comparisons = list(c("CTRL", "Capsaicin"), c("Capsaicin", "LC_60HDA"), c("CTRL", "LC_60HDA"))
     ) +
     facet_wrap(~Cell_Type_2, ncol = 5, scales = "free") +
@@ -889,6 +932,122 @@ ggplot(plot.data, aes(x = Condition, y = Fraction)) +
 dev.off()
 rm(plot.data, temp)
 
+## 4.5. DEG cross conditions ----
+DEG.cancer.conditions <- list()
+
+table(cancer.obj$Condition)
+
+temp <- FindMarkers(cancer.obj,
+    ident.1 = "Capsaicin", ident.2 = "CTRL",
+    group.by = "Condition",
+    min.pct = 0.25, logfc.threshold = 0.25,
+    max.cells.per.ident = 10000
+)
+
+temp <- temp[order(temp$avg_log2FC, decreasing = TRUE), ]
+temp$gene <- rownames(temp)
+temp$Condition <- "Capsaicin"
+DEG.cancer.conditions[["Capsaicin"]] <- temp
+DEG.cancer.conditions[["Capsaicin"]]["Tubb3", ]
+head(DEG.cancer.conditions[["Capsaicin"]])
+
+temp <- FindMarkers(cancer.obj,
+    ident.1 = "LC_60HDA", ident.2 = "CTRL",
+    group.by = "Condition",
+    min.pct = 0.25, logfc.threshold = 0.25,
+    max.cells.per.ident = 10000
+)
+
+temp <- temp[order(temp$avg_log2FC, decreasing = TRUE), ]
+temp$gene <- rownames(temp)
+temp$Condition <- "LC_60HDA"
+DEG.cancer.conditions[["LC_60HDA"]] <- temp
+
+lapply(names(DEG.cancer.conditions), function(x) {
+    write.csv(DEG.cancer.conditions[[x]],
+        file = paste0("sub2_Cancer/DEG_", x, "_vs_CTRL_in_.csv"),
+        row.names = FALSE
+    )
+})
+rm(temp)
+
+DEG.cancer.conditions[["LC_60HDA"]][c("Tubb3", "Ngf"), ]
+
+# GO enrichment
+library(clusterProfiler)
+library(org.Mm.eg.db)
+
+GO.res <- enrichGO(
+    gene = DEG.cancer.conditions[["Capsaicin"]] %>%
+        filter(p_val_adj < 0.05 & avg_log2FC > 0.25) %>%
+        pull(gene),
+    OrgDb = org.Mm.eg.db,
+    keyType = "SYMBOL",
+    ont = "BP",
+    pAdjustMethod = "BH",
+    qvalueCutoff = 0.05
+)
+
+pdf("sub2_Cancer/GO.Capsaicin_vs_CTRL.Up.pdf", 7, 6)
+dotplot(GO.res, showCategory = 20, label_format = 60) +
+    theme_classic() +
+    scale_color_viridis_c() +
+    labs(title = "Up-regulated genes in Capsaicin vs CTRL")
+dev.off()
+
+GO.res <- enrichGO(
+    gene = DEG.cancer.conditions[["Capsaicin"]] %>%
+        filter(p_val_adj < 0.05 & avg_log2FC < -0.25) %>%
+        pull(gene),
+    OrgDb = org.Mm.eg.db,
+    keyType = "SYMBOL",
+    ont = "BP",
+    pAdjustMethod = "BH",
+    qvalueCutoff = 0.05
+)
+
+pdf("sub2_Cancer/GO.Capsaicin_vs_CTRL.Down.pdf", 7, 6)
+dotplot(GO.res, showCategory = 20, label_format = 60) +
+    theme_classic() +
+    labs(title = "Down-regulated genes in Capsaicin vs CTRL")
+dev.off()
+
+GO.res <- enrichGO(
+    gene = DEG.cancer.conditions[["LC_60HDA"]] %>%
+        filter(p_val_adj < 0.05 & avg_log2FC > 0.25) %>%
+        pull(gene),
+    OrgDb = org.Mm.eg.db,
+    keyType = "SYMBOL",
+    ont = "BP",
+    pAdjustMethod = "BH",
+    qvalueCutoff = 0.05
+)
+
+pdf("sub2_Cancer/GO.LC_60HDA_vs_CTRL.Up.pdf", 7, 6)
+dotplot(GO.res, showCategory = 20, label_format = 60) +
+    theme_classic() +
+    scale_color_viridis_c() +
+    labs(title = "Up-regulated genes in LC_60HDA vs CTRL")
+dev.off()
+
+GO.res <- enrichGO(
+    gene = DEG.cancer.conditions[["LC_60HDA"]] %>%
+        filter(p_val_adj < 0.05 & avg_log2FC < -0.25) %>%
+        pull(gene),
+    OrgDb = org.Mm.eg.db,
+    keyType = "SYMBOL",
+    ont = "BP",
+    pAdjustMethod = "BH",
+    qvalueCutoff = 0.05
+)
+
+pdf("sub2_Cancer/GO.LC_60HDA_vs_CTRL.Down.pdf", 7, 6)
+dotplot(GO.res, showCategory = 20, label_format = 60) +
+    theme_classic() +
+    labs(title = "Down-regulated genes in LC_60HDA vs CTRL")
+dev.off()
+
+gc()
 saveRDS(cancer.obj, file = "sub2_Cancer/cancer.obj.rds")
 rm(cancer.obj)
 
@@ -1155,11 +1314,11 @@ plot.data$DEG[which(plot.data$p_val_adj < 0.05 & plot.data$avg_log2FC < -0.25)] 
 table(plot.data$Cell_Type_2, plot.data$Comparison, plot.data$DEG)
 
 plot.data$Cell_Type_2 <- factor(plot.data$Cell_Type_2, levels = levels(stromal.obj$Cell_Type_2))
-pdf("sub3_Stromal/DEG/Volcano.Capsaicin_vs_CTRL.pdf", 9, 7)
+pdf("sub3_Stromal/DEG/Volcano.Capsaicin_vs_CTRL.pdf", 7.5, 4.5)
 ggplot(plot.data %>% filter(Comparison == "Capsaicin_vs_CTRL"), aes(x = avg_log2FC, y = -log10(p_val_adj))) +
     geom_point(aes(color = Cell_Type_2), alpha = 0.5, size = 0.5) +
     scale_color_manual(values = mycolor$Cell_Type_2) +
-    facet_wrap(~Cell_Type_2, ncol = 5) +
+    facet_wrap(~Cell_Type_2, ncol = 4) +
     theme_classic() +
     labs(title = "Volcano plot of DEGs in each cell type") +
     xlab("Average log2 fold change") +
@@ -1169,11 +1328,11 @@ ggplot(plot.data %>% filter(Comparison == "Capsaicin_vs_CTRL"), aes(x = avg_log2
     theme(legend.position = "none")
 dev.off()
 
-pdf("sub3_Stromal/DEG/Volcano.LC_60HDA_vs_CTRL.pdf", 9, 7)
+pdf("sub3_Stromal/DEG/Volcano.LC_60HDA_vs_CTRL.pdf", 7.5, 4.5)
 ggplot(plot.data %>% filter(Comparison == "LC_60HDA_vs_CTRL"), aes(x = avg_log2FC, y = -log10(p_val_adj))) +
     geom_point(aes(color = Cell_Type_2), alpha = 0.5, size = 0.5) +
     scale_color_manual(values = mycolor$Cell_Type_2) +
-    facet_wrap(~Cell_Type_2, ncol = 5) +
+    facet_wrap(~Cell_Type_2, ncol = 4) +
     theme_classic() +
     labs(title = "Volcano plot of DEGs in each cell type") +
     xlab("Average log2 fold change") +
