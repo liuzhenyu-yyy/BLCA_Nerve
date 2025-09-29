@@ -987,6 +987,7 @@ GO.res <- enrichGO(
     pAdjustMethod = "BH",
     qvalueCutoff = 0.05
 )
+GO.res <- simplify(GO.res)
 
 pdf("sub2_Cancer/GO.Capsaicin_vs_CTRL.Up.pdf", 7, 6)
 dotplot(GO.res, showCategory = 20, label_format = 60) +
@@ -1005,6 +1006,7 @@ GO.res <- enrichGO(
     pAdjustMethod = "BH",
     qvalueCutoff = 0.05
 )
+GO.res <- simplify(GO.res)
 
 pdf("sub2_Cancer/GO.Capsaicin_vs_CTRL.Down.pdf", 7, 6)
 dotplot(GO.res, showCategory = 20, label_format = 60) +
@@ -1022,6 +1024,7 @@ GO.res <- enrichGO(
     pAdjustMethod = "BH",
     qvalueCutoff = 0.05
 )
+GO.res <- simplify(GO.res)
 
 pdf("sub2_Cancer/GO.LC_60HDA_vs_CTRL.Up.pdf", 7, 6)
 dotplot(GO.res, showCategory = 20, label_format = 60) +
@@ -1040,12 +1043,14 @@ GO.res <- enrichGO(
     pAdjustMethod = "BH",
     qvalueCutoff = 0.05
 )
+GO.res <- simplify(GO.res)
 
 pdf("sub2_Cancer/GO.LC_60HDA_vs_CTRL.Down.pdf", 7, 6)
 dotplot(GO.res, showCategory = 20, label_format = 60) +
     theme_classic() +
     labs(title = "Down-regulated genes in LC_60HDA vs CTRL")
 dev.off()
+rm(GO.res)
 
 gc()
 saveRDS(cancer.obj, file = "sub2_Cancer/cancer.obj.rds")
