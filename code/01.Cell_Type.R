@@ -1200,3 +1200,4 @@ rm(stromal.obj)
 
 # save data ----
 save.image("01.Cell_Type.RData")
+saveRDS(mycolor, file = "mycolor.rds")
