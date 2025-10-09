@@ -12,6 +12,14 @@ data.dir <- "/thinker/tb269store/user/liuzhenyu/Project/BLCA_Neuro/Summary/1_Cel
 samples <- list.dirs(data.dir, recursive = FALSE, full.names = FALSE)
 mycolor <- list()
 
+table(stromal.obj$Condition)
+levels(stromal.obj$Condition) <- c("CTRL", "Capsaicin", "LC_6OHDA")
+stromal.obj$Sample <- gsub("LC_60HDA", "LC_6OHDA", stromal.obj$Sample)
+
+table(sample.info$Condition)
+sample.info$Condition <- gsub("LC_60HDA", "LC_6OHDA", sample.info$Condition)
+sample.info$Sample <- gsub("LC_60HDA", "LC_6OHDA", sample.info$Sample)
+
 ## 1.1. Load data ----
 # counts
 rc <- list()
@@ -97,15 +105,8 @@ dev.off()
 
 blca.obj <- RunUMAP(blca.obj, dims = 1:30)
 
-blca.obj$Condition <- factor(blca.obj$Condition, levels = c("CTRL", "Capsaicin", "LC_60HDA"))
+blca.obj$Condition <- factor(blca.obj$Condition, levels = c("CTRL", "Capsaicin", "LC_6OHDA"))
 pdf("UMAP.Condition.pdf", 7, 6)
-DimPlot(blca.obj, reduction = "umap", group.by = "Condition") +
-    scale_color_manual(values = mycolor$Condition) +
-    theme_classic() +
-    labs(title = "UMAP plot colored by Condition")
-dev.off()
-
-pdf("UMAP.Condition.split.pdf", 12, 4)
 DimPlot(blca.obj, reduction = "umap", group.by = "Condition") +
     scale_color_manual(values = mycolor$Condition) +
     theme_classic() +
@@ -118,6 +119,7 @@ blca.obj <- FindClusters(blca.obj, resolution = 0.8)
 mycolor$Cluster <- colorRampPalette(brewer.pal(12, "Set3"))(length(unique(blca.obj$seurat_clusters))) %>%
     setNames(levels(blca.obj$seurat_clusters))
 
+Idents(blca.obj) <- blca.obj$seurat_clusters
 pdf("UMAP.Clusters.pdf", 7, 6)
 DimPlot(blca.obj, reduction = "umap", label = TRUE) +
     scale_color_manual(values = mycolor$Cluster) +
@@ -211,14 +213,15 @@ blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(3))] <- "Granulocyte"
 blca.obj$Cell_Type_1[which(blca.obj$seurat_clusters %in% c(12, 30))] <- "Fibroblast"
 table(blca.obj$seurat_clusters, blca.obj$Cell_Type_1)
 
-Idents(blca.obj) <- "Cell_Type_1"
-
 blca.obj$Cell_Type_1 <- factor(blca.obj$Cell_Type_1, levels = c(
     "Bladder_epithelial", "Cancer",
     "Endothelial", "Fibroblast",
     "T", "B", "NK",
     "Granulocyte", "Myeloid"
 ))
+
+Idents(blca.obj) <- "Cell_Type_1"
+
 mycolor$Cell_Type_1 <- c(ggsci::pal_npg()(9)) %>%
     setNames(levels(blca.obj$Cell_Type_1))
 
@@ -252,6 +255,7 @@ DotPlot(blca.obj, features = gene.selected, group.by = "Cell_Type_1") +
     theme_classic() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 dev.off()
+rm(gene.selected)
 
 # bigger categories
 blca.obj$Cell_Type_0 <- "none"
@@ -330,7 +334,7 @@ table(plot.data$Sample)
 
 temp <- table(blca.obj$Sample)
 plot.data$Fraction <- plot.data$Count / temp[plot.data$Sample] * 100
-plot.data$Condition <- factor(plot.data$Condition, levels = c("CTRL", "Capsaicin", "LC_60HDA"))
+plot.data$Condition <- factor(plot.data$Condition, levels = c("CTRL", "Capsaicin", "LC_6OHDA"))
 
 pdf("Boxplot.Fraction.Cell_Type_0.pdf", 5, 3)
 ggplot(plot.data, aes(x = Condition, y = Fraction)) +
@@ -338,7 +342,7 @@ ggplot(plot.data, aes(x = Condition, y = Fraction)) +
     geom_jitter(width = 0.2, size = 0.5, alpha = 1) +
     ggpubr::stat_compare_means(
         label = "p.signif", label.y.npc = 1, size = 2.5,
-        comparisons = list(c("CTRL", "Capsaicin"), c("Capsaicin", "LC_60HDA"), c("CTRL", "LC_60HDA"))
+        comparisons = list(c("CTRL", "Capsaicin"), c("Capsaicin", "LC_6OHDA"), c("CTRL", "LC_6OHDA"))
     ) +
     facet_wrap(~Cell_Type_0, ncol = 3, scales = "free") +
     labs(title = "Cell Type composition across Samples") +
@@ -357,7 +361,7 @@ table(plot.data$Sample)
 
 temp <- table(blca.obj$Sample)
 plot.data$Fraction <- plot.data$Count / temp[plot.data$Sample] * 100
-plot.data$Condition <- factor(plot.data$Condition, levels = c("CTRL", "Capsaicin", "LC_60HDA"))
+plot.data$Condition <- factor(plot.data$Condition, levels = c("CTRL", "Capsaicin", "LC_6OHDA"))
 
 pdf("Boxplot.Fraction.Cell_Type_1.pdf", 8, 5)
 ggplot(plot.data, aes(x = Condition, y = Fraction)) +
@@ -365,7 +369,7 @@ ggplot(plot.data, aes(x = Condition, y = Fraction)) +
     geom_jitter(width = 0.2, size = 0.5, alpha = 1) +
     ggpubr::stat_compare_means(
         label = "p.signif", label.y.npc = 1, size = 2.5,
-        comparisons = list(c("CTRL", "Capsaicin"), c("Capsaicin", "LC_60HDA"), c("CTRL", "LC_60HDA"))
+        comparisons = list(c("CTRL", "Capsaicin"), c("Capsaicin", "LC_6OHDA"), c("CTRL", "LC_6OHDA"))
     ) +
     facet_wrap(~Cell_Type_1, ncol = 5, scales = "free") +
     labs(title = "Cell Type composition across Samples") +
@@ -462,7 +466,8 @@ dev.off()
 rm(p)
 
 pdf("sub1_Immune/DotPlot.MarkerGenes.pdf", 9, 7)
-DotPlot(immune.obj, features = marker.genes[["Immune"]]) +
+DotPlot(immune.obj, features = marker.genes[["Immune"]],
+    group.by = "seurat_clusters") +
     scale_color_viridis_c() +
     theme_classic() + coord_flip()
 dev.off()
@@ -590,7 +595,7 @@ table(plot.data$Sample)
 
 temp <- table(immune.obj$Sample)
 plot.data$Fraction <- plot.data$Count / temp[plot.data$Sample] * 100
-plot.data$Condition <- factor(plot.data$Condition, levels = c("CTRL", "Capsaicin", "LC_60HDA"))
+plot.data$Condition <- factor(plot.data$Condition, levels = c("CTRL", "Capsaicin", "LC_6OHDA"))
 
 pdf("sub1_Immune/Boxplot.Fraction.pdf", 8, 7)
 ggplot(plot.data, aes(x = Condition, y = Fraction)) +
@@ -598,7 +603,7 @@ ggplot(plot.data, aes(x = Condition, y = Fraction)) +
     geom_jitter(width = 0.2, size = 0.5, alpha = 1) +
     ggpubr::stat_compare_means(
         label = "p.signif", label.y.npc = 1, size = 2.5,
-        comparisons = list(c("CTRL", "Capsaicin"), c("Capsaicin", "LC_60HDA"), c("CTRL", "LC_60HDA"))
+        comparisons = list(c("CTRL", "Capsaicin"), c("Capsaicin", "LC_6OHDA"), c("CTRL", "LC_6OHDA"))
     ) +
     facet_wrap(~Cell_Type_2, ncol = 5, scales = "free") +
     labs(title = "Cell Type composition across Samples") +
@@ -610,99 +615,13 @@ ggplot(plot.data, aes(x = Condition, y = Fraction)) +
 dev.off()
 rm(plot.data, temp)
 
-## 3.4. Differential analysis ----
-dir.create("sub1_Immune/DEG")
-
-unique(sample.info$Condition)
-DEG.immune.Capsaicin <- list()
-DEG.immune.LC_60HDA <- list()
-
-for (cell_type in levels(immune.obj$Cell_Type_2)) {
-    message(Sys.time(), ": Processing: ", cell_type)
-    immune.sub <- subset(immune.obj, subset = Cell_Type_2 == cell_type)
-
-    temp <- FindMarkers(immune.sub,
-        ident.1 = "Capsaicin", ident.2 = "CTRL",
-        group.by = "Condition",
-        min.pct = 0.25, logfc.threshold = 0.25,
-        max.cells.per.ident = 1000
-    )
-    temp <- temp[order(temp$avg_log2FC, decreasing = TRUE), ]
-    temp$gene <- rownames(temp)
-    temp$Cell_Type_2 <- cell_type
-    DEG.immune.Capsaicin[[cell_type]] <- temp
-
-    temp <- FindMarkers(immune.sub,
-        ident.1 = "LC_60HDA", ident.2 = "CTRL",
-        group.by = "Condition",
-        min.pct = 0.25, logfc.threshold = 0.25,
-        max.cells.per.ident = 1000
-    )
-    temp <- temp[order(temp$avg_log2FC, decreasing = TRUE), ]
-    temp$gene <- rownames(temp)
-    temp$Cell_Type_2 <- cell_type
-    DEG.immune.LC_60HDA[[cell_type]] <- temp
-}
-rm(immune.sub, cell_type, temp)
-
-lapply(names(DEG.immune.Capsaicin), function(x) {
-    write.csv(DEG.immune.Capsaicin[[x]],
-        file = paste0("sub1_Immune/DEG/DEG_Capsaicin_vs_CTRL_in_", x, ".csv"),
-        row.names = FALSE
-    )
-})
-lapply(names(DEG.immune.LC_60HDA), function(x) {
-    write.csv(DEG.immune.LC_60HDA[[x]],
-        file = paste0("sub1_Immune/DEG/DEG_LC_60HDA_vs_CTRL_in_", x, ".csv"),
-        row.names = FALSE
-    )
-})
-
-plot.data <- rbind(
-    do.call(rbind, DEG.immune.Capsaicin) %>% mutate(Comparison = "Capsaicin_vs_CTRL"),
-    do.call(rbind, DEG.immune.LC_60HDA) %>% mutate(Comparison = "LC_60HDA_vs_CTRL")
-)
-plot.data$DEG <- "Stable"
-plot.data$DEG[which(plot.data$p_val_adj < 0.05 & plot.data$avg_log2FC > 0.25)] <- "Up"
-plot.data$DEG[which(plot.data$p_val_adj < 0.05 & plot.data$avg_log2FC < -0.25)] <- "Down"
-table(plot.data$Cell_Type_2, plot.data$Comparison, plot.data$DEG)
-
-plot.data$Cell_Type_2 <- factor(plot.data$Cell_Type_2, levels = levels(immune.obj$Cell_Type_2))
-pdf("sub1_Immune/DEG/Volcano.Capsaicin_vs_CTRL.pdf", 9, 7)
-ggplot(plot.data %>% filter(Comparison == "Capsaicin_vs_CTRL"), aes(x = avg_log2FC, y = -log10(p_val_adj))) +
-    geom_point(aes(color = Cell_Type_2), alpha = 0.5, size = 0.5) +
-    scale_color_manual(values = mycolor$Cell_Type_2) +
-    facet_wrap(~Cell_Type_2, ncol = 5) +
-    theme_classic() +
-    labs(title = "Volcano plot of DEGs in each cell type") +
-    xlab("Average log2 fold change") +
-    ylab("-log10 adjusted p value") +
-    geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "#ec8a8a", linewidth = 0.5) +
-    geom_vline(xintercept = c(-0.25, 0.25), linetype = "dashed", color = "#ec8a8a", linewidth = 0.5) +
-    theme(legend.position = "none")
-dev.off()
-
-pdf("sub1_Immune/DEG/Volcano.LC_60HDA_vs_CTRL.pdf", 9, 7)
-ggplot(plot.data %>% filter(Comparison == "LC_60HDA_vs_CTRL"), aes(x = avg_log2FC, y = -log10(p_val_adj))) +
-    geom_point(aes(color = Cell_Type_2), alpha = 0.5, size = 0.5) +
-    scale_color_manual(values = mycolor$Cell_Type_2) +
-    facet_wrap(~Cell_Type_2, ncol = 5) +
-    theme_classic() +
-    labs(title = "Volcano plot of DEGs in each cell type") +
-    xlab("Average log2 fold change") +
-    ylab("-log10 adjusted p value") +
-    geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "#ec8a8a", linewidth = 0.5) +
-    geom_vline(xintercept = c(-0.25, 0.25), linetype = "dashed", color = "#ec8a8a", linewidth = 0.5) +
-    theme(legend.position = "none")
-dev.off()
-rm(plot.data)
-
 saveRDS(immune.obj, file = "sub1_Immune/immune.obj.rds")
 rm(immune.obj)
 
 # 4. Epithelial compartment ----
 ##  4.1. Clustering of cell states ----
 dir.create("sub2_Cancer")
+
 cancer.obj <- subset(blca.obj, subset = Cell_Type_1 %in% c("Cancer")) # 136537 cells
 
 cancer.obj <- cancer.obj %>%
@@ -912,7 +831,7 @@ table(plot.data$Sample)
 
 temp <- table(cancer.obj$Sample)
 plot.data$Fraction <- plot.data$Count / temp[plot.data$Sample] * 100
-plot.data$Condition <- factor(plot.data$Condition, levels = c("CTRL", "Capsaicin", "LC_60HDA"))
+plot.data$Condition <- factor(plot.data$Condition, levels = c("CTRL", "Capsaicin", "LC_6OHDA"))
 
 pdf("sub2_Cancer/Boxplot.Fraction.pdf", 8, 2.8)
 ggplot(plot.data, aes(x = Condition, y = Fraction)) +
@@ -920,7 +839,7 @@ ggplot(plot.data, aes(x = Condition, y = Fraction)) +
     geom_jitter(width = 0.2, size = 0.5, alpha = 1) +
     ggpubr::stat_compare_means(
         label = "p.value", label.y.npc = 1, size = 2.5,
-        comparisons = list(c("CTRL", "Capsaicin"), c("Capsaicin", "LC_60HDA"), c("CTRL", "LC_60HDA"))
+        comparisons = list(c("CTRL", "Capsaicin"), c("Capsaicin", "LC_6OHDA"), c("CTRL", "LC_6OHDA"))
     ) +
     facet_wrap(~Cell_Type_2, ncol = 5, scales = "free") +
     labs(title = "Cell State composition across Samples") +
@@ -952,7 +871,7 @@ DEG.cancer.conditions[["Capsaicin"]]["Tubb3", ]
 head(DEG.cancer.conditions[["Capsaicin"]])
 
 temp <- FindMarkers(cancer.obj,
-    ident.1 = "LC_60HDA", ident.2 = "CTRL",
+    ident.1 = "LC_6OHDA", ident.2 = "CTRL",
     group.by = "Condition",
     min.pct = 0.25, logfc.threshold = 0.25,
     max.cells.per.ident = 10000
@@ -960,8 +879,8 @@ temp <- FindMarkers(cancer.obj,
 
 temp <- temp[order(temp$avg_log2FC, decreasing = TRUE), ]
 temp$gene <- rownames(temp)
-temp$Condition <- "LC_60HDA"
-DEG.cancer.conditions[["LC_60HDA"]] <- temp
+temp$Condition <- "LC_6OHDA"
+DEG.cancer.conditions[["LC_6OHDA"]] <- temp
 
 lapply(names(DEG.cancer.conditions), function(x) {
     write.csv(DEG.cancer.conditions[[x]],
@@ -971,7 +890,7 @@ lapply(names(DEG.cancer.conditions), function(x) {
 })
 rm(temp)
 
-DEG.cancer.conditions[["LC_60HDA"]][c("Tubb3", "Ngf"), ]
+DEG.cancer.conditions[["LC_6OHDA"]][c("Tubb3", "Ngf"), ]
 
 # GO enrichment
 library(clusterProfiler)
@@ -995,6 +914,9 @@ dotplot(GO.res, showCategory = 20, label_format = 60) +
     scale_color_viridis_c() +
     labs(title = "Up-regulated genes in Capsaicin vs CTRL")
 dev.off()
+write.table(GO.res@result, "sub2_Cancer/GO.Capsaicin_vs_CTRL.Up.txt",
+    sep = "\t", row.names = FALSE, quote = FALSE
+)
 
 GO.res <- enrichGO(
     gene = DEG.cancer.conditions[["Capsaicin"]] %>%
@@ -1013,9 +935,12 @@ dotplot(GO.res, showCategory = 20, label_format = 60) +
     theme_classic() +
     labs(title = "Down-regulated genes in Capsaicin vs CTRL")
 dev.off()
+write.table(GO.res@result, "sub2_Cancer/GO.Capsaicin_vs_CTRL.Down.txt",
+    sep = "\t", row.names = FALSE, quote = FALSE
+)
 
 GO.res <- enrichGO(
-    gene = DEG.cancer.conditions[["LC_60HDA"]] %>%
+    gene = DEG.cancer.conditions[["LC_6OHDA"]] %>%
         filter(p_val_adj < 0.05 & avg_log2FC > 0.25) %>%
         pull(gene),
     OrgDb = org.Mm.eg.db,
@@ -1026,15 +951,18 @@ GO.res <- enrichGO(
 )
 GO.res <- simplify(GO.res)
 
-pdf("sub2_Cancer/GO.LC_60HDA_vs_CTRL.Up.pdf", 7, 6)
+pdf("sub2_Cancer/GO.LC_6OHDA_vs_CTRL.Up.pdf", 7, 6)
 dotplot(GO.res, showCategory = 20, label_format = 60) +
     theme_classic() +
     scale_color_viridis_c() +
-    labs(title = "Up-regulated genes in LC_60HDA vs CTRL")
+    labs(title = "Up-regulated genes in LC_6OHDA vs CTRL")
 dev.off()
+write.table(GO.res@result, "sub2_Cancer/GO.LC_6OHDA_vs_CTRL.Up.txt",
+    sep = "\t", row.names = FALSE, quote = FALSE
+)
 
 GO.res <- enrichGO(
-    gene = DEG.cancer.conditions[["LC_60HDA"]] %>%
+    gene = DEG.cancer.conditions[["LC_6OHDA"]] %>%
         filter(p_val_adj < 0.05 & avg_log2FC < -0.25) %>%
         pull(gene),
     OrgDb = org.Mm.eg.db,
@@ -1045,11 +973,14 @@ GO.res <- enrichGO(
 )
 GO.res <- simplify(GO.res)
 
-pdf("sub2_Cancer/GO.LC_60HDA_vs_CTRL.Down.pdf", 7, 6)
+pdf("sub2_Cancer/GO.LC_6OHDA_vs_CTRL.Down.pdf", 7, 6)
 dotplot(GO.res, showCategory = 20, label_format = 60) +
     theme_classic() +
-    labs(title = "Down-regulated genes in LC_60HDA vs CTRL")
+    labs(title = "Down-regulated genes in LC_6OHDA vs CTRL")
 dev.off()
+write.table(GO.res@result, "sub2_Cancer/GO.LC_6OHDA_vs_CTRL.Down.txt",
+    sep = "\t", row.names = FALSE, quote = FALSE
+)
 rm(GO.res)
 
 gc()
@@ -1139,7 +1070,10 @@ dev.off()
 rm(p)
 
 pdf("sub3_Stromal/DotPlot.MarkerGenes.pdf", 9, 7)
-DotPlot(stromal.obj, features = marker.genes[["Stromal"]]) +
+DotPlot(stromal.obj,
+    features = marker.genes[["Stromal"]],
+    group.by = "seurat_clusters"
+) +
     scale_color_viridis_c() +
     theme_classic() + coord_flip()
 dev.off()
@@ -1241,7 +1175,7 @@ table(plot.data$Sample)
 
 temp <- table(stromal.obj$Sample)
 plot.data$Fraction <- plot.data$Count / temp[plot.data$Sample] * 100
-plot.data$Condition <- factor(plot.data$Condition, levels = c("CTRL", "Capsaicin", "LC_60HDA"))
+plot.data$Condition <- factor(plot.data$Condition, levels = c("CTRL", "Capsaicin", "LC_6OHDA"))
 
 pdf("sub3_Stromal/Boxplot.Fraction.pdf", 6.5, 4.8)
 ggplot(plot.data, aes(x = Condition, y = Fraction)) +
@@ -1249,7 +1183,7 @@ ggplot(plot.data, aes(x = Condition, y = Fraction)) +
     geom_jitter(width = 0.2, size = 0.5, alpha = 1) +
     ggpubr::stat_compare_means(
         label = "p.signif", label.y.npc = 1, size = 2.5,
-        comparisons = list(c("CTRL", "Capsaicin"), c("Capsaicin", "LC_60HDA"), c("CTRL", "LC_60HDA"))
+        comparisons = list(c("CTRL", "Capsaicin"), c("Capsaicin", "LC_6OHDA"), c("CTRL", "LC_6OHDA"))
     ) +
     facet_wrap(~Cell_Type_2, ncol = 5, scales = "free") +
     labs(title = "Cell Type composition across Samples") +
@@ -1260,93 +1194,6 @@ ggplot(plot.data, aes(x = Condition, y = Fraction)) +
     NoLegend()
 dev.off()
 rm(plot.data, temp)
-
-## 5.4. Differential analysis ----
-dir.create("sub3_Stromal/DEG")
-
-unique(sample.info$Condition)
-DEG.stromal.Capsaicin <- list()
-DEG.stromal.LC_60HDA <- list()
-
-for (cell_type in levels(stromal.obj$Cell_Type_2)) {
-    message(Sys.time(), ": Processing: ", cell_type)
-    stromal.sub <- subset(stromal.obj, subset = Cell_Type_2 == cell_type)
-
-    temp <- FindMarkers(stromal.sub,
-        ident.1 = "Capsaicin", ident.2 = "CTRL",
-        group.by = "Condition",
-        min.pct = 0.25, logfc.threshold = 0.25,
-        max.cells.per.ident = 1000
-    )
-    temp <- temp[order(temp$avg_log2FC, decreasing = TRUE), ]
-    temp$gene <- rownames(temp)
-    temp$Cell_Type_2 <- cell_type
-    DEG.stromal.Capsaicin[[cell_type]] <- temp
-
-    temp <- FindMarkers(stromal.sub,
-        ident.1 = "LC_60HDA", ident.2 = "CTRL",
-        group.by = "Condition",
-        min.pct = 0.25, logfc.threshold = 0.25,
-        max.cells.per.ident = 1000
-    )
-    temp <- temp[order(temp$avg_log2FC, decreasing = TRUE), ]
-    temp$gene <- rownames(temp)
-    temp$Cell_Type_2 <- cell_type
-    DEG.stromal.LC_60HDA[[cell_type]] <- temp
-}
-rm(stromal.sub, cell_type, temp)
-
-lapply(names(DEG.stromal.Capsaicin), function(x) {
-    write.csv(DEG.stromal.Capsaicin[[x]],
-        file = paste0("sub3_Stromal/DEG/DEG_Capsaicin_vs_CTRL_in_", x, ".csv"),
-        row.names = FALSE
-    )
-})
-lapply(names(DEG.stromal.LC_60HDA), function(x) {
-    write.csv(DEG.stromal.LC_60HDA[[x]],
-        file = paste0("sub3_Stromal/DEG/DEG_LC_60HDA_vs_CTRL_in_", x, ".csv"),
-        row.names = FALSE
-    )
-})
-
-plot.data <- rbind(
-    do.call(rbind, DEG.stromal.Capsaicin) %>% mutate(Comparison = "Capsaicin_vs_CTRL"),
-    do.call(rbind, DEG.stromal.LC_60HDA) %>% mutate(Comparison = "LC_60HDA_vs_CTRL")
-)
-plot.data$DEG <- "Stable"
-plot.data$DEG[which(plot.data$p_val_adj < 0.05 & plot.data$avg_log2FC > 0.25)] <- "Up"
-plot.data$DEG[which(plot.data$p_val_adj < 0.05 & plot.data$avg_log2FC < -0.25)] <- "Down"
-table(plot.data$Cell_Type_2, plot.data$Comparison, plot.data$DEG)
-
-plot.data$Cell_Type_2 <- factor(plot.data$Cell_Type_2, levels = levels(stromal.obj$Cell_Type_2))
-pdf("sub3_Stromal/DEG/Volcano.Capsaicin_vs_CTRL.pdf", 7.5, 4.5)
-ggplot(plot.data %>% filter(Comparison == "Capsaicin_vs_CTRL"), aes(x = avg_log2FC, y = -log10(p_val_adj))) +
-    geom_point(aes(color = Cell_Type_2), alpha = 0.5, size = 0.5) +
-    scale_color_manual(values = mycolor$Cell_Type_2) +
-    facet_wrap(~Cell_Type_2, ncol = 4) +
-    theme_classic() +
-    labs(title = "Volcano plot of DEGs in each cell type") +
-    xlab("Average log2 fold change") +
-    ylab("-log10 adjusted p value") +
-    geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "#ec8a8a", linewidth = 0.5) +
-    geom_vline(xintercept = c(-0.25, 0.25), linetype = "dashed", color = "#ec8a8a", linewidth = 0.5) +
-    theme(legend.position = "none")
-dev.off()
-
-pdf("sub3_Stromal/DEG/Volcano.LC_60HDA_vs_CTRL.pdf", 7.5, 4.5)
-ggplot(plot.data %>% filter(Comparison == "LC_60HDA_vs_CTRL"), aes(x = avg_log2FC, y = -log10(p_val_adj))) +
-    geom_point(aes(color = Cell_Type_2), alpha = 0.5, size = 0.5) +
-    scale_color_manual(values = mycolor$Cell_Type_2) +
-    facet_wrap(~Cell_Type_2, ncol = 4) +
-    theme_classic() +
-    labs(title = "Volcano plot of DEGs in each cell type") +
-    xlab("Average log2 fold change") +
-    ylab("-log10 adjusted p value") +
-    geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "#ec8a8a", linewidth = 0.5) +
-    geom_vline(xintercept = c(-0.25, 0.25), linetype = "dashed", color = "#ec8a8a", linewidth = 0.5) +
-    theme(legend.position = "none")
-dev.off()
-rm(plot.data)
 
 saveRDS(stromal.obj, file = "sub3_Stromal/stromal.obj.rds")
 rm(stromal.obj)
