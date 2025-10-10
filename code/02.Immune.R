@@ -4,6 +4,9 @@ library(Seurat)
 library(dplyr)
 library(ggplot2)
 library(RColorBrewer)
+library(clusterProfiler)
+library(org.Mm.eg.db)
+library(enrichplot)
 
 immune.obj <- readRDS("../01.Cell_Type/sub1_Immune/immune.obj.rds")
 mycolor <- readRDS("../01.Cell_Type/mycolor.rds")
@@ -99,11 +102,7 @@ ggplot(plot.data %>% filter(Comparison == "LC_6OHDA_vs_CTRL"), aes(x = avg_log2F
 dev.off()
 rm(plot.data)
 
-## 1.2. Functional enrichment analysis ----
-library(clusterProfiler)
-library(org.Mm.eg.db)
-library(enrichplot)
-
+## 1.2. GO enrichment analysis ----
 GO.DEG.Capsaicin.Up <- lapply(DEG.immune.Capsaicin, function(x) {
     temp <- x %>%
         filter(p_val_adj < 0.05 & avg_log2FC > 0.25) %>%
@@ -232,13 +231,278 @@ lapply(names(GO.DEG.LC_6OHDA.Down), function(x) {
     plot(p)
     dev.off()
 })
-rm(GO.DEG.Capsaicin.Up, GO.DEG.Capsaicin.Down, GO.DEG.LC_6OHDA.Up, GO.DEG.LC_6OHDA.Down)
+
+## 1.3. GSEA on specific cell types ----
+dir.create("DEG_Cell_Type/GSEA_Capsaicin")
+
+# run GSEA
+table(immune.obj$Cell_Type_2, immune.obj$Condition)
+cell_type <- c("T_CD8")
+
+gseGO.Capsaicin <- sapply(c("T_CD4", "T_CD8", "Treg", "Neurophil"), function(cell_type) {
+    message(Sys.time(), ": Processing: ", cell_type)
+    immune.sub <- subset(immune.obj, subset = Cell_Type_2 == cell_type)
+
+    message(Sys.time(), ": Identify DEGs: ", cell_type)
+    temp <- FindMarkers(immune.sub,
+        ident.1 = "Capsaicin", ident.2 = "CTRL",
+        group.by = "Condition",
+        min.pct = 0, logfc.threshold = 0,
+        max.cells.per.ident = 1000
+    )
+    temp <- temp[order(temp$avg_log2FC, decreasing = TRUE), ]
+    temp$gene <- rownames(temp)
+    temp$Cell_Type_2 <- cell_type
+
+    message(Sys.time(), ": Running GSEA: ", cell_type)
+    gene.list <- temp$avg_log2FC %>% setNames(temp$gene)
+
+    gseGO.res <- gseGO(
+        geneList = gene.list,
+        OrgDb = org.Mm.eg.db,
+        ont = "BP",
+        keyType = "SYMBOL",
+        pAdjustMethod = "BH",
+        pvalueCutoff = 0.05
+    )
+    gseGO.res
+    # simplify(gseGO.res)
+})
+
+# output GSEA results
+lapply(gseGO.Capsaicin, function(x) nrow(x@result))
+
+lapply(names(gseGO.Capsaicin) %>% setdiff("T_CD8"), function(x) {
+    if (is.null(gseGO.Capsaicin[[x]])) {
+        return(NULL)
+    }
+    write.csv(gseGO.Capsaicin[[x]]@result,
+        file = paste0("DEG_Cell_Type/GSEA_Capsaicin/GSEA_Capsaicin_in_", x, ".csv"),
+        row.names = TRUE
+    )
+    pdf(paste0("DEG_Cell_Type/GSEA_Capsaicin/Dot.GSEA_Capsaicin_in_", x, ".pdf"), 7, 5)
+    p <- dotplot(gseGO.Capsaicin[[x]], showCategory = 20, label_format = 60) +
+        theme_classic() +
+        labs(title = paste("GSEA - Capsaicin vs CTRL in ", x, sep = ""))
+    plot(p)
+    dev.off()
+
+})
+
+# gseaplot2 - CD4 T
+gseGO.Capsaicin$T_CD4@result %>%
+    filter(grepl("T cell", Description)) %>%
+    arrange(-NES) %>%
+    dplyr::select(Description, NES, pvalue, p.adjust)
+term.selected <- c("GO:0050798", "GO:2000406", "GO:0045582", "GO:0002294", "GO:0002369", "GO:0050870")
+
+p.list <- lapply(term.selected, function(term) {
+    gseaplot2(gseGO.Capsaicin$T_CD4,
+        geneSetID = term,
+        color = c("#e1423b"),
+        title = paste(
+            gseGO.Capsaicin$T_CD4@result[term, ]$Description, "\n",
+            "NES =", round(gseGO.Capsaicin$T_CD4@result[term, ]$NES, 2),
+            ", p.adj =", signif(gseGO.Capsaicin$T_CD4@result[term, ]$p.adjust, 2)),
+    )
+})
+length(p.list)
+
+pdf("DEG_Cell_Type/GSEA_Capsaicin/GSEA_Capsaicin_in_T_CD4_gseaplot.pdf", 5, 4)
+for (i in seq_along(p.list)) {
+    print(p.list[[i]])
+}
+dev.off()
+
+# gseaplot2 - Neurophil
+gseGO.Capsaicin$Neurophil@result %>%
+    filter(grepl("T cell", Description)) %>%
+    arrange(NES) %>%
+    dplyr::select(Description, NES, pvalue, p.adjust)
+term.selected <- c("GO:0050777", "GO:0002820", "GO:0002838")
+
+p.list <- lapply(term.selected, function(term) {
+    gseaplot2(gseGO.Capsaicin$Neurophil,
+        geneSetID = term,
+        color = c("#458ec3"),
+        title = paste(
+            gseGO.Capsaicin$Neurophil@result[term, ]$Description, "\n",
+            "NES =", round(gseGO.Capsaicin$Neurophil@result[term, ]$NES, 2),
+            ", p.adj =", signif(gseGO.Capsaicin$Neurophil@result[term, ]$p.adjust, 2)),
+        )
+})
+length(p.list)
+
+pdf("DEG_Cell_Type/GSEA_Capsaicin/GSEA_Capsaicin_in_Neurophil_gseaplot.pdf", 5, 4)
+for (i in seq_along(p.list)) {
+    print(p.list[[i]])
+}
+dev.off()
+rm(p.list, term.selected, i)
 
 # 2. T cell states ----
+## 2.1. Project T cell states ----
+library(ProjecTILs)
+
 table(immune.obj$Cell_Type_2)
 T.obj <- subset(immune.obj, subset = Cell_Type_2 %in% c("T_CD4", "T_CD4_Cycling", "Treg", "T_CD8", "T_CD8_Cycling"))
 rm(immune.obj)
 
+ref <- load.reference.map()
+
+T.obj.projected <- Run.ProjecTILs(T.obj,
+    ref = ref, filter.cells = FALSE,
+    split.by = "Sample",
+    ncores = 20
+)
+
+levels(ref$functional.cluster)
+mycolor$T_subtype <- c(
+    "#edbe2a", "#A58AFF", "#53B400", "#F8766D",
+    "#00B6EB", "#d1cfcc", "#FF0000", "#87f6a5", "#e812dd"
+) %>% setNames(levels(ref$functional.cluster))
+
+p.list <- list()
+sample_names <- (levels(T.obj$Condition))
+for (sample_i in seq_along(sample_names)) {
+    sample <- sample_names[sample_i]
+    p.list[[sample_i]] <- plot.projection(ref,
+        T.obj.projected[, T.obj.projected$Condition == sample],
+        linesize = 0.3, pointsize = 0.3,
+        raster = TRUE
+    ) + ggtitle(sample) + theme(aspect.ratio = 1)
+}
+p.list$ref <- DimPlot(ref, group.by = "functional.cluster", label.size = 3, cols = mycolor$T_subtype, raster = TRUE) +
+    ggtitle("Reference") + theme(aspect.ratio = 1)
+
+pdf("Projection_of_T_cells.pdf", 12, 10)
+patchwork::wrap_plots(p.list, ncol = 2)
+dev.off()
+rm(p.list, sample, sample_i, sample_names)
+
+table(T.obj.projected$functional.cluster)
+
+p.list <- plot.states.radar(ref = ref, T.obj.projected, min.cells = 20, return.as.list = TRUE)
+length(p.list)
+
+pdf("Radar.T.Projection.pdf", 12, 10)
+patchwork::wrap_plots(p.list[1:9], ncol = 3)
+dev.off()
+
+rm(p.list, Hs2Mm.convert.table, ref)
+
+## 2.2. Composition of T cell states ----
+T.obj.projected$Condition <- factor(T.obj.projected$Condition, levels = c("CTRL", "Capsaicin", "LC_6OHDA"))
+T.obj.projected$functional.cluster <- factor(T.obj.projected$functional.cluster,
+    levels = names(mycolor$T_subtype)
+)
+plot.data <- as.data.frame(table(T.obj.projected$functional.cluster, T.obj.projected$Condition))
+colnames(plot.data) <- c("functional.cluster", "Condition", "Count")
+
+pdf("Barplot.T_subtype.Condition.pdf", 8, 5)
+patchwork::wrap_plots(
+    ggplot(plot.data, aes(x = functional.cluster, y = Count, fill = Condition)) +
+        geom_bar(stat = "identity", position = "fill") +
+        scale_fill_manual(values = mycolor$Condition) +
+        theme_classic() +
+        labs(title = "Cell Type composition across Conditions") +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1)),
+    ggplot(plot.data, aes(x = Condition, y = Count, fill = functional.cluster)) +
+        geom_bar(stat = "identity", position = "fill") +
+        scale_fill_manual(values = mycolor$T_subtype) +
+        theme_classic() +
+        labs(title = "Cell Type composition across Conditions") +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1)),
+    ncol = 2
+)
+dev.off()
+
+# fraction compare
+plot.data <- as.data.frame(table(T.obj.projected$functional.cluster, T.obj.projected$Sample))
+colnames(plot.data) <- c("T_subtype", "Sample", "Count")
+plot.data$Condition <- gsub("_00.+?*$", "", plot.data$Sample)
+table(plot.data$Condition)
+table(plot.data$Sample)
+
+temp <- table(T.obj.projected$Sample)
+plot.data$Fraction <- plot.data$Count / temp[plot.data$Sample] * 100
+plot.data$Condition <- factor(plot.data$Condition, levels = c("CTRL", "Capsaicin", "LC_6OHDA"))
+
+pdf("Boxplot.Fraction.T_subtype.pdf", 8, 4.7)
+ggplot(plot.data, aes(x = Condition, y = Fraction)) +
+    geom_boxplot(aes(fill = T_subtype), outlier.shape = NA, alpha = 0.5) +
+    geom_jitter(width = 0.2, size = 0.5, alpha = 1) +
+    ggpubr::stat_compare_means(
+        label = "p.signif", label.y.npc = 1, size = 2.5,
+        comparisons = list(c("CTRL", "Capsaicin"), c("Capsaicin", "LC_6OHDA"), c("CTRL", "LC_6OHDA"))
+    ) +
+    facet_wrap(~T_subtype, ncol = 5, scales = "free") +
+    labs(title = "Cell Type composition across Samples") +
+    ylab("Fraction (%)") +
+    scale_fill_manual(values = mycolor$T_subtype) +
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    NoLegend()
+dev.off()
+rm(plot.data, temp)
+
+## 2.3. T state marker expression ----
+identical(colnames(T.obj.projected), colnames(T.obj))
+T.obj$T_state <- T.obj.projected$functional.cluster
+
+gene.selected <- c(
+    "Foxp3", "Il2ra", "Il10", "Tgfb1", "Cd4", # Treg
+    "Gzmb", "Prf1", "Ifng", "Tnf", "Fasl", # Cytotoxicity
+    "Pdcd1", "Lag3", "Havcr2", "Tigit", "Tox" # exhaustion
+)
+plot.data <- DotPlot(T.obj,
+    features = gene.selected,
+    group.by = "Condition"
+)$data
+plot.data$group <- rep(rep(c("Treg(Supression)", "Cytotoxicity", "Exhaustion"), each = 5),
+    times = 3
+)
+
+pdf("Dot.T_state.markers.Condition.pdf", 7, 3)
+ggplot(plot.data, aes(x = features.plot, y = id)) +
+    geom_point(aes(size = pct.exp, fill = avg.exp.scaled), shape = 21) +
+    scale_fill_viridis_c() +
+    facet_grid(cols = vars(group), scales = "free_x") +
+    theme_classic() +
+    labs(x = "Gene", y = "Condition") +
+    theme(
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        strip.background = element_blank(),
+        strip.text = element_text(hjust = 0)
+    ) +
+    ggtitle("Expression of T cell state markers across Conditions")
+dev.off()
+
+p.list <- plot.states.radar(
+    T.obj[, T.obj$Condition == "CTRL"],
+    T.obj[, T.obj$Condition == "Capsaicin"],
+    labels.col = "T_state",
+    cols = mycolor$Condition[1:2],
+    return.as.list = TRUE
+)
+length(p.list)
+
+pdf("Radar.T.marker.Caspasin_CTRL.pdf", 12, 10)
+patchwork::wrap_plots(p.list[1:9], ncol = 3)
+dev.off()
+
+pdf("Vln.Pdcd1.pdf", 5, 4)
+VlnPlot(T.obj, features = "Pdcd1", group.by = "Condition", pt.size = 0) +
+    scale_fill_manual(values = mycolor$Condition) +
+    theme_classic() +
+    labs(title = "Pdcd1 expression across Conditions") +
+    theme(
+        axis.text.x = element_text(angle = 45, hjust = 1)
+    )
+dev.off()
+rm(plot.data, p.list, gene.selected)
+
 # save data ----
 gc()
 save.image("02.Immune.RData")
+load("02.Immune.RData")
