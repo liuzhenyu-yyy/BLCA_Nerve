@@ -15,7 +15,6 @@ mycolor <- readRDS("../01.Cell_Type/mycolor.rds")
 dir.create("DEG_Cell_Type")
 
 ## 1.1. Identify DEGs ----
-load("DEG_Cell_Type/DEG.immune.rda") # for mycolorDEG.immune.Capsaicin <- list()
 DEG.immune.Capsaicin <- list()
 DEG.immune.LC_6OHDA <- list()
 
@@ -239,7 +238,7 @@ dir.create("DEG_Cell_Type/GSEA_Capsaicin")
 table(immune.obj$Cell_Type_2, immune.obj$Condition)
 cell_type <- c("T_CD8")
 
-gseGO.Capsaicin <- sapply(c("T_CD4", "T_CD8", "Treg", "Neurophil"), function(cell_type) {
+gseGO.Capsaicin <- sapply(c("T_CD4", "T_CD8", "Treg", "Neutrophil"), function(cell_type) {
     message(Sys.time(), ": Processing: ", cell_type)
     immune.sub <- subset(immune.obj, subset = Cell_Type_2 == cell_type)
 
@@ -314,26 +313,26 @@ for (i in seq_along(p.list)) {
 }
 dev.off()
 
-# gseaplot2 - Neurophil
-gseGO.Capsaicin$Neurophil@result %>%
+# gseaplot2 - Neutrophil
+gseGO.Capsaicin$Neutrophil@result %>%
     filter(grepl("T cell", Description)) %>%
     arrange(NES) %>%
     dplyr::select(Description, NES, pvalue, p.adjust)
 term.selected <- c("GO:0050777", "GO:0002820", "GO:0002838")
 
 p.list <- lapply(term.selected, function(term) {
-    gseaplot2(gseGO.Capsaicin$Neurophil,
+    gseaplot2(gseGO.Capsaicin$Neutrophil,
         geneSetID = term,
         color = c("#458ec3"),
         title = paste(
-            gseGO.Capsaicin$Neurophil@result[term, ]$Description, "\n",
-            "NES =", round(gseGO.Capsaicin$Neurophil@result[term, ]$NES, 2),
-            ", p.adj =", signif(gseGO.Capsaicin$Neurophil@result[term, ]$p.adjust, 2)),
+            gseGO.Capsaicin$Neutrophil@result[term, ]$Description, "\n",
+            "NES =", round(gseGO.Capsaicin$Neutrophil@result[term, ]$NES, 2),
+            ", p.adj =", signif(gseGO.Capsaicin$Neutrophil@result[term, ]$p.adjust, 2)),
         )
 })
 length(p.list)
 
-pdf("DEG_Cell_Type/GSEA_Capsaicin/GSEA_Capsaicin_in_Neurophil_gseaplot.pdf", 5, 4)
+pdf("DEG_Cell_Type/GSEA_Capsaicin/GSEA_Capsaicin_in_Neutrophil_gseaplot.pdf", 5, 4)
 for (i in seq_along(p.list)) {
     print(p.list[[i]])
 }
