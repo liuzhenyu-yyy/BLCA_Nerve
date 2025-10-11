@@ -510,7 +510,7 @@ immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(3, 4, 6, 8, 14, 1
 immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(7, 24))] <- "Monocyte"
 immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(15, 23, 26, 32))] <- "cDC"
 immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(30))] <- "pDC"
-immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(2, 5, 25))] <- "Neurophil"
+immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(2, 5, 25))] <- "Neutrophil"
 immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(9))] <- "Myeloid_Neuro_like"
 immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(17, 31))] <- "Myeloid_Cycling"
 
@@ -523,7 +523,7 @@ immune.obj$Cell_Type_2 <- factor(immune.obj$Cell_Type_2, levels = c(
     "B",
     "Macrophage", "Monocyte",
     "cDC", "pDC",
-    "Neurophil", "Myeloid_Neuro_like", "Myeloid_Cycling"
+    "Neutrophil", "Myeloid_Neuro_like", "Myeloid_Cycling"
 ))
 mycolor$Cell_Type_2 <- colorRampPalette(ggsci::pal_npg()(9))(length(levels(immune.obj$Cell_Type_2))) %>%
     setNames(levels(immune.obj$Cell_Type_2))
@@ -543,6 +543,14 @@ DimPlot(immune.obj,
     labs(title = "UMAP plot colored by Cell_Type_2")
 dev.off()
 
+pdf("sub1_Immune/UMAP.Cell_Type_2.split.pdf", 12, 4)
+DimPlot(immune.obj,
+    reduction = "umap", group.by = "Cell_Type_2", split.by = "Condition",
+    label = FALSE, raster = TRUE,
+    cols = mycolor$Cell_Type_2
+) +
+    theme_classic()
+dev.off()
 ## 3.2. Marker gene expression ----
 Idents(immune.obj) <- immune.obj$Cell_Type_2
 levels(Idents(immune.obj))
@@ -1121,6 +1129,15 @@ DimPlot(stromal.obj,
     ) +
     theme_classic() +
     labs(title = "UMAP plot colored by Cell_Type_2")
+dev.off()
+
+pdf("sub3_Stromal/UMAP.Cell_Type_2.split.pdf", 12, 4)
+DimPlot(stromal.obj,
+    reduction = "umap", group.by = "Cell_Type_2", split.by = "Condition",
+    label = FALSE, raster = TRUE,
+    cols = mycolor$Cell_Type_2
+) +
+    theme_classic()
 dev.off()
 
 ## 5.2. Marker gene expression ----
