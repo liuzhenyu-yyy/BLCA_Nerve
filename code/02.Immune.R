@@ -367,7 +367,7 @@ for (sample_i in seq_along(sample_names)) {
     sample <- sample_names[sample_i]
     p.list[[sample_i]] <- plot.projection(ref,
         T.obj.projected[, T.obj.projected$Condition == sample],
-        linesize = 0.3, pointsize = 0.3,
+        linesize = 0.3, pointsize = 0.6,
         raster = TRUE
     ) + ggtitle(sample) + theme(aspect.ratio = 1)
 }
@@ -454,6 +454,7 @@ gene.selected <- c(
     "Gzmb", "Prf1", "Ifng", "Tnf", "Fasl", # Cytotoxicity
     "Pdcd1", "Lag3", "Havcr2", "Tigit", "Tox" # exhaustion
 )
+
 plot.data <- DotPlot(T.obj,
     features = gene.selected,
     group.by = "Condition"
@@ -470,9 +471,35 @@ ggplot(plot.data, aes(x = features.plot, y = id)) +
     theme_classic() +
     labs(x = "Gene", y = "Condition") +
     theme(
-        axis.text.x = element_text(angle = 45, hjust = 1),
-        strip.background = element_blank(),
-        strip.text = element_text(hjust = 0)
+        axis.text.x = element_text(angle = 45, hjust = 1)
+    ) +
+    ggtitle("Expression of T cell state markers across Conditions")
+dev.off()
+
+plot.data <- DotPlot(T.obj,
+    features = gene.selected, scale = FALSE,
+    group.by = "Condition", split.by = "T_state", cols = mycolor$Cluster %>% unname()
+)$data
+plot.data$group <- "none"
+plot.data[plot.data$features.plot %in% c("Foxp3", "Il2ra", "Il10", "Tgfb1", "Cd4"), "group"] <- "Treg(Supression)"
+plot.data[plot.data$features.plot %in% c("Gzmb", "Prf1", "Ifng", "Tnf", "Fasl"), "group"] <- "Cytotoxicity"
+plot.data[plot.data$features.plot %in% c("Pdcd1", "Lag3", "Havcr2", "Tigit", "Tox"), "group"] <- "Exhaustion"
+table(plot.data$group)
+
+plot.data$Condition <- gsub("_.+?$", "", plot.data$id)
+plot.data$T_state <- gsub("Capsaicin_|CTRL_|LC_6OHDA_", "", plot.data$id)
+plot.data <- plot.data[!is.na(plot.data$T_state), ]
+plot.data$T_state <- factor(plot.data$T_state, levels = names(mycolor$T_subtype))
+
+pdf("Dot.T_state.markers.Condition.Split.pdf", 6, 7)
+ggplot(plot.data, aes(x = features.plot, y = Condition)) +
+    geom_point(aes(size = pct.exp, fill = avg.exp), shape = 21) +
+    scale_fill_viridis_c() +
+    facet_grid(cols = vars(group), rows = vars(T_state), scales = "free_x") +
+    theme_classic() +
+    labs(x = "Gene", y = "Condition") +
+    theme(
+        axis.text.x = element_text(angle = 45, hjust = 1)
     ) +
     ggtitle("Expression of T cell state markers across Conditions")
 dev.off()
