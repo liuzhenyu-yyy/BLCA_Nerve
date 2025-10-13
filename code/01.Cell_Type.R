@@ -1095,7 +1095,7 @@ marker.undefined.C24 <- marker.undefined.C24[order(marker.undefined.C24$avg_log2
 head(rownames(marker.undefined.C24), 100) #  Adipocyte  markers: Adipoq Pck1
 
 stromal.obj$Cell_Type_2 <- "none"
-stromal.obj$Cell_Type_2[which(stromal.obj$seurat_clusters %in% c(4, 16, 20, 23))] <- "Vescular_Endothelial"
+stromal.obj$Cell_Type_2[which(stromal.obj$seurat_clusters %in% c(4, 16, 20, 23))] <- "Vascular_Endothelial"
 stromal.obj$Cell_Type_2[which(stromal.obj$seurat_clusters %in% c(13, 25))] <- "Lymphatic_Endothelial"
 stromal.obj$Cell_Type_2[which(stromal.obj$seurat_clusters %in% c(0:3, 5:11, 14, 15, 17:19))] <- "iCAF"
 stromal.obj$Cell_Type_2[which(stromal.obj$seurat_clusters %in% c(12))] <- "myCAF"
@@ -1106,7 +1106,7 @@ stromal.obj$Cell_Type_2[which(stromal.obj$seurat_clusters %in% c(24))] <- "Adipo
 table(stromal.obj$seurat_clusters, stromal.obj$Cell_Type_2)
 
 stromal.obj$Cell_Type_2 <- factor(stromal.obj$Cell_Type_2, levels = c(
-    "Vescular_Endothelial", "Lymphatic_Endothelial",
+    "Vascular_Endothelial", "Lymphatic_Endothelial",
     "iCAF", "myCAF", "Smooth_Muscle", "Schwann", "Adipocyte"
 ))
 

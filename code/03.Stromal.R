@@ -60,6 +60,7 @@ lapply(names(DEG.stromal.LC_6OHDA), function(x) {
         row.names = FALSE
     )
 })
+save(DEG.stromal.Capsaicin, DEG.stromal.LC_6OHDA, file = "DEG_Cell_Type/DEG.stromal.rda")
 
 plot.data <- rbind(
     do.call(rbind, DEG.stromal.Capsaicin) %>% mutate(Comparison = "Capsaicin_vs_CTRL"),
@@ -229,3 +230,9 @@ lapply(names(GO.DEG.LC_6OHDA.Down), function(x) {
     plot(p)
     dev.off()
 })
+
+## save data
+gc()
+rm(stromal.obj)
+save.image("03.Stromal.RData")
+load("03.Stromal.RData")
