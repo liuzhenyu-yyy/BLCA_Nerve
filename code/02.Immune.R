@@ -504,6 +504,33 @@ ggplot(plot.data, aes(x = features.plot, y = Condition)) +
     ggtitle("Expression of T cell state markers across Conditions")
 dev.off()
 
+table(T.obj$T_state)
+p.list <- lapply(levels(T.obj$T_state), function(state) {
+    plot.data <- DotPlot(T.obj %>% subset(T_state == state),
+        features = gene.selected,
+        group.by = "Condition"
+    )$data
+    plot.data$group <- rep(rep(c("Treg(Supression)", "Cytotoxicity", "Exhaustion"), each = 5),
+        times = 3
+    )
+
+    ggplot(plot.data, aes(x = features.plot, y = id)) +
+        geom_point(aes(size = pct.exp, fill = avg.exp.scaled), shape = 21) +
+        scale_fill_viridis_c() +
+        facet_grid(cols = vars(group), scales = "free_x") +
+        theme_classic() +
+        labs(x = "Gene", y = "Condition") +
+        theme(
+            axis.text.x = element_text(angle = 45, hjust = 1),
+            legend.position = "none"
+        ) +
+        ggtitle(paste("Expression in", state))
+})
+pdf("Dot.T_state.markers.Condition.Split.scale.pdf", 10, 10)
+patchwork::wrap_plots(p.list, ncol = 2)
+dev.off()
+rm(plot.data, state, p.list)
+
 p.list <- plot.states.radar(
     T.obj[, T.obj$Condition == "CTRL"],
     T.obj[, T.obj$Condition == "Capsaicin"],
