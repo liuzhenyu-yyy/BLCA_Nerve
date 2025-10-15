@@ -111,6 +111,36 @@ ggplot(plot.data, aes(x = Condition, y = Fraction)) +
 dev.off()
 rm(plot.data, temp)
 
+# 1.3. expression of selected genes ----
+blca.obj <- readRDS("blca.obj.rds")
+
+gene.selected <- c("Ngf", "Nrg1", "Bdnf", "Ntf3", "Gdnf", "Cntf", "Lif")
+
+plot.data <- DotPlot(blca.obj,
+    features = gene.selected, scale = FALSE,
+    group.by = "Condition", split.by = "Cell_Type_2", cols = rep(RColorBrewer::brewer.pal(9, "YlGnBu"), 5)
+)$data
+
+plot.data$Condition <- gsub("_.+?$", "", plot.data$id)
+plot.data$Condition <- factor(plot.data$Condition, levels = c("CTRL", "Capsaicin", "LC"))
+plot.data$Cell_Type_2 <- gsub("Capsaicin_|CTRL_|LC_6OHDA_", "", plot.data$id)
+plot.data$Cell_Type_2 <- factor(plot.data$Cell_Type_2, levels = levels(blca.obj$Cell_Type_2))
+plot.data <- plot.data[!is.na(plot.data$Cell_Type_2), ]
+colnames(plot.data)
+
+pdf("Dot.Expression.Neuro_factor.pdf", 10, 8)
+ggplot(plot.data, aes(x = features.plot, y = Condition)) +
+    geom_point(aes(size = pct.exp, fill = avg.exp), shape = 21) +
+    scale_fill_viridis_c() +
+    facet_wrap(~Cell_Type_2, scales = "free_x", ncol = 5) +
+    theme_classic() +
+    labs(x = "Gene", y = "Condition") +
+    theme(
+        axis.text.x = element_text(angle = 45, hjust = 1)
+    ) +
+    ggtitle("Expression of Neuronal Factors")
+dev.off()
+
 # 2. CellChat analysis ----
 ## 2.1. prepare CellChat object ----
 cell_types <- levels(blca.obj$Cell_Type_2) %>%
