@@ -371,7 +371,10 @@ for (sample_i in seq_along(sample_names)) {
         raster = TRUE
     ) + ggtitle(sample) + theme(aspect.ratio = 1)
 }
-p.list$ref <- DimPlot(ref, group.by = "functional.cluster", label.size = 3, cols = mycolor$T_subtype, raster = TRUE) +
+p.list$ref <- DimPlot(ref,
+    group.by = "functional.cluster", label = TRUE,
+    cols = mycolor$T_subtype, raster = TRUE
+) +
     ggtitle("Reference") + theme(aspect.ratio = 1)
 
 pdf("Projection_of_T_cells.pdf", 12, 10)
@@ -450,30 +453,43 @@ identical(colnames(T.obj.projected), colnames(T.obj))
 T.obj$T_state <- T.obj.projected$functional.cluster
 
 gene.selected <- c(
-    "Foxp3", "Il2ra", "Il10", "Tgfb1", "Cd4", # Treg
+    "Foxp3", "Il2ra", "Il10", "Tgfb1", # Treg
     "Gzmb", "Prf1", "Ifng", "Tnf", "Fasl", # Cytotoxicity
-    "Pdcd1", "Lag3", "Havcr2", "Tigit", "Tox" # exhaustion
+    "Pdcd1", "Lag3", "Havcr2", "Tigit", "Ctla4", "Tox" # exhaustion
 )
 
 plot.data <- DotPlot(T.obj,
     features = gene.selected,
     group.by = "Condition"
 )$data
-plot.data$group <- rep(rep(c("Treg(Supression)", "Cytotoxicity", "Exhaustion"), each = 5),
+plot.data$group <- rep(rep(c("Treg(Supression)", "Cytotoxicity", "Exhaustion"), times = c(4, 5, 6)),
     times = 3
 )
 
-pdf("Dot.T_state.markers.Condition.pdf", 7, 3)
-ggplot(plot.data, aes(x = features.plot, y = id)) +
-    geom_point(aes(size = pct.exp, fill = avg.exp.scaled), shape = 21) +
-    scale_fill_viridis_c() +
-    facet_grid(cols = vars(group), scales = "free_x") +
-    theme_classic() +
-    labs(x = "Gene", y = "Condition") +
-    theme(
-        axis.text.x = element_text(angle = 45, hjust = 1)
-    ) +
-    ggtitle("Expression of T cell state markers across Conditions")
+pdf("Dot.T_state.markers.Condition.pdf", 7, 6)
+patchwork::wrap_plots(
+    ggplot(plot.data, aes(x = features.plot, y = id)) +
+        geom_point(aes(size = pct.exp, fill = avg.exp), shape = 21) +
+        scale_fill_viridis_c() +
+        facet_grid(cols = vars(group), scales = "free_x", space = "free_x") +
+        theme_classic() +
+        labs(x = "Gene", y = "Condition") +
+        theme(
+            axis.text.x = element_text(angle = 45, hjust = 1)
+        ) +
+        ggtitle("Expression of T cell state markers"),
+    ggplot(plot.data, aes(x = features.plot, y = id)) +
+        geom_point(aes(size = pct.exp, fill = avg.exp.scaled), shape = 21) +
+        scale_fill_viridis_c() +
+        facet_grid(cols = vars(group), scales = "free_x", space = "free_x") +
+        theme_classic() +
+        labs(x = "Gene", y = "Condition") +
+        theme(
+            axis.text.x = element_text(angle = 45, hjust = 1)
+        ) +
+        ggtitle("Scaled expression of T cell state markers"),
+    ncol = 1
+)
 dev.off()
 
 plot.data <- DotPlot(T.obj,
@@ -481,21 +497,22 @@ plot.data <- DotPlot(T.obj,
     group.by = "Condition", split.by = "T_state", cols = mycolor$Cluster %>% unname()
 )$data
 plot.data$group <- "none"
-plot.data[plot.data$features.plot %in% c("Foxp3", "Il2ra", "Il10", "Tgfb1", "Cd4"), "group"] <- "Treg(Supression)"
+plot.data[plot.data$features.plot %in% c("Foxp3", "Il2ra", "Il10", "Tgfb1"), "group"] <- "Treg(Supression)"
 plot.data[plot.data$features.plot %in% c("Gzmb", "Prf1", "Ifng", "Tnf", "Fasl"), "group"] <- "Cytotoxicity"
-plot.data[plot.data$features.plot %in% c("Pdcd1", "Lag3", "Havcr2", "Tigit", "Tox"), "group"] <- "Exhaustion"
+plot.data[plot.data$features.plot %in% c("Pdcd1", "Lag3", "Havcr2", "Tigit", "Tox", "Ctla4"), "group"] <- "Exhaustion"
 table(plot.data$group)
 
 plot.data$Condition <- gsub("_.+?$", "", plot.data$id)
+plot.data$Condition <- factor(plot.data$Condition, levels = c("CTRL", "Capsaicin", "LC"))
 plot.data$T_state <- gsub("Capsaicin_|CTRL_|LC_6OHDA_", "", plot.data$id)
-plot.data <- plot.data[!is.na(plot.data$T_state), ]
 plot.data$T_state <- factor(plot.data$T_state, levels = names(mycolor$T_subtype))
+plot.data <- plot.data[!is.na(plot.data$T_state), ]
 
 pdf("Dot.T_state.markers.Condition.Split.pdf", 6, 7)
 ggplot(plot.data, aes(x = features.plot, y = Condition)) +
     geom_point(aes(size = pct.exp, fill = avg.exp), shape = 21) +
     scale_fill_viridis_c() +
-    facet_grid(cols = vars(group), rows = vars(T_state), scales = "free_x") +
+    facet_grid(cols = vars(group), rows = vars(T_state), scales = "free_x", space = "free_x") +
     theme_classic() +
     labs(x = "Gene", y = "Condition") +
     theme(
@@ -510,14 +527,14 @@ p.list <- lapply(levels(T.obj$T_state), function(state) {
         features = gene.selected,
         group.by = "Condition"
     )$data
-    plot.data$group <- rep(rep(c("Treg(Supression)", "Cytotoxicity", "Exhaustion"), each = 5),
+    plot.data$group <- rep(rep(c("Treg(Supression)", "Cytotoxicity", "Exhaustion"), times = c(4, 5, 6)),
         times = 3
     )
 
     ggplot(plot.data, aes(x = features.plot, y = id)) +
         geom_point(aes(size = pct.exp, fill = avg.exp.scaled), shape = 21) +
         scale_fill_viridis_c() +
-        facet_grid(cols = vars(group), scales = "free_x") +
+        facet_grid(cols = vars(group), scales = "free_x", space = "free_x") +
         theme_classic() +
         labs(x = "Gene", y = "Condition") +
         theme(
@@ -526,34 +543,110 @@ p.list <- lapply(levels(T.obj$T_state), function(state) {
         ) +
         ggtitle(paste("Expression in", state))
 })
-pdf("Dot.T_state.markers.Condition.Split.scale.pdf", 10, 10)
+pdf("Dot.T_state.markers.Condition.Split2.pdf", 10, 10)
 patchwork::wrap_plots(p.list, ncol = 2)
 dev.off()
 rm(plot.data, state, p.list)
 
-p.list <- plot.states.radar(
-    T.obj[, T.obj$Condition == "CTRL"],
-    T.obj[, T.obj$Condition == "Capsaicin"],
-    labels.col = "T_state",
-    cols = mycolor$Condition[1:2],
-    return.as.list = TRUE
-)
-length(p.list)
+## 2.4. T state program ----
+library(SignatuR)
+data(SignatuR)
 
-pdf("Radar.T.marker.Caspasin_CTRL.pdf", 12, 10)
-patchwork::wrap_plots(p.list[1:9], ncol = 3)
+programs <- GetSignature(SignatuR$Mm$Programs)
+names(programs)
+rm(SignatuR)
+
+T.obj <- AddModuleScore(T.obj, features = programs)
+colnames(T.obj@meta.data)[17:23] <- names(programs)
+
+T.obj@meta.data %>%
+    group_by(Condition) %>%
+    summarise(across(all_of(names(programs)[5:7]), list(mean = mean)))
+
+plot.data <- DotPlot(T.obj,
+    features = names(programs) %>% setdiff(c("HeatShock", "IFN")),
+    group.by = "Condition"
+)$data
+
+pdf("Dot.T_state.Signature.Condition.pdf", 6, 5)
+patchwork::wrap_plots(
+    ggplot(plot.data, aes(x = features.plot, y = id)) +
+        geom_point(aes(size = pct.exp, fill = avg.exp), shape = 21) +
+        scale_fill_viridis_c() +
+        theme_classic() +
+        labs(x = "Signature", y = "Condition") +
+        theme(
+            axis.text.x = element_text(angle = 45, hjust = 1)
+        ) +
+        ggtitle("T cell state signatures"),
+    ggplot(plot.data, aes(x = features.plot, y = id)) +
+        geom_point(aes(size = pct.exp, fill = avg.exp.scaled), shape = 21) +
+        scale_fill_viridis_c() +
+        theme_classic() +
+        labs(x = "Signature", y = "Condition") +
+        theme(
+            axis.text.x = element_text(angle = 45, hjust = 1)
+        ) +
+        ggtitle("Scaled T cell state signatures"),
+    ncol = 1
+)
 dev.off()
 
-pdf("Vln.Pdcd1.pdf", 5, 4)
-VlnPlot(T.obj, features = "Pdcd1", group.by = "Condition", pt.size = 0) +
-    scale_fill_manual(values = mycolor$Condition) +
+plot.data <- DotPlot(T.obj,
+    features = names(programs) %>% setdiff(c("HeatShock", "IFN")), scale = TRUE,
+    group.by = "Condition", split.by = "T_state", cols = mycolor$Cluster %>% unname()
+)$data
+
+plot.data$Condition <- gsub("_.+?$", "", plot.data$id)
+plot.data$T_state <- gsub("Capsaicin_|CTRL_|LC_6OHDA_", "", plot.data$id)
+plot.data$T_state <- factor(plot.data$T_state, levels = names(mycolor$T_subtype))
+plot.data <- plot.data[!is.na(plot.data$T_state), ]
+
+pdf("Dot.T_state.Signature.Condition.Split.pdf", 6, 7)
+ggplot(plot.data, aes(x = features.plot, y = Condition)) +
+    geom_point(aes(size = pct.exp, fill = avg.exp), shape = 21) +
+    scale_fill_viridis_c() +
+    facet_grid(rows = vars(T_state), scales = "free_x") +
     theme_classic() +
-    labs(title = "Pdcd1 expression across Conditions") +
+    labs(x = "Gene", y = "Condition") +
     theme(
         axis.text.x = element_text(angle = 45, hjust = 1)
-    )
+    ) +
+    ggtitle("Expression of T cell state markers across Conditions")
 dev.off()
-rm(plot.data, p.list, gene.selected)
+
+table(T.obj$T_state)
+p.list <- lapply(levels(T.obj$T_state), function(state) {
+    plot.data <- DotPlot(T.obj %>% subset(T_state == state),
+        features = names(programs) %>% setdiff(c("HeatShock", "IFN")),
+        group.by = "Condition"
+    )$data
+
+    ggplot(plot.data, aes(x = features.plot, y = id)) +
+        geom_point(aes(size = pct.exp, fill = avg.exp.scaled), shape = 21) +
+        scale_fill_viridis_c() +
+        theme_classic() +
+        labs(x = "Gene", y = "Condition") +
+        theme(
+            axis.text.x = element_text(angle = 45, hjust = 1),
+            legend.position = "none"
+        ) +
+        ggtitle(paste(state))
+})
+pdf("Dot.T_state.Signatures.Condition.Split2.pdf", 10, 6.5)
+patchwork::wrap_plots(p.list, ncol = 3)
+dev.off()
+rm(plot.data, state, p.list)
+
+Idents(T.obj)
+pdf("Vln.Exhausion.pdf", 12, 7)
+VlnPlot(T.obj,
+    idents = names(mycolor$T_subtype),
+    features = programs$Tcell.exhaustion,
+    group.by = "T_state", split.by = "Condition",
+    pt.size = 0, ncol = 3, cols = mycolor$Condition
+)
+dev.off()
 
 # save data ----
 gc()
