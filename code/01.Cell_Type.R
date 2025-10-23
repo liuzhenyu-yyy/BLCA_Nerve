@@ -551,6 +551,25 @@ DimPlot(immune.obj,
 ) +
     theme_classic()
 dev.off()
+
+p <- DimPlot(immune.obj,
+    reduction = "umap", group.by = "Cell_Type_2", split.by = "Condition",
+    label = FALSE, raster = TRUE, pt.size = NULL,
+    cols = mycolor$Cell_Type_2
+) +
+    theme_classic()
+
+pdf("sub1_Immune/UMAP.Cell_Type_2.split.density.pdf", 12, 4)
+plot(p + stat_density_2d(aes_string(x = "umap_1", y = "umap_2", fill = "after_stat(level)"),
+    linewidth = 0, geom = "density_2d_filled",
+    n = 150, h = c(1.2, 1.2)
+) +
+    scale_fill_viridis_c(option = "D") +
+    guides(fill = guide_colorbar(title = "Density")) +
+    theme(legend.position = "right"))
+dev.off()
+rm(p)
+
 ## 3.2. Marker gene expression ----
 Idents(immune.obj) <- immune.obj$Cell_Type_2
 levels(Idents(immune.obj))
@@ -1019,7 +1038,7 @@ stromal.obj <- RunUMAP(stromal.obj, dims = 1:30)
 pdf("sub3_Stromal/UMAP.Clusters.pdf", 7, 6)
 DimPlot(stromal.obj,
     reduction = "umap", group.by = "seurat_clusters", label = TRUE,
-    cols = mycolor$Cluster, raster = TRUE
+    cols = mycolor$Cluster, raster = TRUE, pt.size = 1.5
 ) +
     theme_classic() +
     labs(title = "UMAP plot colored by clusters")
@@ -1028,7 +1047,7 @@ dev.off()
 pdf("sub3_Stromal/UMAP.Clusters.split.pdf", 12, 4)
 DimPlot(stromal.obj,
     reduction = "umap", group.by = "seurat_clusters", split.by = "Condition",
-    label = TRUE, cols = mycolor$Cluster, raster = TRUE
+    label = TRUE, cols = mycolor$Cluster, raster = TRUE, pt.size = 1.5
 ) +
     theme_classic() +
     labs(title = "UMAP plot colored by clusters")
@@ -1036,7 +1055,7 @@ dev.off()
 
 table(stromal.obj$Cell_Type_SingleR)
 pdf("sub3_Stromal/UMAP.SingleR.pdf", 7, 6)
-DimPlot(stromal.obj, reduction = "umap", group.by = "Cell_Type_SingleR", label = TRUE, raster = TRUE) +
+DimPlot(stromal.obj, reduction = "umap", group.by = "Cell_Type_SingleR", label = TRUE, raster = TRUE, pt.size = 1.5) +
     scale_color_manual(values = brewer.pal(9, "Set3")) +
     theme_classic() +
     labs(title = "UMAP plot colored by SingleR annotation")
@@ -1045,7 +1064,7 @@ dev.off()
 pdf("sub3_Stromal/UMAP.Cell_Type_1.pdf", 7, 6)
 DimPlot(stromal.obj,
     reduction = "umap", group.by = "Cell_Type_1", label = TRUE,
-    cols = mycolor$Cell_Type_1, raster = TRUE
+    cols = mycolor$Cell_Type_1, raster = TRUE, pt.size = 1.5
 ) +
     theme_classic() +
     labs(title = "UMAP plot colored by Cell_Type_1")
@@ -1058,6 +1077,7 @@ marker.genes[["Stromal"]] <- c(
     "Col1a1", "Col1a2", "Dcn", # fibroblast
     "Lum", "Pdgfra",  # iCAF
     "Pdgfrb", "Rgs5", "Myh11", # myCAF
+    "H2-Ab1", "H2-Eb1", "Cd74", # antigen-presenting CAF
     "Acta2", "Tagln", "Myl9", # smooth muscle
     "Tubb3", "Nefl", "Map2", # neuron
     "S100b", "Sox10", # Schwann cell
@@ -1069,7 +1089,7 @@ setdiff(marker.genes[["Stromal"]], rownames(stromal.obj))
 which(duplicated(marker.genes[["Stromal"]]))
 
 p <- FeaturePlot(stromal.obj,
-    features = marker.genes[["Stromal"]],
+    features = marker.genes[["Stromal"]], pt.size = 1.5,
     ncol = 6, cols = c("gray", "red"), raster = TRUE
 )
 pdf("sub3_Stromal/UMAP.MarkerGenes.pdf", 24, 18)
@@ -1097,8 +1117,9 @@ head(rownames(marker.undefined.C24), 100) #  Adipocyte  markers: Adipoq Pck1
 stromal.obj$Cell_Type_2 <- "none"
 stromal.obj$Cell_Type_2[which(stromal.obj$seurat_clusters %in% c(4, 16, 20, 23))] <- "Vascular_Endothelial"
 stromal.obj$Cell_Type_2[which(stromal.obj$seurat_clusters %in% c(13, 25))] <- "Lymphatic_Endothelial"
-stromal.obj$Cell_Type_2[which(stromal.obj$seurat_clusters %in% c(0:3, 5:11, 14, 15, 17:19))] <- "iCAF"
+stromal.obj$Cell_Type_2[which(stromal.obj$seurat_clusters %in% c(0:3, 5, 7, 8, 17))] <- "iCAF"
 stromal.obj$Cell_Type_2[which(stromal.obj$seurat_clusters %in% c(12))] <- "myCAF"
+stromal.obj$Cell_Type_2[which(stromal.obj$seurat_clusters %in% c(6, 9, 10, 11, 14, 15, 18, 19))] <- "apCAF"
 stromal.obj$Cell_Type_2[which(stromal.obj$seurat_clusters %in% c(21))] <- "Smooth_Muscle"
 stromal.obj$Cell_Type_2[which(stromal.obj$seurat_clusters %in% c(22))] <- "Schwann"
 stromal.obj$Cell_Type_2[which(stromal.obj$seurat_clusters %in% c(24))] <- "Adipocyte"
@@ -1107,38 +1128,56 @@ table(stromal.obj$seurat_clusters, stromal.obj$Cell_Type_2)
 
 stromal.obj$Cell_Type_2 <- factor(stromal.obj$Cell_Type_2, levels = c(
     "Vascular_Endothelial", "Lymphatic_Endothelial",
-    "iCAF", "myCAF", "Smooth_Muscle", "Schwann", "Adipocyte"
+    "iCAF", "myCAF", "apCAF", "Smooth_Muscle", "Schwann", "Adipocyte"
 ))
 
 mycolor$Cell_Type_2 <- mycolor$Cell_Type_2[1:20]
 mycolor$Cell_Type_2 <- c(
     mycolor$Cell_Type_2,
-    setNames(ggsci::pal_lancet()(7), levels(stromal.obj$Cell_Type_2))
+    setNames(ggsci::pal_lancet()(8), levels(stromal.obj$Cell_Type_2))
 )
 
 pdf("sub3_Stromal/UMAP.Cell_Type_2.pdf", 13, 6)
 DimPlot(stromal.obj,
-    reduction = "umap", group.by = "Cell_Type_2", label = TRUE, raster = TRUE,
+    reduction = "umap", group.by = "Cell_Type_2", label = TRUE, raster = TRUE, pt.size = 1.5,
     cols = mycolor$Cell_Type_2
 ) +
     theme_classic() +
     labs(title = "UMAP plot colored by Cell_Type_2") + NoLegend() +
     DimPlot(stromal.obj,
-        reduction = "umap", group.by = "Cell_Type_2", label = FALSE, raster = TRUE,
+        reduction = "umap", group.by = "Cell_Type_2", label = FALSE, raster = TRUE, pt.size = 1.5,
         cols = mycolor$Cell_Type_2
     ) +
     theme_classic() +
     labs(title = "UMAP plot colored by Cell_Type_2")
 dev.off()
 
-pdf("sub3_Stromal/UMAP.Cell_Type_2.split.pdf", 12, 4)
+pdf("sub3_Stromal/UMAP.Cell_Type_2.split.pdf", 9, 3)
 DimPlot(stromal.obj,
     reduction = "umap", group.by = "Cell_Type_2", split.by = "Condition",
-    label = FALSE, raster = TRUE,
+    label = FALSE, raster = TRUE, pt.size = 1.5,
     cols = mycolor$Cell_Type_2
 ) +
     theme_classic()
 dev.off()
+
+p <- DimPlot(stromal.obj,
+    reduction = "umap", group.by = "Cell_Type_2", split.by = "Condition",
+    label = FALSE, raster = TRUE, pt.size = NULL,
+    cols = mycolor$Cell_Type_2
+) +
+    theme_classic()
+
+pdf("sub3_Stromal/UMAP.Cell_Type_2.split.density.pdf", 12, 4)
+plot(p + stat_density_2d(aes_string(x = "umap_1", y = "umap_2", fill = "after_stat(level)"),
+    linewidth = 0, geom = "density_2d_filled",
+    n = 150, h = c(1.2, 1.2)
+) +
+    scale_fill_viridis_c(option = "D") +
+    guides(fill = guide_colorbar(title = "Density")) +
+    theme(legend.position = "right"))
+dev.off()
+rm(p)
 
 ## 5.2. Marker gene expression ----
 Idents(stromal.obj) <- stromal.obj$Cell_Type_2
@@ -1146,11 +1185,11 @@ levels(Idents(stromal.obj))
 
 gene.selected <- c(
     "Cdh5", "Pecam1", "Prox1", "Lyve1", "Col1a2", "Lum",
-    "Pdgfra", "Rgs5", "Acta2", "Myh11", "Sox10", "S100b",
+    "Pdgfra", "Rgs5", "H2-Ab1", "H2-Eb1", "Acta2", "Myh11", "Sox10", "S100b",
     "Adipoq", "Pck1"
 )
 
-pdf("sub3_Stromal/DotPlot.Cell_Type_2.pdf", 6, 2.6)
+pdf("sub3_Stromal/DotPlot.Cell_Type_2.pdf", 6.5, 2.6)
 DotPlot(stromal.obj, features = gene.selected) +
     scale_color_viridis_c() +
     theme_classic() +
