@@ -52,12 +52,31 @@ DimPlot(blca.obj, reduction = "umap", group.by = "Cell_Type_2", label = FALSE) +
     labs(title = "UMAP plot colored by Cell_Type_2")
 dev.off()
 
-pdf("UMAP.Cell_Type_2.split.Condition.pdf", 18, 6)
+pdf("UMAP.Cell_Type_2.split.Condition.pdf", 12, 4)
 DimPlot(blca.obj, reduction = "umap", group.by = "Cell_Type_2", label = FALSE, split.by = "Condition") +
     scale_color_manual(values = mycolor$Cell_Type_2) +
     theme_classic() +
     labs(title = "UMAP plot colored by Cell_Type_2")
 dev.off()
+
+p <- DimPlot(blca.obj,
+    reduction = "umap", group.by = "Cell_Type_2", split.by = "Condition",
+    label = FALSE, raster = TRUE, pt.size = NULL,
+    cols = mycolor$Cell_Type_2
+) +
+    theme_classic()
+
+pdf("UMAP.Cell_Type_2.split.density.pdf", 12, 4)
+plot(p + stat_density_2d(aes_string(x = "umap_1", y = "umap_2", fill = "after_stat(level)"),
+    linewidth = 0, geom = "density_2d_filled",
+    n = 150, h = c(1.2, 1.2)
+) +
+    scale_fill_viridis_c(option = "D") +
+    guides(fill = guide_colorbar(title = "Density")) +
+    theme(legend.position = "right"))
+dev.off()
+rm(p)
+
 rm(immune.obj, cancer.obj, stromal.obj)
 
 ## 1.2. Cell types cross conditions ----
@@ -112,8 +131,6 @@ dev.off()
 rm(plot.data, temp)
 
 ## 1.3. expression of selected genes ----
-blca.obj <- readRDS("blca.obj.rds")
-
 gene.selected <- c("Ngf", "Nrg1", "Bdnf", "Ntf3", "Gdnf", "Cntf", "Lif")
 
 plot.data <- DotPlot(blca.obj,
@@ -154,7 +171,7 @@ plot.data <- plot.data[!is.na(plot.data$Cell_Type_2), ]
 colnames(plot.data)
 
 pdf("Dot.Expression.Ngf.pdf", 10, 7)
-ggplot(plot.data, aes(x = Condition, y =  features.plot)) +
+ggplot(plot.data, aes(x = Condition, y = features.plot)) +
     geom_point(aes(size = pct.exp, fill = avg.exp), shape = 21) +
     scale_fill_viridis_c() +
     facet_wrap(~Cell_Type_2, scales = "free_x", ncol = 5) +
@@ -165,12 +182,13 @@ ggplot(plot.data, aes(x = Condition, y =  features.plot)) +
     ) +
     ggtitle("Expression of Neuronal Factors")
 dev.off()
+rm(plot.data, gene.selected)
 
 # 2. CellChat analysis ----
 ## 2.1. prepare CellChat object ----
 cell_types <- levels(blca.obj$Cell_Type_2) %>%
-    grep("Cycling|_like", ., invert = TRUE, value = TRUE) %>%
-    setdiff(c("Adipocyte", "Schwann", "Smooth_Muscle"))
+    grep("Cycling", ., invert = TRUE, value = TRUE) %>%
+    setdiff(c("Adipocyte", "Smooth_Muscle"))
 table(blca.obj$Cell_Type_2)[cell_types] %>% sort()
 
 blca.sub <- subset(blca.obj, Cell_Type_2 %in% cell_types)
