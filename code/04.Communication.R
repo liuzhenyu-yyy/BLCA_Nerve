@@ -184,7 +184,7 @@ ggplot(plot.data, aes(x = Condition, y = features.plot)) +
 dev.off()
 rm(plot.data, gene.selected)
 
-# 2. CellChat analysis ----
+# 2. Joint CellChat analysis ----
 ## 2.1. prepare CellChat object ----
 cell_types <- levels(blca.obj$Cell_Type_2) %>%
     grep("Cycling", ., invert = TRUE, value = TRUE) %>%
@@ -203,7 +203,7 @@ cellchat@DB <- CellChatDB.mouse
 # filter genes & LR pairs
 cellchat <- subsetData(cellchat)
 cellchat <- identifyOverExpressedGenes(cellchat)
-cellchat <- identifyOverExpressedInteractions(cellchat) # 3253 variable L-R pairs
+cellchat <- identifyOverExpressedInteractions(cellchat) # 3212 variable L-R pairs
 
 ## 2.2. infer communication network ----
 # communication probability
@@ -234,8 +234,8 @@ dev.off()
 
 # split by cell type
 mat <- cellchat@net$weight
-pdf("Circle.Network.Split.Weigh.Out.pdf", 16, 16)
-par(mfrow = c(4, 4), xpd = TRUE)
+pdf("Circle.Network.Split.Weigh.Out.pdf", 20, 16)
+par(mfrow = c(4, 5), xpd = TRUE)
 for (i in seq_along(rownames(mat))) {
     mat2 <- matrix(0, nrow = nrow(mat), ncol = ncol(mat), dimnames = dimnames(mat))
     mat2[i, ] <- mat[i, ]
@@ -249,8 +249,8 @@ for (i in seq_along(rownames(mat))) {
 }
 dev.off()
 
-pdf("Circle.Network.Split.Weigh.In.pdf", 16, 16)
-par(mfrow = c(4, 4), xpd = TRUE)
+pdf("Circle.Network.Split.Weigh.In.pdf", 20, 16)
+par(mfrow = c(4, 5), xpd = TRUE)
 for (i in seq_along(rownames(mat))) {
     mat2 <- matrix(0, nrow = nrow(mat), ncol = ncol(mat), dimnames = dimnames(mat))
     mat2[, i] <- mat[, i]
@@ -283,6 +283,11 @@ rm(ht1, ht2)
 dir.create("Global_Communication_Patterns")
 library(NMF)
 library(ggalluvial)
+
+pathways.selected <- c(
+    "TGFb", "VEGF", "EGF", "CXCL", "IL1", "IL2",
+    "MHC-I", "MHC-II", "PD-L1", "PDL2", "COLLAGEN", "LAMININ"
+)
 
 ## Outgoing
 pdf("Global_Communication_Patterns/Elbow.Outgoing.pdf", 6, 2.5)
@@ -345,7 +350,6 @@ netAnalysis_dot(cellchat,
         rev()
 )
 dev.off()
-
 rm(nPatterns)
 
 ## 2.4. pathway level analysis ----
@@ -353,13 +357,9 @@ dir.create("Pathway_Level")
 cellchat@netP$pathways %>%
     grep("GF", ., value = TRUE)
 
-pathways.selected <- c(
-    "TGFb", "VEGF", "EGF", "CXCL", "IL1", "IL2",
-    "MHC-I", "MHC-II", "PD-L1", "PDL2", "COLLAGEN", "LAMININ"
-)
 table(pathways.selected %in% cellchat@netP$pathways)
 
-lapply(pathways.selected[11:12], function(pathway) {
+lapply(pathways.selected, function(pathway) {
     pdf(paste0("Pathway_Level/Circle.Network.Pathway.", pathway, ".pdf"), 6, 7)
     netVisual_aggregate(cellchat,
         signaling = pathway, layout = "circle",
@@ -410,7 +410,7 @@ lapply(cell_types, function(cell_type) {
             strip.text.y = element_text(angle = 0)
         )
     height <- length(unique(p$data$interaction_name)) / 6 + 1
-    pdf(paste0("Cell_Type_Level/Bubble.", cell_type, "_Outgoing.pdf"), 6, height)
+    pdf(paste0("Cell_Type_Level/Bubble.", cell_type, "_Outgoing.pdf"), 7, height)
     plot(p)
     dev.off()
 
@@ -429,7 +429,7 @@ lapply(cell_types, function(cell_type) {
             strip.text.y = element_text(angle = 0)
         )
     height <- length(unique(p$data$interaction_name)) / 6 + 1
-    pdf(paste0("Cell_Type_Level/Bubble.", cell_type, "_Incoming.pdf"), 6, height)
+    pdf(paste0("Cell_Type_Level/Bubble.", cell_type, "_Incoming.pdf"), 7, height)
     plot(p)
     dev.off()
 })
