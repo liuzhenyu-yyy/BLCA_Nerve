@@ -391,7 +391,7 @@ lapply(pathways.selected, function(pathway) {
 rm(p)
 
 ## 2.5. cell type level analysis ----
-dir.create("Cell_Type_Level")
+dir.create("LR_Pairs_Level")
 cell_types
 
 lapply(cell_types, function(cell_type) {
@@ -410,7 +410,7 @@ lapply(cell_types, function(cell_type) {
             strip.text.y = element_text(angle = 0)
         )
     height <- length(unique(p$data$interaction_name)) / 6 + 1
-    pdf(paste0("Cell_Type_Level/Bubble.", cell_type, "_Outgoing.pdf"), 7, height)
+    pdf(paste0("LR_Pairs_Level/Bubble.", cell_type, "_Outgoing.pdf"), 7, height)
     plot(p)
     dev.off()
 
@@ -429,7 +429,7 @@ lapply(cell_types, function(cell_type) {
             strip.text.y = element_text(angle = 0)
         )
     height <- length(unique(p$data$interaction_name)) / 6 + 1
-    pdf(paste0("Cell_Type_Level/Bubble.", cell_type, "_Incoming.pdf"), 7, height)
+    pdf(paste0("LR_Pairs_Level/Bubble.", cell_type, "_Incoming.pdf"), 7, height)
     plot(p)
     dev.off()
 })
@@ -438,6 +438,7 @@ rm(p, cell_type)
 # 3. Compare signal across conditions ----
 blca.obj <- readRDS("blca.obj.rds")
 dir.create("Compare_Conditions")
+table(blca.obj$Cell_Type_2, blca.obj$Condition)
 
 ## 3.1. prepare CellChat objects ----
 blca.sub <- subset(blca.obj, Cell_Type_2 %in% cell_types & Condition %in% c("CTRL"))
@@ -449,11 +450,16 @@ blca.sub <- subset(blca.obj, Cell_Type_2 %in% cell_types & Condition %in% c("Cap
 Idents(blca.sub) <- blca.sub$Cell_Type_2
 cellchat.capsaicin <- createCellChat(object = blca.sub, group.by = "ident", assay = "RNA")
 cellchat.capsaicin@DB <- CellChatDB.mouse
-rm(blca.sub)
-rm(blca.obj)
+
+blca.sub <- subset(blca.obj, Cell_Type_2 %in% cell_types & Condition %in% c("LC_6OHDA"))
+Idents(blca.sub) <- blca.sub$Cell_Type_2
+cellchat.lc_6ohda <- createCellChat(object = blca.sub, group.by = "ident", assay = "RNA")
+cellchat.lc_6ohda@DB <- CellChatDB.mouse
+
+rm(blca.obj, blca.sub)
 
 # processing
-cellchat.ctrl <- cellchat.ctrl %>%
+cellchat.ctrl <- cellchat.ctrl %>% # 3026 pairs
     subsetData() %>%
     identifyOverExpressedGenes() %>%
     identifyOverExpressedInteractions() %>%
@@ -470,42 +476,78 @@ cellchat.capsaicin <- cellchat.capsaicin %>%
     computeCommunProb(type = "triMean") %>%
     filterCommunication(min.cells = 10) %>%
     computeCommunProbPathway() %>%
-    aggregateNet()
+    aggregateNet() %>%
+    netAnalysis_computeCentrality(slot.name = "netP")
 
+cellchat.lc_6ohda <- cellchat.lc_6ohda %>%
+    subsetData() %>%
+    identifyOverExpressedGenes() %>%
+    identifyOverExpressedInteractions() %>%
+    computeCommunProb(type = "triMean") %>%
+    filterCommunication(min.cells = 10) %>%
+    computeCommunProbPathway() %>%
+    aggregateNet() %>%
+    netAnalysis_computeCentrality(slot.name = "netP")
 object.list <- list(
     "CTRL" = cellchat.ctrl,
-    "Capsaicin" = cellchat.capsaicin
+    "Capsaicin" = cellchat.capsaicin,
+    "LC_6OHDA" = cellchat.lc_6ohda
 )
 
 cellchat.merge <- mergeCellChat(object.list, add.names = names(object.list))
-saveRDS(object.list, file = "CellChat.object.list.rds")
-rm(cellchat.ctrl, cellchat.capsaicin)
+saveRDS(object.list, file = "object.list.rds")
+rm(cellchat.ctrl, cellchat.capsaicin, cellchat.lc_6ohda)
 
 ## 3.2. compare overall network ----
-p1 <- compareInteractions(cellchat.merge, show.legend = FALSE, group = c(1, 2))
-p2 <- compareInteractions(cellchat.merge, show.legend = FALSE, group = c(1, 2), measure = "weight")
+p1 <- compareInteractions(cellchat.merge,
+    show.legend = FALSE, color.use = mycolor$Condition[c(3, 1, 2)] %>% unname(),
+    group = c(1, 2, 3)
+)
+p2 <- compareInteractions(cellchat.merge,
+    show.legend = FALSE, color.use = mycolor$Condition[c(3, 1, 2)] %>% unname(),
+    group = c(1, 2, 3), measure = "weight"
+)
 pdf("Compare_Conditions/Bar.Compare_Interactions.pdf", 5, 2.5)
 patchwork::wrap_plots(p1, p2, ncol = 2)
 dev.off()
 rm(p1, p2)
 
-pdf("Compare_Conditions/Circle.Network.Compare.Count.pdf", 6, 7)
-netVisual_diffInteraction(cellchat.merge, weight.scale = TRUE)
+pdf("Compare_Conditions/Circle.Network.Capsaicin.Count.pdf", 6, 7)
+netVisual_diffInteraction(cellchat.merge, comparison = c(1, 2), weight.scale = TRUE)
 dev.off()
 
-pdf("Compare_Conditions/Circle.Network.Compare.Weight.pdf", 6, 7)
-netVisual_diffInteraction(cellchat.merge, weight.scale = TRUE, measure = "weight")
+pdf("Compare_Conditions/Circle.Network.LC_6OHDA.Count.pdf", 6, 7)
+netVisual_diffInteraction(cellchat.merge, comparison = c(1, 3), weight.scale = TRUE)
 dev.off()
 
-pdf("Compare_Conditions/Circle.Network.Compare.Weight.CAF.pdf", 6, 7)
+pdf("Compare_Conditions/Circle.Network.Capsaicin.Weight.pdf", 6, 7)
+netVisual_diffInteraction(cellchat.merge, comparison = c(1, 2), weight.scale = TRUE, measure = "weight")
+dev.off()
+
+pdf("Compare_Conditions/Circle.Network.LC_6OHDA.Weight.pdf", 6, 7)
+netVisual_diffInteraction(cellchat.merge, comparison = c(1, 3), weight.scale = TRUE, measure = "weight")
+dev.off()
+
+pdf("Compare_Conditions/Circle.Network.Capsaicin.Weight.CAF.pdf", 6, 7)
 netVisual_diffInteraction(cellchat.merge,
-    weight.scale = TRUE, measure = "weight",
-    sources.use = c("iCAF", "myCAF"),
+    weight.scale = TRUE, measure = "weight", comparison = c(1, 2),
+    sources.use = c("iCAF", "myCAF", "apCAF")
 )
 dev.off()
 
-pdf("Compare_Conditions/Heatmap.Compare.Weight.pdf", 6, 5.5)
-netVisual_heatmap(cellchat.merge, measure = "weight")
+pdf("Compare_Conditions/Circle.Network.LC_6OHDA.Weight.CAF.pdf", 6, 7)
+netVisual_diffInteraction(cellchat.merge,
+    weight.scale = TRUE, measure = "weight", comparison = c(1, 3),
+    sources.use = c("iCAF", "myCAF", "apCAF")
+)
+dev.off()
+
+pdf("Compare_Conditions/Heatmap.Capsaicin.Weight.pdf", 6, 5.5)
+netVisual_heatmap(cellchat.merge, comparison = c(1, 2), measure = "weight")
+dev.off()
+
+pdf("Compare_Conditions/Heatmap.LC_6OHDA.Weight.pdf", 6, 5.5)
+netVisual_heatmap(cellchat.merge, comparison = c(1, 3), measure = "weight")
 dev.off()
 
 num.link <- sapply(object.list, function(x) {
@@ -519,29 +561,52 @@ for (i in seq_along(object.list)) {
     )
 }
 
-pdf("Compare_Conditions/Scatter.In_out.Compare.pdf", 9, 4)
+pdf("Compare_Conditions/Scatter.In_out.Compare.pdf", 12, 3.5)
 patchwork::wrap_plots(plots = p.list)
 dev.off()
+rm(p.list, num.link, weight.MinMax, i)
 
 ## 3.3. identify altered pathways ----
-p1 <- netAnalysis_signalingChanges_scatter(cellchat.merge, idents.use = "iCAF")
-p2 <- netAnalysis_signalingChanges_scatter(cellchat.merge, idents.use = "Cancer")
-p3 <- netAnalysis_signalingChanges_scatter(cellchat.merge, idents.use = "T_CD8")
-p4 <- netAnalysis_signalingChanges_scatter(cellchat.merge, idents.use = "T_CD4")
-pdf("Compare_Conditions/Scatter.Signaling_Changes.iCAF.T_CD8.pdf", 11, 6.5)
-patchwork::wrap_plots(plots = list(p1, p2, p3, p4), ncol = 2)
+p.list <- lapply(cell_types, function(cell_type) {
+    netAnalysis_signalingChanges_scatter(cellchat.merge,
+        comparison = c(1, 2), idents.use = cell_type
+    )
+})
+pdf("Compare_Conditions/Scatter.Signaling_Changes.Capsaicin.pdf", 15, 20)
+patchwork::wrap_plots(plots = p.list, ncol = 3)
 dev.off()
-rm(p1, p2, p3, p4, p.list, num.link, weight.MinMax, i)
+
+p.list <- lapply(cell_types, function(cell_type) {
+    netAnalysis_signalingChanges_scatter(cellchat.merge,
+        comparison = c(1, 3), idents.use = cell_type
+    )
+})
+pdf("Compare_Conditions/Scatter.Signaling_Changes.LC_6OHDA.pdf", 15, 20)
+patchwork::wrap_plots(plots = p.list, ncol = 3)
+dev.off()
+rm(p.list)
 
 p1 <- rankNet(cellchat.merge,
-    mode = "comparison", measure = "weight", sources.use = NULL, targets.use = NULL,
-    stacked = TRUE, do.stat = TRUE
-)
+    mode = "comparison", measure = "weight", sources.use = NULL, comparison = c(1, 2),
+    targets.use = NULL, stacked = TRUE, do.stat = TRUE
+) + scale_fill_manual(values = mycolor$Condition)
 p2 <- rankNet(cellchat.merge,
-    mode = "comparison", measure = "weight", sources.use = NULL,
+    mode = "comparison", measure = "weight", sources.use = NULL, comparison = c(1, 2),
     targets.use = NULL, stacked = FALSE, do.stat = TRUE
-)
-pdf("Compare_Conditions/Bar.Ranked.Pathways.Compare.pdf", 7.5, 15)
+) + scale_fill_manual(values = mycolor$Condition)
+pdf("Compare_Conditions/Bar.Ranked.Pathways.Capsaicin.pdf", 7.5, 15)
+patchwork::wrap_plots(p1, p2, ncol = 2)
+dev.off()
+
+p1 <- rankNet(cellchat.merge,
+    mode = "comparison", measure = "weight", sources.use = NULL, comparison = c(1, 3),
+    targets.use = NULL, stacked = TRUE, do.stat = TRUE
+) + scale_fill_manual(values = mycolor$Condition)
+p2 <- rankNet(cellchat.merge,
+    mode = "comparison", measure = "weight", sources.use = NULL, comparison = c(1, 3),
+    targets.use = NULL, stacked = FALSE, do.stat = TRUE
+) + scale_fill_manual(values = mycolor$Condition)
+pdf("Compare_Conditions/Bar.Ranked.Pathways.LC_6OHDA.pdf", 7.5, 15)
 patchwork::wrap_plots(p1, p2, ncol = 2)
 dev.off()
 rm(p1, p2)
@@ -551,8 +616,8 @@ dir.create("Compare_Conditions/Pathway_Level")
 lapply(pathways.selected, function(pathways.show) {
     weight.max <- getMaxWeight(object.list, slot.name = c("netP"), attribute = pathways.show)
 
-    pdf(paste0("Compare_Conditions/Pathway_Level/Circle.Network.Pathway.", pathways.show, ".pdf"), 12, 7)
-    par(mfrow = c(1, 2), xpd = TRUE)
+    pdf(paste0("Compare_Conditions/Pathway_Level/Circle.Network.Pathway.", pathways.show, ".pdf"), 12, 14)
+    par(mfrow = c(2, 2), xpd = TRUE)
     for (i in seq_along(object.list)) {
         netVisual_aggregate(object.list[[i]],
             signaling = pathways.show,
@@ -562,7 +627,7 @@ lapply(pathways.selected, function(pathways.show) {
     }
     dev.off()
 
-    par(mfrow = c(1, 2), xpd = TRUE)
+    par(mfrow = c(2, 2), xpd = TRUE)
     ht <- list()
     for (i in seq_along(object.list)) {
         ht[[i]] <- netVisual_heatmap(object.list[[i]],
@@ -571,12 +636,12 @@ lapply(pathways.selected, function(pathways.show) {
         )
     }
 
-    pdf(paste0("Compare_Conditions/Pathway_Level/Heatmap.Pathway.", pathways.show, ".pdf"), 10, 5.5)
-    ComplexHeatmap::draw(ht[[1]] + ht[[2]], ht_gap = unit(0.5, "cm"))
+    pdf(paste0("Compare_Conditions/Pathway_Level/Heatmap.Pathway.", pathways.show, ".pdf"), 15, 5.5)
+    ComplexHeatmap::draw(ht[[1]] + ht[[2]] + ht[[3]], ht_gap = unit(0.5, "cm"))
     dev.off()
 
-    pdf(paste0("Compare_Conditions/Pathway_Level/Chord.Pathway.", pathways.show, ".pdf"), 14, 9)
-    par(mfrow = c(1, 2), xpd = TRUE)
+    pdf(paste0("Compare_Conditions/Pathway_Level/Chord.Pathway.", pathways.show, ".pdf"), 14, 12)
+    par(mfrow = c(2, 2), xpd = TRUE)
     for (i in seq_along(object.list)) {
         netVisual_aggregate(object.list[[i]],
             signaling = pathways.show,
@@ -587,8 +652,8 @@ lapply(pathways.selected, function(pathways.show) {
 })
 rm(pathways.show, ht, i, weight.max)
 
-## 3.4. identify altered interactions ----
-dir.create("Compare_Conditions/Cell_Type_Level")
+## 3.4. altered interactions (Capsaicin) ----
+dir.create("Compare_Conditions/LR_Pairs_Capsaicin")
 
 # identify DEG
 pos.dataset <- "Capsaicin"
@@ -598,27 +663,27 @@ cellchat.merge <- identifyOverExpressedGenes(cellchat.merge,
     group.dataset = "datasets", pos.dataset = pos.dataset,
     features.name = features.name,
     only.pos = FALSE,
-    thresh.pc = 0.1, thresh.fc = 0.05, thresh.p = 0.05, group.DE.combined = FALSE
+    thresh.pc = 0.1, thresh.fc = 0.25, thresh.p = 0.05, group.DE.combined = FALSE
 )
-net <- netMappingDEG(cellchat.merge, features.name = features.name, variable.all = TRUE)
-net.up <- subsetCommunication(cellchat.merge,
-    net = net,
-    datasets = "Capsaicin", ligand.logFC = 0.05, receptor.logFC = NULL
+net.Capsaicin <- netMappingDEG(cellchat.merge, features.name = features.name, variable.all = TRUE)
+net.Capsaicin.up <- subsetCommunication(cellchat.merge,
+    net = net.Capsaicin,
+    datasets = "Capsaicin", ligand.logFC = 0.25, receptor.logFC = NULL
 )
-net.down <- subsetCommunication(cellchat.merge,
-    net = net,
-    datasets = "CTRL", ligand.logFC = -0.05, receptor.logFC = NULL
+net.Capsaicin.down <- subsetCommunication(cellchat.merge,
+    net = net.Capsaicin,
+    datasets = "CTRL", ligand.logFC = -0.25, receptor.logFC = NULL
 )
 
-write.table(net.up,
-    file = "Compare_Conditions/DEG.Up.LR.Pairs.Capsaicin.txt",
+write.table(net.Capsaicin.up,
+    file = "Compare_Conditions/LR_Pairs_Capsaicin/DEG.Up.LR.Pairs.Capsaicin.txt",
     sep = "\t", quote = FALSE, row.names = FALSE
 )
-write.table(net.down,
-    file = "Compare_Conditions/DEG.Down.LR.Pairs.Capsaicin.txt",
+write.table(net.Capsaicin.down,
+    file = "Compare_Conditions/LR_Pairs_Capsaicin/DEG.Down.LR.Pairs.Capsaicin.txt",
     sep = "\t", quote = FALSE, row.names = FALSE
 )
-rm(features.name, net, pos.dataset)
+rm(features.name, net.Capsaicin, pos.dataset)
 
 # iCAF outgoing
 cell_type.selected <- c("T_CD4", "T_CD8", "NK", "Neutrophil", "Cancer", "iCAF")
@@ -644,7 +709,7 @@ p <- netVisual_bubble(cellchat.merge,
         strip.text.y = element_text(angle = 0)
     )
 height <- length(unique(p$data$interaction_name)) / 6.5 + 2
-pdf(paste0("Compare_Conditions/Cell_Type_Level/Bubble.iCAF_Increased_Outgoing.pdf"), 6, height)
+pdf(paste0("Compare_Conditions/LR_Pairs_Capsaicin/Bubble.iCAF_Increased_Outgoing.pdf"), 6, height)
 plot(p)
 dev.off()
 
@@ -670,7 +735,7 @@ p <- netVisual_bubble(cellchat.merge,
         strip.text.y = element_text(angle = 0)
     )
 height <- length(unique(p$data$interaction_name)) / 6.5 + 2
-pdf(paste0("Compare_Conditions/Cell_Type_Level/Bubble.iCAF_Increased_Incoming.pdf"), 6, height)
+pdf(paste0("Compare_Conditions/LR_Pairs_Capsaicin/Bubble.iCAF_Increased_Incoming.pdf"), 6, height)
 plot(p)
 dev.off()
 
@@ -696,7 +761,7 @@ p <- netVisual_bubble(cellchat.merge,
         strip.text.y = element_text(angle = 0)
     )
 height <- length(unique(p$data$interaction_name)) / 6.5 + 2
-pdf(paste0("Compare_Conditions/Cell_Type_Level/Bubble.iCAF_Decreased_Outgoing.pdf"), 6, height)
+pdf(paste0("Compare_Conditions/LR_Pairs_Capsaicin/Bubble.iCAF_Decreased_Outgoing.pdf"), 6, height)
 plot(p)
 dev.off()
 
@@ -723,7 +788,7 @@ p <- netVisual_bubble(cellchat.merge,
         strip.text.y = element_text(angle = 0)
     )
 height <- length(unique(p$data$interaction_name)) / 6.5 + 2
-pdf(paste0("Compare_Conditions/Cell_Type_Level/Bubble.T_CD8_Increased_Incoming.pdf"), 6, height)
+pdf(paste0("Compare_Conditions/LR_Pairs_Capsaicin/Bubble.T_CD8_Increased_Incoming.pdf"), 6, height)
 plot(p)
 dev.off()
 
@@ -749,7 +814,7 @@ p <- netVisual_bubble(cellchat.merge,
         strip.text.y = element_text(angle = 0)
     )
 height <- length(unique(p$data$interaction_name)) / 6.5 + 2
-pdf(paste0("Compare_Conditions/Cell_Type_Level/Bubble.T_CD8_Decreased_Incoming.pdf"), 6, height)
+pdf(paste0("Compare_Conditions/LR_Pairs_Capsaicin/Bubble.T_CD8_Decreased_Incoming.pdf"), 6, height)
 plot(p)
 dev.off()
 
