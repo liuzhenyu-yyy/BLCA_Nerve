@@ -24,7 +24,10 @@ blca.obj@meta.data[cancer.obj$Cell, "Cell_Type_2"] <- cancer.obj$Cell_Type_1 %>%
 stromal.obj <- readRDS("../01.Cell_Type/sub3_Stromal/stromal.obj.rds")
 blca.obj@meta.data[stromal.obj$Cell, "Cell_Type_2"] <- stromal.obj$Cell_Type_2 %>% as.character()
 
-blca.obj@meta.data %>% filter(Cell_Type_2 == "none") %>% pull(Cell_Type_1) %>% table()
+blca.obj@meta.data %>%
+    filter(Cell_Type_2 == "none") %>%
+    pull(Cell_Type_1) %>%
+    table()
 blca.obj@meta.data[blca.obj$Cell_Type_2 == "none", "Cell_Type_2"] <- "Bladder_Epithelial"
 table(blca.obj$Cell_Type_2, blca.obj$Cell_Type_1)
 
@@ -221,7 +224,7 @@ groupSize <- as.numeric(table(cellchat@idents))
 pdf("Circle.Network.All.Count.pdf", 6, 7)
 netVisual_circle(cellchat@net$count,
     vertex.weight = groupSize, weight.scale = TRUE, label.edge = FALSE,
-     title.name = "Number of interactions"
+    title.name = "Number of interactions"
 )
 dev.off()
 
@@ -311,10 +314,14 @@ dev.off()
 pdf("Global_Communication_Patterns/Dot.Pattern.Out.Selected.pdf", 7, 3)
 netAnalysis_dot(cellchat,
     pattern = "outgoing",
-    pathway.show = union(c("COLLAGEN", "LAMININ", "APP", "MHC-I", "FN1", "THBS", "CCL", "SPP1", "ADGRE", "MHC-II",
-    "CypA", "CD80", "PTN", "CD86", "MIF", "GALECTIN", "CD45", "JAM", "PECAM1", "TENASCIN", "SEMA3"),
-     pathways.selected) %>%
-    rev()
+    pathway.show = union(
+        c(
+            "COLLAGEN", "LAMININ", "APP", "MHC-I", "FN1", "THBS", "CCL", "SPP1", "ADGRE", "MHC-II",
+            "CypA", "CD80", "PTN", "CD86", "MIF", "GALECTIN", "CD45", "JAM", "PECAM1", "TENASCIN", "SEMA3"
+        ),
+        pathways.selected
+    ) %>%
+        rev()
 )
 dev.off()
 
@@ -384,7 +391,7 @@ lapply(pathways.selected, function(pathway) {
     pdf(paste0("Pathway_Level/Heatmap_signalingRole.", pathway, ".pdf"), 8, 3)
     netAnalysis_signalingRole_network(cellchat,
         signaling = pathway,
-         width = 8, height = 2.5, font.size = 10
+        width = 8, height = 2.5, font.size = 10
     )
     dev.off()
 })
@@ -685,140 +692,280 @@ write.table(net.Capsaicin.down,
 )
 rm(features.name, net.Capsaicin, pos.dataset)
 
-# iCAF outgoing
-cell_type.selected <- c("T_CD4", "T_CD8", "NK", "Neutrophil", "Cancer", "iCAF")
-pairLR.use.up <- net.up %>%
-    filter(source == "iCAF" & target %in% cell_type.selected) %>%
-    select(interaction_name)
-p <- netVisual_bubble(cellchat.merge,
-    sources.use = "iCAF",
-    targets.use = cell_type.selected,
-    pairLR.use = pairLR.use.up,
-    remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE,
-    comparison = c(1, 2), max.dataset = 2, angle.x = 45,
-    title.name = "Increased iCAF outgoing signaling in Capsaicin",
-) +
-    facet_grid(
-        cols = vars(target),
-        rows = vars(pathway_name), scales = "free", space = "free"
-    ) +
-    theme(
-        panel.grid.major = element_line(color = "gray90", size = 0.25),
-        strip.background = element_rect(fill = "gray80"),
-        strip.text = element_text(colour = "black"),
-        strip.text.y = element_text(angle = 0)
-    )
-height <- length(unique(p$data$interaction_name)) / 6.5 + 2
-pdf(paste0("Compare_Conditions/LR_Pairs_Capsaicin/Bubble.iCAF_Increased_Outgoing.pdf"), 6, height)
-plot(p)
-dev.off()
+# plot significatnt L-R pairs
+lapply(cell_types, function(cell_type) {
+    # Increased incoming
+    pairLR.use <- net.Capsaicin.up %>%
+        filter(target == cell_type) %>%
+        select(interaction_name)
+    if (nrow(pairLR.use) > 0) {
+        p <- netVisual_bubble(cellchat.merge,
+            sources.use = cell_types,
+            targets.use = cell_type,
+            pairLR.use = pairLR.use,
+            remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE,
+            comparison = c(1, 2), max.dataset = 2, angle.x = 45,
+            title.name = paste0("Increased ", cell_type, " incoming signaling in Capsaicin"),
+        ) +
+            facet_grid(
+                cols = vars(source),
+                rows = vars(pathway_name), scales = "free", space = "free"
+            ) +
+            theme(
+                panel.grid.major = element_line(color = "gray90", size = 0.25),
+                strip.background = element_rect(fill = "gray80"),
+                strip.text = element_text(colour = "black"),
+                strip.text.y = element_text(angle = 0)
+            )
+        height <- length(unique(p$data$interaction_name)) / 6.5 + 2.5
+        pdf(paste0("Compare_Conditions/LR_Pairs_Capsaicin/Bubble.", cell_type, "_Increased_Incoming.pdf"), 10, height)
+        plot(p)
+        dev.off()
+    }
 
-pairLR.use.up <- net.up %>%
-    filter(source %in% cell_type.selected & target == "iCAF") %>%
-    select(interaction_name)
-p <- netVisual_bubble(cellchat.merge,
-    sources.use = cell_type.selected,
-    targets.use = "iCAF",
-    pairLR.use = pairLR.use.up,
-    remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE,
-    comparison = c(1, 2), max.dataset = 2, angle.x = 45,
-    title.name = "Increased iCAF incoming signaling in Capsaicin",
-) +
-    facet_grid(
-        cols = vars(source),
-        rows = vars(pathway_name), scales = "free", space = "free"
-    ) +
-    theme(
-        panel.grid.major = element_line(color = "gray90", size = 0.25),
-        strip.background = element_rect(fill = "gray80"),
-        strip.text = element_text(colour = "black"),
-        strip.text.y = element_text(angle = 0)
-    )
-height <- length(unique(p$data$interaction_name)) / 6.5 + 2
-pdf(paste0("Compare_Conditions/LR_Pairs_Capsaicin/Bubble.iCAF_Increased_Incoming.pdf"), 6, height)
-plot(p)
-dev.off()
+    # Decreased incoming
+    pairLR.use <- net.Capsaicin.down %>%
+        filter(target == cell_type) %>%
+        select(interaction_name)
+    if (nrow(pairLR.use) > 0) {
+        p <- netVisual_bubble(cellchat.merge,
+            sources.use = cell_types,
+            targets.use = cell_type,
+            pairLR.use = pairLR.use,
+            remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE,
+            comparison = c(1, 2), max.dataset = 1, angle.x = 45,
+            title.name = paste0("Decreased ", cell_type, " incoming signaling in Capsaicin"),
+        ) +
+            facet_grid(
+                cols = vars(source),
+                rows = vars(pathway_name), scales = "free", space = "free"
+            ) +
+            theme(
+                panel.grid.major = element_line(color = "gray90", size = 0.25),
+                strip.background = element_rect(fill = "gray80"),
+                strip.text = element_text(colour = "black"),
+                strip.text.y = element_text(angle = 0)
+            )
+        height <- length(unique(p$data$interaction_name)) / 6.5 + 2.5
+        pdf(paste0("Compare_Conditions/LR_Pairs_Capsaicin/Bubble.", cell_type, "_Decreased_Incoming.pdf"), 10, height)
+        plot(p)
+        dev.off()
+    }
 
-pairLR.use.down <- net.down %>%
-    filter(source == "iCAF" & target %in% cell_type.selected) %>%
-    select(interaction_name)
-p <- netVisual_bubble(cellchat.merge,
-    sources.use = "iCAF",
-    targets.use = cell_type.selected,
-    pairLR.use = pairLR.use.down,
-    remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE,
-    comparison = c(1, 2), max.dataset = 1, angle.x = 45,
-    title.name = "Decreased iCAF outgoing signaling in Capsaicin",
-) +
-    facet_grid(
-        cols = vars(target),
-        rows = vars(pathway_name), scales = "free", space = "free"
-    ) +
-    theme(
-        panel.grid.major = element_line(color = "gray90", size = 0.25),
-        strip.background = element_rect(fill = "gray80"),
-        strip.text = element_text(colour = "black"),
-        strip.text.y = element_text(angle = 0)
-    )
-height <- length(unique(p$data$interaction_name)) / 6.5 + 2
-pdf(paste0("Compare_Conditions/LR_Pairs_Capsaicin/Bubble.iCAF_Decreased_Outgoing.pdf"), 6, height)
-plot(p)
-dev.off()
+    # Increased outgoing
+    pairLR.use <- net.Capsaicin.up %>%
+        filter(source == cell_type) %>%
+        select(interaction_name)
+    if (nrow(pairLR.use) > 0) {
+        p <- netVisual_bubble(cellchat.merge,
+            sources.use = cell_type,
+            targets.use = cell_types,
+            pairLR.use = pairLR.use,
+            remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE,
+            comparison = c(1, 2), max.dataset = 2, angle.x = 45,
+            title.name = paste0("Increased ", cell_type, " outgoing signaling in Capsaicin"),
+        ) +
+            facet_grid(
+                cols = vars(target),
+                rows = vars(pathway_name), scales = "free", space = "free"
+            ) +
+            theme(
+                panel.grid.major = element_line(color = "gray90", size = 0.25),
+                strip.background = element_rect(fill = "gray80"),
+                strip.text = element_text(colour = "black"),
+                strip.text.y = element_text(angle = 0)
+            )
+        height <- length(unique(p$data$interaction_name)) / 6.5 + 2.5
+        pdf(paste0("Compare_Conditions/LR_Pairs_Capsaicin/Bubble.", cell_type, "_Increased_Outgoing.pdf"), 10, height)
+        plot(p)
+        dev.off()
+    }
 
-# T_CD8 incoming
-pairLR.use.up <- net.up %>%
-    filter(source %in% cell_type.selected & target == "T_CD8") %>%
-    select(interaction_name)
-p <- netVisual_bubble(cellchat.merge,
-    sources.use = cell_type.selected,
-    targets.use = "T_CD8",
-    pairLR.use = pairLR.use.up,
-    remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE,
-    comparison = c(1, 2), max.dataset = 2, angle.x = 45,
-    title.name = "Increased T_CD8 incoming signaling in Capsaicin",
-) +
-    facet_grid(
-        cols = vars(source),
-        rows = vars(pathway_name), scales = "free", space = "free"
-    ) +
-    theme(
-        panel.grid.major = element_line(color = "gray90", size = 0.25),
-        strip.background = element_rect(fill = "gray80"),
-        strip.text = element_text(colour = "black"),
-        strip.text.y = element_text(angle = 0)
-    )
-height <- length(unique(p$data$interaction_name)) / 6.5 + 2
-pdf(paste0("Compare_Conditions/LR_Pairs_Capsaicin/Bubble.T_CD8_Increased_Incoming.pdf"), 6, height)
-plot(p)
-dev.off()
+    # Decreased outgoing
+    pairLR.use <- net.Capsaicin.down %>%
+        filter(source == cell_type) %>%
+        select(interaction_name)
+    if (nrow(pairLR.use) > 0) {
+        p <- netVisual_bubble(cellchat.merge,
+            sources.use = cell_type,
+            targets.use = cell_types,
+            pairLR.use = pairLR.use,
+            remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE,
+            comparison = c(1, 2), max.dataset = 1, angle.x = 45,
+            title.name = paste0("Decreased ", cell_type, " outgoing signaling in Capsaicin"),
+        ) +
+            facet_grid(
+                cols = vars(target),
+                rows = vars(pathway_name), scales = "free", space = "free"
+            ) +
+            theme(
+                panel.grid.major = element_line(color = "gray90", size = 0.25),
+                strip.background = element_rect(fill = "gray80"),
+                strip.text = element_text(colour = "black"),
+                strip.text.y = element_text(angle = 0)
+            )
+        height <- length(unique(p$data$interaction_name)) / 6.5 + 2.5
+        pdf(paste0("Compare_Conditions/LR_Pairs_Capsaicin/Bubble.", cell_type, "_Decreased_Outgoing.pdf"), 10, height)
+        plot(p)
+        dev.off()
+    }
+})
 
-pairLR.use.down <- net.down %>%
-    filter(source %in% cell_type.selected & target == "T_CD8") %>%
-    select(interaction_name)
-p <- netVisual_bubble(cellchat.merge,
-    sources.use = cell_type.selected,
-    targets.use = "T_CD8",
-    pairLR.use = pairLR.use.down,
-    remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE,
-    comparison = c(1, 2), max.dataset = 1, angle.x = 45,
-    title.name = "Decreased T_CD8 incoming signaling in Capsaicin",
-) +
-    facet_grid(
-        cols = vars(source),
-        rows = vars(pathway_name), scales = "free", space = "free"
-    ) +
-    theme(
-        panel.grid.major = element_line(color = "gray90", size = 0.25),
-        strip.background = element_rect(fill = "gray80"),
-        strip.text = element_text(colour = "black"),
-        strip.text.y = element_text(angle = 0)
-    )
-height <- length(unique(p$data$interaction_name)) / 6.5 + 2
-pdf(paste0("Compare_Conditions/LR_Pairs_Capsaicin/Bubble.T_CD8_Decreased_Incoming.pdf"), 6, height)
-plot(p)
-dev.off()
+rm(p, pairLR.use, cell_type, height)
 
-rm(p, pairLR.use.up, pairLR.use.down, cell_type.selected, height)
+## 3.5. altered interactions (LC_6OHDA) ----
+dir.create("Compare_Conditions/LR_Pairs_LC_6OHDA")
+
+# identify DEG
+pos.dataset <- "LC_6OHDA"
+features.name <- paste0(pos.dataset, ".merged")
+
+cellchat.merge <- identifyOverExpressedGenes(cellchat.merge,
+    group.dataset = "datasets", pos.dataset = pos.dataset,
+    features.name = features.name,
+    only.pos = FALSE,
+    thresh.pc = 0.1, thresh.fc = 0.25, thresh.p = 0.05, group.DE.combined = FALSE
+)
+net.LC_6OHDA <- netMappingDEG(cellchat.merge, features.name = features.name, variable.all = TRUE)
+net.LC_6OHDA.up <- subsetCommunication(cellchat.merge,
+    net = net.LC_6OHDA,
+    datasets = "LC_6OHDA", ligand.logFC = 0.25, receptor.logFC = NULL
+)
+net.LC_6OHDA.down <- subsetCommunication(cellchat.merge,
+    net = net.LC_6OHDA,
+    datasets = "CTRL", ligand.logFC = -0.25, receptor.logFC = NULL
+)
+
+write.table(net.LC_6OHDA.up,
+    file = "Compare_Conditions/LR_Pairs_LC_6OHDA/DEG.Up.LR.Pairs.LC_6OHDA.txt",
+    sep = "\t", quote = FALSE, row.names = FALSE
+)
+write.table(net.LC_6OHDA.down,
+    file = "Compare_Conditions/LR_Pairs_LC_6OHDA/DEG.Down.LR.Pairs.LC_6OHDA.txt",
+    sep = "\t", quote = FALSE, row.names = FALSE
+)
+rm(features.name, net.LC_6OHDA, pos.dataset)
+
+# plot significatnt L-R pairs
+lapply(cell_types, function(cell_type) {
+    # Increased incoming
+    pairLR.use <- net.LC_6OHDA.up %>%
+        filter(target == cell_type) %>%
+        select(interaction_name)
+    if (nrow(pairLR.use) > 0) {
+        p <- netVisual_bubble(cellchat.merge,
+            sources.use = cell_types,
+            targets.use = cell_type,
+            pairLR.use = pairLR.use,
+            remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE,
+            comparison = c(1, 3), max.dataset = 3, angle.x = 45,
+            title.name = paste0("Increased ", cell_type, " incoming signaling in LC_6OHDA"),
+        ) +
+            facet_grid(
+                cols = vars(source),
+                rows = vars(pathway_name), scales = "free", space = "free"
+            ) +
+            theme(
+                panel.grid.major = element_line(color = "gray90", size = 0.25),
+                strip.background = element_rect(fill = "gray80"),
+                strip.text = element_text(colour = "black"),
+                strip.text.y = element_text(angle = 0)
+            )
+        height <- length(unique(p$data$interaction_name)) / 6.5 + 2.5
+        pdf(paste0("Compare_Conditions/LR_Pairs_LC_6OHDA/Bubble.", cell_type, "_Increased_Incoming.pdf"), 10, height)
+        plot(p)
+        dev.off()
+    }
+
+    # Decreased incoming
+    pairLR.use <- net.LC_6OHDA.down %>%
+        filter(target == cell_type) %>%
+        select(interaction_name)
+    if (nrow(pairLR.use) > 0) {
+        p <- netVisual_bubble(cellchat.merge,
+            sources.use = cell_types,
+            targets.use = cell_type,
+            pairLR.use = pairLR.use,
+            remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE,
+            comparison = c(1, 3), max.dataset = 1, angle.x = 45,
+            title.name = paste0("Decreased ", cell_type, " incoming signaling in LC_6OHDA"),
+        ) +
+            facet_grid(
+                cols = vars(source),
+                rows = vars(pathway_name), scales = "free", space = "free"
+            ) +
+            theme(
+                panel.grid.major = element_line(color = "gray90", size = 0.25),
+                strip.background = element_rect(fill = "gray80"),
+                strip.text = element_text(colour = "black"),
+                strip.text.y = element_text(angle = 0)
+            )
+        height <- length(unique(p$data$interaction_name)) / 6.5 + 2.5
+        pdf(paste0("Compare_Conditions/LR_Pairs_LC_6OHDA/Bubble.", cell_type, "_Decreased_Incoming.pdf"), 10, height)
+        plot(p)
+        dev.off()
+    }
+
+    # Increased outgoing
+    pairLR.use <- net.LC_6OHDA.up %>%
+        filter(source == cell_type) %>%
+        select(interaction_name)
+    if (nrow(pairLR.use) > 0) {
+        p <- netVisual_bubble(cellchat.merge,
+            sources.use = cell_type,
+            targets.use = cell_types,
+            pairLR.use = pairLR.use,
+            remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE,
+            comparison = c(1, 3), max.dataset = 3, angle.x = 45,
+            title.name = paste0("Increased ", cell_type, " outgoing signaling in LC_6OHDA"),
+        ) +
+            facet_grid(
+                cols = vars(target),
+                rows = vars(pathway_name), scales = "free", space = "free"
+            ) +
+            theme(
+                panel.grid.major = element_line(color = "gray90", size = 0.25),
+                strip.background = element_rect(fill = "gray80"),
+                strip.text = element_text(colour = "black"),
+                strip.text.y = element_text(angle = 0)
+            )
+        height <- length(unique(p$data$interaction_name)) / 6.5 + 2.5
+        pdf(paste0("Compare_Conditions/LR_Pairs_LC_6OHDA/Bubble.", cell_type, "_Increased_Outgoing.pdf"), 10, height)
+        plot(p)
+        dev.off()
+    }
+
+    # Decreased outgoing
+    pairLR.use <- net.LC_6OHDA.down %>%
+        filter(source == cell_type) %>%
+        select(interaction_name)
+    if (nrow(pairLR.use) > 0) {
+        p <- netVisual_bubble(cellchat.merge,
+            sources.use = cell_type,
+            targets.use = cell_types,
+            pairLR.use = pairLR.use,
+            remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE,
+            comparison = c(1, 3), max.dataset = 1, angle.x = 45,
+            title.name = paste0("Decreased ", cell_type, " outgoing signaling in LC_6OHDA"),
+        ) +
+            facet_grid(
+                cols = vars(target),
+                rows = vars(pathway_name), scales = "free", space = "free"
+            ) +
+            theme(
+                panel.grid.major = element_line(color = "gray90", size = 0.25),
+                strip.background = element_rect(fill = "gray80"),
+                strip.text = element_text(colour = "black"),
+                strip.text.y = element_text(angle = 0)
+            )
+        height <- length(unique(p$data$interaction_name)) / 6.5 + 2.5
+        pdf(paste0("Compare_Conditions/LR_Pairs_LC_6OHDA/Bubble.", cell_type, "_Decreased_Outgoing.pdf"), 10, height)
+        plot(p)
+        dev.off()
+    }
+})
+
+rm(p, pairLR.use, cell_type, height)
 
 # save data ----
 gc()
