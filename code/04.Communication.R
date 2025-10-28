@@ -261,6 +261,7 @@ groupSize <- as.numeric(table(cellchat@idents))
 
 pdf("Circle.Network.All.Count.pdf", 6, 7)
 netVisual_circle(cellchat@net$count,
+    color.use = mycolor$Cell_Type_2,
     vertex.weight = groupSize, weight.scale = TRUE, label.edge = FALSE,
     title.name = "Number of interactions"
 )
@@ -268,6 +269,7 @@ dev.off()
 
 pdf("Circle.Network.All.Weight.pdf", 6, 7)
 netVisual_circle(cellchat@net$weight,
+    color.use = mycolor$Cell_Type_2,
     vertex.weight = groupSize, weight.scale = TRUE, label.edge = FALSE,
     title.name = "Interaction weights/strength"
 )
@@ -281,6 +283,7 @@ for (i in seq_along(rownames(mat))) {
     mat2 <- matrix(0, nrow = nrow(mat), ncol = ncol(mat), dimnames = dimnames(mat))
     mat2[i, ] <- mat[i, ]
     netVisual_circle(mat2,
+        color.use = mycolor$Cell_Type_2,
         vertex.weight = groupSize,
         weight.scale = TRUE,
         label.edge = TRUE,
@@ -296,6 +299,7 @@ for (i in seq_along(rownames(mat))) {
     mat2 <- matrix(0, nrow = nrow(mat), ncol = ncol(mat), dimnames = dimnames(mat))
     mat2[, i] <- mat[, i]
     netVisual_circle(mat2,
+        color.use = mycolor$Cell_Type_2,
         vertex.weight = groupSize,
         weight.scale = TRUE,
         label.edge = TRUE,
@@ -310,15 +314,30 @@ rm(i, mat, mat2)
 cellchat <- netAnalysis_computeCentrality(cellchat, slot.name = "netP")
 
 pdf("Scatter.In_out.pdf", 5, 4)
-netAnalysis_signalingRole_scatter(cellchat)
+netAnalysis_signalingRole_scatter(cellchat,
+    color.use = mycolor$Cell_Type_2,
+    dot.alpha = 0.4
+)
 dev.off()
 
 pdf("Heatmap.In_out.pdf", 10, 15)
-ht1 <- netAnalysis_signalingRole_heatmap(cellchat, pattern = "outgoing", height = 30)
-ht2 <- netAnalysis_signalingRole_heatmap(cellchat, pattern = "incoming", height = 30)
+ht1 <- netAnalysis_signalingRole_heatmap(cellchat,
+    color.use = mycolor$Cell_Type_2[cell_types], pattern = "outgoing", height = 30
+)
+ht2 <- netAnalysis_signalingRole_heatmap(cellchat,
+    color.use = mycolor$Cell_Type_2[cell_types], pattern = "incoming", height = 30
+)
 (ht1 + ht2)
 dev.off()
 rm(ht1, ht2)
+
+pdf("Heatmap.Interaction.pdf", 6, 5.5)
+netVisual_heatmap(cellchat,
+    measure = "weight",
+    color.use = mycolor$Cell_Type_2[cell_types],
+    color.heatmap = "Reds"
+)
+dev.off()
 
 # global communication patterns
 dir.create("Global_Communication_Patterns")
@@ -338,20 +357,23 @@ dev.off()
 nPatterns <- 5
 
 pdf("Global_Communication_Patterns/Heatmap.Pattern.Out.pdf", 8, 4)
-cellchat <- identifyCommunicationPatterns(cellchat, pattern = "outgoing", k = nPatterns)
+cellchat <- identifyCommunicationPatterns(cellchat,
+    color.use = mycolor$Cell_Type_2[cell_types], pattern = "outgoing", k = nPatterns
+)
 dev.off()
 
 pdf("Global_Communication_Patterns/River.Pattern.Out.pdf", 8, 4)
-netAnalysis_river(cellchat, pattern = "outgoing")
+netAnalysis_river(cellchat, color.use = mycolor$Cell_Type_2[cell_types], pattern = "outgoing")
 dev.off()
 
 pdf("Global_Communication_Patterns/Dot.Pattern.Out.pdf", 4.5, 15)
-netAnalysis_dot(cellchat, pattern = "outgoing") + coord_flip()
+netAnalysis_dot(cellchat, color.use = mycolor$Cell_Type_2[cell_types], pattern = "outgoing") + coord_flip()
 dev.off()
 
 pdf("Global_Communication_Patterns/Dot.Pattern.Out.Selected.pdf", 7, 3)
 netAnalysis_dot(cellchat,
     pattern = "outgoing",
+    color.use = mycolor$Cell_Type_2[cell_types],
     pathway.show = union(
         c(
             "COLLAGEN", "LAMININ", "APP", "MHC-I", "FN1", "THBS", "CCL", "SPP1", "ADGRE", "MHC-II",
@@ -371,20 +393,23 @@ dev.off()
 nPatterns <- 6
 
 pdf("Global_Communication_Patterns/Heatmap.Pattern.In.pdf", 8, 4)
-cellchat <- identifyCommunicationPatterns(cellchat, pattern = "incoming", k = nPatterns)
+cellchat <- identifyCommunicationPatterns(cellchat,
+    color.use = mycolor$Cell_Type_2[cell_types], pattern = "incoming", k = nPatterns
+)
 dev.off()
 
 pdf("Global_Communication_Patterns/River.Pattern.In.pdf", 8, 4)
-netAnalysis_river(cellchat, pattern = "incoming")
+netAnalysis_river(cellchat, color.use = mycolor$Cell_Type_2[cell_types], pattern = "incoming")
 dev.off()
 
 pdf("Global_Communication_Patterns/Dot.Pattern.In.pdf", 4.5, 15)
-netAnalysis_dot(cellchat, pattern = "incoming") + coord_flip()
+netAnalysis_dot(cellchat, color.use = mycolor$Cell_Type_2[cell_types], pattern = "incoming") + coord_flip()
 dev.off()
 
 pdf("Global_Communication_Patterns/Dot.Pattern.In.Selected.pdf", 7, 3)
 netAnalysis_dot(cellchat,
     pattern = "incoming",
+    color.use = mycolor$Cell_Type_2[cell_types],
     pathway.show = union(
         c(
             "COLLAGEN", "LAMININ", "APP", "MHC-I", "FN1", "THBS", "CCL", "SPP1", "ADGRE", "MHC-II",
@@ -407,6 +432,7 @@ table(pathways.selected %in% cellchat@netP$pathways)
 lapply(pathways.selected, function(pathway) {
     pdf(paste0("Pathway_Level/Circle.Network.Pathway.", pathway, ".pdf"), 6, 7)
     netVisual_aggregate(cellchat,
+        color.use = mycolor$Cell_Type_2[cell_types],
         signaling = pathway, layout = "circle",
     )
     dev.off()
@@ -414,6 +440,7 @@ lapply(pathways.selected, function(pathway) {
     pdf(paste0("Pathway_Level/Heatmap.Pathway.", pathway, ".pdf"), 6, 5.5)
     p <- netVisual_heatmap(cellchat,
         signaling = pathway,
+        color.use = mycolor$Cell_Type_2[cell_types],
         color.heatmap = "Reds"
     )
     plot(p)
@@ -422,6 +449,7 @@ lapply(pathways.selected, function(pathway) {
     pdf(paste0("Pathway_Level/Chord.Pathway.", pathway, ".pdf"), 8, 9)
     netVisual_aggregate(cellchat,
         signaling = pathway,
+        color.use = mycolor$Cell_Type_2[cell_types],
         layout = "chord"
     )
     dev.off()
@@ -429,6 +457,7 @@ lapply(pathways.selected, function(pathway) {
     pdf(paste0("Pathway_Level/Heatmap_signalingRole.", pathway, ".pdf"), 8, 3)
     netAnalysis_signalingRole_network(cellchat,
         signaling = pathway,
+        color.use = mycolor$Cell_Type_2[cell_types],
         width = 8, height = 2.5, font.size = 10
     )
     dev.off()
@@ -557,42 +586,58 @@ patchwork::wrap_plots(p1, p2, ncol = 2)
 dev.off()
 rm(p1, p2)
 
-pdf("Compare_Conditions/Circle.Network.Capsaicin.Count.pdf", 6, 7)
-netVisual_diffInteraction(cellchat.merge, comparison = c(1, 2), weight.scale = TRUE)
-dev.off()
-
-pdf("Compare_Conditions/Circle.Network.LC_6OHDA.Count.pdf", 6, 7)
-netVisual_diffInteraction(cellchat.merge, comparison = c(1, 3), weight.scale = TRUE)
-dev.off()
-
-pdf("Compare_Conditions/Circle.Network.Capsaicin.Weight.pdf", 6, 7)
-netVisual_diffInteraction(cellchat.merge, comparison = c(1, 2), weight.scale = TRUE, measure = "weight")
-dev.off()
-
-pdf("Compare_Conditions/Circle.Network.LC_6OHDA.Weight.pdf", 6, 7)
-netVisual_diffInteraction(cellchat.merge, comparison = c(1, 3), weight.scale = TRUE, measure = "weight")
-dev.off()
-
-pdf("Compare_Conditions/Circle.Network.Capsaicin.Weight.CAF.pdf", 6, 7)
+pdf("Compare_Conditions/Circle.Network.Capsaicin.Count.pdf", 8, 9)
 netVisual_diffInteraction(cellchat.merge,
+    color.use = mycolor$Cell_Type_2[cell_types], comparison = c(1, 2), weight.scale = TRUE
+)
+dev.off()
+
+pdf("Compare_Conditions/Circle.Network.LC_6OHDA.Count.pdf", 8, 9)
+netVisual_diffInteraction(cellchat.merge,
+    color.use = mycolor$Cell_Type_2[cell_types], comparison = c(1, 3), weight.scale = TRUE
+)
+dev.off()
+
+pdf("Compare_Conditions/Circle.Network.Capsaicin.Weight.pdf", 8, 9)
+netVisual_diffInteraction(cellchat.merge,
+    color.use = mycolor$Cell_Type_2[cell_types], comparison = c(1, 2), weight.scale = TRUE, measure = "weight"
+)
+dev.off()
+
+pdf("Compare_Conditions/Circle.Network.LC_6OHDA.Weight.pdf", 8, 9)
+netVisual_diffInteraction(cellchat.merge,
+    color.use = mycolor$Cell_Type_2[cell_types], comparison = c(1, 3), weight.scale = TRUE, measure = "weight"
+)
+dev.off()
+
+pdf("Compare_Conditions/Circle.Network.Capsaicin.Weight.CAF.pdf", 8, 9)
+netVisual_diffInteraction(cellchat.merge,
+    color.use = mycolor$Cell_Type_2[cell_types],
     weight.scale = TRUE, measure = "weight", comparison = c(1, 2),
     sources.use = c("iCAF", "myCAF", "apCAF")
 )
 dev.off()
 
-pdf("Compare_Conditions/Circle.Network.LC_6OHDA.Weight.CAF.pdf", 6, 7)
+pdf("Compare_Conditions/Circle.Network.LC_6OHDA.Weight.CAF.pdf", 8, 9)
 netVisual_diffInteraction(cellchat.merge,
+    color.use = mycolor$Cell_Type_2[cell_types],
     weight.scale = TRUE, measure = "weight", comparison = c(1, 3),
     sources.use = c("iCAF", "myCAF", "apCAF")
 )
 dev.off()
 
 pdf("Compare_Conditions/Heatmap.Capsaicin.Weight.pdf", 6, 5.5)
-netVisual_heatmap(cellchat.merge, comparison = c(1, 2), measure = "weight")
+netVisual_heatmap(cellchat.merge,
+    color.use = mycolor$Cell_Type_2[cell_types],
+    comparison = c(1, 2), measure = "weight"
+)
 dev.off()
 
 pdf("Compare_Conditions/Heatmap.LC_6OHDA.Weight.pdf", 6, 5.5)
-netVisual_heatmap(cellchat.merge, comparison = c(1, 3), measure = "weight")
+netVisual_heatmap(cellchat.merge,
+    color.use = mycolor$Cell_Type_2[cell_types],
+    comparison = c(1, 3), measure = "weight"
+)
 dev.off()
 
 num.link <- sapply(object.list, function(x) {
@@ -602,6 +647,7 @@ weight.MinMax <- c(min(num.link), max(num.link)) # control the dot size in the d
 p.list <- list()
 for (i in seq_along(object.list)) {
     p.list[[i]] <- netAnalysis_signalingRole_scatter(object.list[[i]],
+        color.use = mycolor$Cell_Type_2[cell_types],
         title = names(object.list)[i], weight.MinMax = weight.MinMax
     )
 }
