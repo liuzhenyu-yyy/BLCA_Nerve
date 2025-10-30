@@ -140,6 +140,28 @@ blca.obj <- readRDS("blca.obj.rds")
 # neurotrophic factor genes
 gene.selected <- c("Ngf", "Nrg1", "Bdnf", "Ntf3", "Gdnf", "Cntf", "Lif")
 
+pdf("Expression_Selected/Dot.Expression.Neuro_factor.pdf", 9, 4)
+DotPlot(blca.obj,
+    features = gene.selected %>% rev(), scale = FALSE,
+    group.by = "Cell_Type_2",
+) +
+    coord_flip() +
+    theme_classic() +
+    scale_color_viridis_c() +
+    theme(
+        axis.text.x = element_text(angle = 45, hjust = 1)
+    ) +
+    ggtitle("Expression of Neurotrophic Factors")
+dev.off()
+
+pdf("Expression_Selected/Violin.Expression.Neuro_factor.pdf", 16, 12)
+VlnPlot(blca.obj,
+    features = gene.selected, cols = mycolor$Cell_Type_2,
+    group.by = "Cell_Type_2",
+    pt.size = 0, ncol = 3
+)
+dev.off()
+
 plot.data <- DotPlot(blca.obj,
     features = gene.selected, scale = FALSE,
     group.by = "Condition", split.by = "Cell_Type_2", cols = rep(RColorBrewer::brewer.pal(9, "YlGnBu"), 5)
@@ -152,7 +174,7 @@ plot.data$Cell_Type_2 <- factor(plot.data$Cell_Type_2, levels = levels(blca.obj$
 plot.data <- plot.data[!is.na(plot.data$Cell_Type_2), ]
 colnames(plot.data)
 
-pdf("Expression_Selected/Dot.Expression.Neuro_factor.pdf", 10, 8)
+pdf("Expression_Selected/Dot.Expression.Neuro_factor.split.pdf", 10, 8)
 ggplot(plot.data, aes(x = features.plot, y = Condition)) +
     geom_point(aes(size = pct.exp, fill = avg.exp), shape = 21) +
     scale_fill_viridis_c() +
@@ -193,12 +215,33 @@ rm(plot.data, gene.selected)
 
 # growth factors
 gene.selected <- c(
-    "Egf", "Hbegf", # Epidermal Growth Factor (EGF) family
-    "Ngf", "Bdnf", # Nerve Growth Factor (NGF) / Neurotrophin family
-    "Igf1", "Igf2", # Insulin-like Growth Factor (IGF) family
-    "Fgf2", "Fgf7", # Fibroblast Growth Factor (FGF) family
-    "Vegfa" # Vascular Endothelial Growth Factor (VEGF) family
+    "Egf", "Hbegf", "Egfr", # Epidermal Growth Factor (EGF) family
+    "Ngf", "Bdnf", "Ntrk1", # Nerve Growth Factor (NGF) / Neurotrophin family
+    "Igf1", "Igf2", "Igf1r", # Insulin-like Growth Factor (IGF) family
+    "Fgf2", "Fgf7", "Fgfr1" # Fibroblast Growth Factor (FGF) family
 )
+
+pdf("Expression_Selected/Dot.Expression.Growth_factor.pdf", 9, 4.5)
+DotPlot(blca.obj,
+    features = gene.selected %>% rev(), scale = FALSE,
+    group.by = "Cell_Type_2",
+) +
+    coord_flip() +
+    theme_classic() +
+    scale_color_viridis_c() +
+    theme(
+        axis.text.x = element_text(angle = 45, hjust = 1)
+    ) +
+    ggtitle("Expression of Growth Factors")
+dev.off()
+
+pdf("Expression_Selected/Violin.Expression.Growth_factor.pdf", 16, 16)
+VlnPlot(blca.obj,
+    features = gene.selected, cols = mycolor$Cell_Type_2,
+    group.by = "Cell_Type_2",
+    pt.size = 0, ncol = 3
+)
+dev.off()
 
 plot.data <- DotPlot(blca.obj,
     features = gene.selected, scale = FALSE,
@@ -212,7 +255,7 @@ plot.data$Cell_Type_2 <- factor(plot.data$Cell_Type_2, levels = levels(blca.obj$
 plot.data <- plot.data[!is.na(plot.data$Cell_Type_2), ]
 colnames(plot.data)
 
-pdf("Expression_Selected/Dot.Expression.Growth_factor.pdf", 11, 8)
+pdf("Expression_Selected/Dot.Expression.Growth_factor.split.pdf", 11, 8)
 ggplot(plot.data, aes(x = features.plot, y = Condition)) +
     geom_point(aes(size = pct.exp, fill = avg.exp), shape = 21) +
     scale_fill_viridis_c() +
@@ -224,6 +267,7 @@ ggplot(plot.data, aes(x = features.plot, y = Condition)) +
     ) +
     ggtitle("Expression of Growth Factors")
 dev.off()
+rm(plot.data, gene.selected)
 
 # 2. Joint CellChat analysis ----
 ## 2.1. prepare CellChat object ----
