@@ -447,7 +447,7 @@ marker.genes[["Immune"]] <- c(
     "Cd68", "Cd163", "Mrc1", "Adgre1", # macrophage
     "Itgax", "Fcer1a", "Cst3", # DC
     "Siglech", "Flt3", # pDC
-    "Itgam", "Ly6g", "Ly6c2", # MDSC
+    "Sox5", "Ngf", "Il34", # MDSC
     "Cxcr2", "S100a8", "S100a9", "Trem1", # neutrophils
     "Kit", "Hdc", "Ms4a2", # mast cell
     "Mki67", "Top2a" # cycling
@@ -466,8 +466,10 @@ dev.off()
 rm(p)
 
 pdf("sub1_Immune/DotPlot.MarkerGenes.pdf", 9, 7)
-DotPlot(immune.obj, features = marker.genes[["Immune"]],
-    group.by = "seurat_clusters") +
+DotPlot(immune.obj,
+    features = marker.genes[["Immune"]],
+    group.by = "seurat_clusters"
+) +
     scale_color_viridis_c() +
     theme_classic() + coord_flip()
 dev.off()
@@ -475,14 +477,16 @@ dev.off()
 # undefined cluster markers
 marker.undefined.C9 <- FindMarkers(immune.obj,
     ident.1 = 9,
+    group.by = "seurat_clusters",
     min.pct = 0.25, logfc.threshold = 0.25,
     max.cells.per.ident = 1000
 )
 marker.undefined.C9 <- marker.undefined.C9[order(marker.undefined.C9$avg_log2FC, decreasing = TRUE), ]
-head(rownames(marker.undefined.C9), 50) # Neurogenic markers: Ngf, Ncam1, Sox5, Tenm4
+head(rownames(marker.undefined.C9), 50) # Neurogenic markers: Ngf, Ncam1, Sox5, Tenm4 MDSC?
 
 marker.undefined.C20 <- FindMarkers(immune.obj,
     ident.1 = c(20),
+    group.by = "seurat_clusters",
     min.pct = 0.25, logfc.threshold = 0.25,
     max.cells.per.ident = 1000
 )
@@ -491,11 +495,12 @@ head(rownames(marker.undefined.C20), 50) #  Macrophage markers: C1qa Ms4a7 Ccl8
 
 marker.undefined.C22 <- FindMarkers(immune.obj,
     ident.1 = 22,
+    group.by = "seurat_clusters",
     min.pct = 0.25, logfc.threshold = 0.25,
     max.cells.per.ident = 1000
 )
 marker.undefined.C22 <- marker.undefined.C22[order(marker.undefined.C22$avg_log2FC, decreasing = TRUE), ]
-head(rownames(marker.undefined.C22), 100) #  markers:
+head(rownames(marker.undefined.C22), 200) #  markers: CD8T + Myeloid, suppressed
 
 immune.obj$Cell_Type_2 <- "none"
 immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(12, 16))] <- "T_CD4"
@@ -503,7 +508,7 @@ immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(29))] <- "T_CD4_C
 immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(10, 33))] <- "Treg"
 immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(0, 1, 18, 21, 28))] <- "T_CD8"
 immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(11))] <- "T_CD8_Cycling"
-immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(22))] <- "T_CD8_Neutrophil_like"
+immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(22))] <- "T_CD8_Suppressed"
 immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(13))] <- "NK"
 immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(27))] <- "B"
 immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(3, 4, 6, 8, 14, 19, 20))] <- "Macrophage"
@@ -511,19 +516,19 @@ immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(7, 24))] <- "Mono
 immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(15, 23, 26, 32))] <- "cDC"
 immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(30))] <- "pDC"
 immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(2, 5, 25))] <- "Neutrophil"
-immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(9))] <- "Myeloid_Neuro_like"
+immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(9))] <- "MDSC_Neurogenic"
 immune.obj$Cell_Type_2[which(immune.obj$seurat_clusters %in% c(17, 31))] <- "Myeloid_Cycling"
 
 table(immune.obj$seurat_clusters, immune.obj$Cell_Type_2)
 
 immune.obj$Cell_Type_2 <- factor(immune.obj$Cell_Type_2, levels = c(
     "T_CD4", "T_CD4_Cycling", "Treg",
-    "T_CD8", "T_CD8_Cycling", "T_CD8_Neutrophil_like",
+    "T_CD8", "T_CD8_Cycling", "T_CD8_Suppressed",
     "NK",
     "B",
     "Macrophage", "Monocyte",
     "cDC", "pDC",
-    "Neutrophil", "Myeloid_Neuro_like", "Myeloid_Cycling"
+    "Neutrophil", "MDSC_Neurogenic", "Myeloid_Cycling"
 ))
 mycolor$Cell_Type_2 <- colorRampPalette(ggsci::pal_npg()(9))(length(levels(immune.obj$Cell_Type_2))) %>%
     setNames(levels(immune.obj$Cell_Type_2))
@@ -575,9 +580,9 @@ Idents(immune.obj) <- immune.obj$Cell_Type_2
 levels(Idents(immune.obj))
 
 gene.selected <- c(
-    "Cd3d", "Cd4", "Foxp3", "Cd8a", "Klrb1c", "Cd79a",
+    "Cd3d", "Cd4", "Foxp3", "Cd8a", "Prf1", "Arg2", "Klrb1c", "Cd79a",
     "Cd68", "Mrc1", "Lrc2", "Cst3", "Siglech", "S100a8", "Hdc",
-    "Ngf", "Dclk1", "Ncam1", "Mki67"
+    "Sox5", "Dclk1", "Ncam1", "Mki67"
 )
 
 pdf("sub1_Immune/DotPlot.Cell_Type_2.pdf", 7, 4)
@@ -1075,7 +1080,7 @@ marker.genes[["Stromal"]] <- c(
     "Prox1", "Pdpn", "Lyve1", # lymphatic endothelial
     "Cd34", # vascular
     "Col1a1", "Col1a2", "Dcn", # fibroblast
-    "Lum", "Pdgfra",  # iCAF
+    "Lum", "Pdgfra", # iCAF
     "Pdgfrb", "Rgs5", "Myh11", # myCAF
     "H2-Ab1", "H2-Eb1", "Cd74", # antigen-presenting CAF
     "Acta2", "Tagln", "Myl9", # smooth muscle
