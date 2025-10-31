@@ -302,7 +302,6 @@ lapply(names(gseGO.Capsaicin) %>% setdiff("T_CD8"), function(x) {
         labs(title = paste("GSEA - Capsaicin vs CTRL in ", x, sep = ""))
     plot(p)
     dev.off()
-
 })
 
 # gseaplot2 - CD4 T
@@ -319,7 +318,8 @@ p.list <- lapply(term.selected, function(term) {
         title = paste(
             gseGO.Capsaicin$T_CD4@result[term, ]$Description, "\n",
             "NES =", round(gseGO.Capsaicin$T_CD4@result[term, ]$NES, 2),
-            ", p.adj =", signif(gseGO.Capsaicin$T_CD4@result[term, ]$p.adjust, 2)),
+            ", p.adj =", signif(gseGO.Capsaicin$T_CD4@result[term, ]$p.adjust, 2)
+        ),
     )
 })
 length(p.list)
@@ -344,8 +344,9 @@ p.list <- lapply(term.selected, function(term) {
         title = paste(
             gseGO.Capsaicin$Neutrophil@result[term, ]$Description, "\n",
             "NES =", round(gseGO.Capsaicin$Neutrophil@result[term, ]$NES, 2),
-            ", p.adj =", signif(gseGO.Capsaicin$Neutrophil@result[term, ]$p.adjust, 2)),
-        )
+            ", p.adj =", signif(gseGO.Capsaicin$Neutrophil@result[term, ]$p.adjust, 2)
+        ),
+    )
 })
 length(p.list)
 
@@ -361,16 +362,21 @@ rm(p.list, term.selected, i)
 library(ProjecTILs)
 
 table(immune.obj$Cell_Type_2)
-T.obj <- subset(immune.obj, subset = Cell_Type_2 %in% c("T_CD4", "T_CD4_Cycling", "Treg", "T_CD8", "T_CD8_Cycling"))
+T.obj <- subset(immune.obj,
+    subset = Cell_Type_2 %in% c("T_CD4", "T_CD4_Cycling", "Treg", "T_CD8", "T_CD8_Cycling", "T_CD8_Suppressed")
+)
 rm(immune.obj)
 
 ref <- load.reference.map()
 
 T.obj.projected <- Run.ProjecTILs(T.obj,
-    ref = ref, filter.cells = FALSE,
+    ref = ref, filter.cells = TRUE,
     split.by = "Sample",
+    k = 10,
     ncores = 20
 )
+
+table(T.obj.projected$functional.cluster, T.obj.projected$Cell_Type_2)
 
 levels(ref$functional.cluster)
 mycolor$T_subtype <- c(
@@ -475,6 +481,27 @@ gene.selected <- c(
     "Pdcd1", "Lag3", "Havcr2", "Tigit", "Ctla4", "Tox" # exhaustion
 )
 
+Idents(T.obj)
+pdf("Vln.T_state.marker.pdf", 12, 9)
+VlnPlot(T.obj,
+    idents = names(mycolor$T_subtype),
+    features = gene.selected,
+    group.by = "Condition",
+    pt.size = 0, ncol = 4, cols = mycolor$Condition
+)
+dev.off()
+
+table(T.obj$T_state, T.obj$Condition)
+Idents(T.obj) <- T.obj$T_state
+pdf("Vln.T_state.marker.split.pdf", 16, 12)
+VlnPlot(T.obj,
+    idents = names(mycolor$T_subtype),
+    features = gene.selected,
+    split.by = "Condition",
+    pt.size = 0, ncol = 4, cols = mycolor$Condition[c(3, 1, 2)]
+)
+dev.off()
+
 plot.data <- DotPlot(T.obj,
     features = gene.selected,
     group.by = "Condition"
@@ -483,7 +510,7 @@ plot.data$group <- rep(rep(c("Treg(Supression)", "Cytotoxicity", "Exhaustion"), 
     times = 3
 )
 
-pdf("Dot.T_state.markers.Condition.pdf", 7, 6)
+pdf("Dot.T_state.markers.Condition.pdf", 7, 5)
 patchwork::wrap_plots(
     ggplot(plot.data, aes(x = features.plot, y = id)) +
         geom_point(aes(size = pct.exp, fill = avg.exp), shape = 21) +
@@ -654,16 +681,6 @@ pdf("Dot.T_state.Signatures.Condition.Split2.pdf", 10, 6.5)
 patchwork::wrap_plots(p.list, ncol = 3)
 dev.off()
 rm(plot.data, state, p.list)
-
-Idents(T.obj)
-pdf("Vln.Exhausion.pdf", 12, 7)
-VlnPlot(T.obj,
-    idents = names(mycolor$T_subtype),
-    features = programs$Tcell.exhaustion,
-    group.by = "T_state", split.by = "Condition",
-    pt.size = 0, ncol = 3, cols = mycolor$Condition
-)
-dev.off()
 
 # save data ----
 gc()
