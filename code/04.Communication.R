@@ -9,7 +9,7 @@ library(CellChat)
 load("../01.Cell_Type/01.Cell_Type.RData")
 rm(DEG.cancer.conditions, DEG.cancer.clusters, DEG.cancer.states, data.dir, marker.genes)
 
-load("04.Communication.RData")
+# load("04.Communication.RData")
 
 # 1. Integrate cell types ----
 ## 1.1. merge cell types from sub-objects ----
@@ -41,14 +41,14 @@ blca.obj$Cell_Type_2 <- factor(
     levels = intersect(names(mycolor$Cell_Type_2), unique(blca.obj$Cell_Type_2))
 )
 
-pdf("UMAP.Cell_Type_2.pdf", 9, 6)
+pdf("UMAP.Cell_Type_2.pdf", 7, 3.6)
 DimPlot(blca.obj, reduction = "umap", group.by = "Cell_Type_2", label = TRUE) +
     scale_color_manual(values = mycolor$Cell_Type_2) +
     theme_classic() +
     labs(title = "UMAP plot colored by Cell_Type_2")
 dev.off()
 
-pdf("UMAP.Cell_Type_2.NoLabel.pdf", 9, 6)
+pdf("UMAP.Cell_Type_2.NoLabel.pdf", 7, 3.6)
 DimPlot(blca.obj, reduction = "umap", group.by = "Cell_Type_2", label = FALSE) +
     scale_color_manual(values = mycolor$Cell_Type_2) +
     theme_classic() +
@@ -140,6 +140,23 @@ blca.obj <- readRDS("blca.obj.rds")
 # neurotrophic factor genes
 gene.selected <- c("Ngf", "Nrg1", "Bdnf", "Ntf3", "Gdnf", "Cntf", "Lif")
 
+pdf("Expression_Selected/Violin.Expression.Neuro_factor.pdf", 16, 12)
+VlnPlot(blca.obj,
+    features = gene.selected, cols = mycolor$Cell_Type_2,
+    group.by = "Cell_Type_2",
+    pt.size = 0, ncol = 3
+)
+dev.off()
+
+Idents(blca.obj) <- blca.obj$Cell_Type_2
+pdf("Expression_Selected/Violin.Expression.Neuro_factor.split.pdf", 20, 15)
+VlnPlot(blca.obj,
+    features = gene.selected, split.by = "Condition",
+    cols = mycolor$Condition[c(3, 1, 2)],
+    pt.size = 0, ncol = 2
+)
+dev.off()
+
 pdf("Expression_Selected/Dot.Expression.Neuro_factor.pdf", 9, 4)
 DotPlot(blca.obj,
     features = gene.selected %>% rev(), scale = FALSE,
@@ -152,14 +169,6 @@ DotPlot(blca.obj,
         axis.text.x = element_text(angle = 45, hjust = 1)
     ) +
     ggtitle("Expression of Neurotrophic Factors")
-dev.off()
-
-pdf("Expression_Selected/Violin.Expression.Neuro_factor.pdf", 16, 12)
-VlnPlot(blca.obj,
-    features = gene.selected, cols = mycolor$Cell_Type_2,
-    group.by = "Cell_Type_2",
-    pt.size = 0, ncol = 3
-)
 dev.off()
 
 plot.data <- DotPlot(blca.obj,
@@ -221,6 +230,22 @@ gene.selected <- c(
     "Fgf2", "Fgf7", "Fgfr1" # Fibroblast Growth Factor (FGF) family
 )
 
+pdf("Expression_Selected/Violin.Expression.Growth_factor.pdf", 16, 16)
+VlnPlot(blca.obj,
+    features = gene.selected, cols = mycolor$Cell_Type_2,
+    group.by = "Cell_Type_2",
+    pt.size = 0, ncol = 3
+)
+dev.off()
+
+pdf("Expression_Selected/Violin.Expression.Neuro_factor.split.pdf", 20, 15)
+VlnPlot(blca.obj,
+    features = gene.selected, split.by = "Condition",
+    cols = mycolor$Condition[c(3, 1, 2)],
+    pt.size = 0, ncol = 2
+)
+dev.off()
+
 pdf("Expression_Selected/Dot.Expression.Growth_factor.pdf", 9, 4.5)
 DotPlot(blca.obj,
     features = gene.selected %>% rev(), scale = FALSE,
@@ -233,14 +258,6 @@ DotPlot(blca.obj,
         axis.text.x = element_text(angle = 45, hjust = 1)
     ) +
     ggtitle("Expression of Growth Factors")
-dev.off()
-
-pdf("Expression_Selected/Violin.Expression.Growth_factor.pdf", 16, 16)
-VlnPlot(blca.obj,
-    features = gene.selected, cols = mycolor$Cell_Type_2,
-    group.by = "Cell_Type_2",
-    pt.size = 0, ncol = 3
-)
 dev.off()
 
 plot.data <- DotPlot(blca.obj,
@@ -271,9 +288,10 @@ rm(plot.data, gene.selected)
 
 # 2. Joint CellChat analysis ----
 ## 2.1. prepare CellChat object ----
+table(blca.obj$Cell_Type_2) %>% sort()
 cell_types <- levels(blca.obj$Cell_Type_2) %>%
     grep("Cycling", ., invert = TRUE, value = TRUE) %>%
-    setdiff(c("Adipocyte", "Smooth_Muscle"))
+    setdiff(c("Adipocyte", "Schwann", "Smooth_Muscle"))
 table(blca.obj$Cell_Type_2)[cell_types] %>% sort()
 
 blca.sub <- subset(blca.obj, Cell_Type_2 %in% cell_types)
@@ -288,12 +306,14 @@ cellchat@DB <- CellChatDB.mouse
 # filter genes & LR pairs
 cellchat <- subsetData(cellchat)
 cellchat <- identifyOverExpressedGenes(cellchat)
-cellchat <- identifyOverExpressedInteractions(cellchat) # 3212 variable L-R pairs
+cellchat <- identifyOverExpressedInteractions(cellchat) # 3220 variable L-R pairs
 
 ## 2.2. infer communication network ----
 # communication probability
 cellchat <- computeCommunProb(cellchat, type = "triMean")
 cellchat <- filterCommunication(cellchat, min.cells = 10)
+saveRDS(blca.obj, file = "blca.obj.rds")
+rm(blca.obj)
 
 # pathway-level communication
 cellchat <- computeCommunProbPathway(cellchat)
@@ -388,9 +408,15 @@ dir.create("Global_Communication_Patterns")
 library(NMF)
 library(ggalluvial)
 
+cellchat@netP$pathways %>% grep("GF", ., value = TRUE)
+cellchat@netP$pathways %>% grep("IL", ., value = TRUE)
+cellchat@netP$pathways %>% grep("IFN", ., value = TRUE)
+
 pathways.selected <- c(
-    "TGFb", "VEGF", "EGF", "CXCL", "IL1", "IL2",
-    "MHC-I", "MHC-II", "PD-L1", "PDL2", "COLLAGEN", "LAMININ"
+    "TGFb", "VEGF", "EGF", "IGF", "PDGF", "FGF",
+    "CXCL", "CCL", "IL1", "IL2", "IL6", "FASLG", "MIF",
+    "MHC-I", "MHC-II", "PD-L1", "PDL2",
+    "COLLAGEN", "LAMININ"
 )
 
 ## Outgoing
@@ -398,7 +424,7 @@ pdf("Global_Communication_Patterns/Elbow.Outgoing.pdf", 6, 2.5)
 selectK(cellchat, pattern = "outgoing")
 dev.off()
 
-nPatterns <- 5
+nPatterns <- 6
 
 pdf("Global_Communication_Patterns/Heatmap.Pattern.Out.pdf", 8, 4)
 cellchat <- identifyCommunicationPatterns(cellchat,
@@ -414,19 +440,12 @@ pdf("Global_Communication_Patterns/Dot.Pattern.Out.pdf", 4.5, 15)
 netAnalysis_dot(cellchat, color.use = mycolor$Cell_Type_2[cell_types], pattern = "outgoing") + coord_flip()
 dev.off()
 
-pdf("Global_Communication_Patterns/Dot.Pattern.Out.Selected.pdf", 7, 3)
+pdf("Global_Communication_Patterns/Dot.Pattern.Out.Selected.pdf", 5.5, 4)
 netAnalysis_dot(cellchat,
     pattern = "outgoing",
     color.use = mycolor$Cell_Type_2[cell_types],
-    pathway.show = union(
-        c(
-            "COLLAGEN", "LAMININ", "APP", "MHC-I", "FN1", "THBS", "CCL", "SPP1", "ADGRE", "MHC-II",
-            "CypA", "CD80", "PTN", "CD86", "MIF", "GALECTIN", "CD45", "JAM", "PECAM1", "TENASCIN", "SEMA3"
-        ),
-        pathways.selected
-    ) %>%
-        rev()
-)
+    pathway.show = pathways.selected %>% rev()
+) + coord_flip()
 dev.off()
 
 ## incoming
@@ -450,31 +469,22 @@ pdf("Global_Communication_Patterns/Dot.Pattern.In.pdf", 4.5, 15)
 netAnalysis_dot(cellchat, color.use = mycolor$Cell_Type_2[cell_types], pattern = "incoming") + coord_flip()
 dev.off()
 
-pdf("Global_Communication_Patterns/Dot.Pattern.In.Selected.pdf", 7, 3)
+pdf("Global_Communication_Patterns/Dot.Pattern.In.Selected.pdf", 5.5, 4)
 netAnalysis_dot(cellchat,
     pattern = "incoming",
     color.use = mycolor$Cell_Type_2[cell_types],
-    pathway.show = union(
-        c(
-            "COLLAGEN", "LAMININ", "APP", "MHC-I", "FN1", "THBS", "CCL", "SPP1", "ADGRE", "MHC-II",
-            "CypA", "CD80", "PTN", "CD86", "MIF", "GALECTIN", "CD45", "JAM", "PECAM1", "TENASCIN", "SEMA3"
-        ),
-        pathways.selected
-    ) %>%
-        rev()
-)
+    pathway.show = pathways.selected %>% rev()
+) + coord_flip()
 dev.off()
 rm(nPatterns)
 
 ## 2.4. pathway level analysis ----
 dir.create("Pathway_Level")
-cellchat@netP$pathways %>%
-    grep("GF", ., value = TRUE)
 
 table(pathways.selected %in% cellchat@netP$pathways)
 
 lapply(pathways.selected, function(pathway) {
-    pdf(paste0("Pathway_Level/Circle.Network.Pathway.", pathway, ".pdf"), 6, 7)
+    pdf(paste0("Pathway_Level/Circle.Network.Pathway.", pathway, ".pdf"), 6.5, 7)
     netVisual_aggregate(cellchat,
         color.use = mycolor$Cell_Type_2[cell_types],
         signaling = pathway, layout = "circle",
@@ -508,11 +518,15 @@ lapply(pathways.selected, function(pathway) {
 })
 rm(p)
 
-## 2.5. cell type level analysis ----
+## 2.5. L-R pair level analysis ----
 dir.create("LR_Pairs_Level")
+dir.create("LR_Pairs_Level/All")
+dir.create("LR_Pairs_Level/Selected")
+
 cell_types
 
 lapply(cell_types, function(cell_type) {
+    all
     p <- netVisual_bubble(cellchat,
         sources.use = cell_type,
         remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE
@@ -528,7 +542,7 @@ lapply(cell_types, function(cell_type) {
             strip.text.y = element_text(angle = 0)
         )
     height <- length(unique(p$data$interaction_name)) / 6 + 1
-    pdf(paste0("LR_Pairs_Level/Bubble.", cell_type, "_Outgoing.pdf"), 7, height)
+    pdf(paste0("LR_Pairs_Level/All/Bubble.", cell_type, "_Outgoing.pdf"), 7, height)
     plot(p)
     dev.off()
 
@@ -547,7 +561,48 @@ lapply(cell_types, function(cell_type) {
             strip.text.y = element_text(angle = 0)
         )
     height <- length(unique(p$data$interaction_name)) / 6 + 1
-    pdf(paste0("LR_Pairs_Level/Bubble.", cell_type, "_Incoming.pdf"), 7, height)
+    pdf(paste0("LR_Pairs_Level/All/Bubble.", cell_type, "_Incoming.pdf"), 7, height)
+    plot(p)
+    dev.off()
+
+    # selected
+    p <- netVisual_bubble(cellchat,
+        sources.use = cell_type,
+        signaling = pathways.selected %>% setdiff(c("COLLAGEN", "LAMININ")),
+        remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE
+    ) +
+        facet_grid(
+            cols = vars(source),
+            rows = vars(pathway_name), scales = "free", space = "free"
+        ) +
+        theme(
+            panel.grid.major = element_line(color = "gray90", size = 0.25),
+            strip.background = element_rect(fill = "gray80"),
+            strip.text = element_text(colour = "black"),
+            strip.text.y = element_text(angle = 0)
+        )
+    height <- length(unique(p$data$interaction_name)) / 5.5 + 2
+    pdf(paste0("LR_Pairs_Level/Selected/Bubble.", cell_type, "_Outgoing.pdf"), 6, height)
+    plot(p)
+    dev.off()
+
+    p <- netVisual_bubble(cellchat,
+        targets.use = cell_type,
+        signaling = pathways.selected %>% setdiff(c("COLLAGEN", "LAMININ")),
+        remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE
+    ) +
+        facet_grid(
+            cols = vars(target),
+            rows = vars(pathway_name), scales = "free", space = "free"
+        ) +
+        theme(
+            panel.grid.major = element_line(color = "gray90", size = 0.25),
+            strip.background = element_rect(fill = "gray80"),
+            strip.text = element_text(colour = "black"),
+            strip.text.y = element_text(angle = 0)
+        )
+    height <- length(unique(p$data$interaction_name)) / 5.5 + 2
+    pdf(paste0("LR_Pairs_Level/Selected/Bubble.", cell_type, "_Incoming.pdf"), 6, height)
     plot(p)
     dev.off()
 })
@@ -748,7 +803,7 @@ rm(p1, p2)
 
 dir.create("Compare_Conditions/Pathway_Level")
 
-lapply(pathways.selected, function(pathways.show) {
+lapply(pathways.selected %>% setdiff(c("FGF", "IL6")), function(pathways.show) {
     weight.max <- getMaxWeight(object.list, slot.name = c("netP"), attribute = pathways.show)
 
     pdf(paste0("Compare_Conditions/Pathway_Level/Circle.Network.Pathway.", pathways.show, ".pdf"), 12, 14)
@@ -824,8 +879,9 @@ rm(features.name, net.Capsaicin, pos.dataset)
 lapply(cell_types, function(cell_type) {
     # Increased incoming
     pairLR.use <- net.Capsaicin.up %>%
+        # filter(pathway_name %in% setdiff(pathways.selected, c("COLLAGEN", "LAMININ")), ) %>%
         filter(target == cell_type) %>%
-        select(interaction_name)
+        dplyr::select(interaction_name)
     if (nrow(pairLR.use) > 0) {
         p <- netVisual_bubble(cellchat.merge,
             sources.use = cell_types,
@@ -853,8 +909,9 @@ lapply(cell_types, function(cell_type) {
 
     # Decreased incoming
     pairLR.use <- net.Capsaicin.down %>%
+        # filter(pathway_name %in% setdiff(pathways.selected, c("COLLAGEN", "LAMININ")), ) %>%
         filter(target == cell_type) %>%
-        select(interaction_name)
+        dplyr::select(interaction_name)
     if (nrow(pairLR.use) > 0) {
         p <- netVisual_bubble(cellchat.merge,
             sources.use = cell_types,
@@ -882,8 +939,9 @@ lapply(cell_types, function(cell_type) {
 
     # Increased outgoing
     pairLR.use <- net.Capsaicin.up %>%
+        # filter(pathway_name %in% setdiff(pathways.selected, c("COLLAGEN", "LAMININ")), ) %>%
         filter(source == cell_type) %>%
-        select(interaction_name)
+        dplyr::select(interaction_name)
     if (nrow(pairLR.use) > 0) {
         p <- netVisual_bubble(cellchat.merge,
             sources.use = cell_type,
@@ -911,8 +969,9 @@ lapply(cell_types, function(cell_type) {
 
     # Decreased outgoing
     pairLR.use <- net.Capsaicin.down %>%
+        # filter(pathway_name %in% setdiff(pathways.selected, c("COLLAGEN", "LAMININ")), ) %>%
         filter(source == cell_type) %>%
-        select(interaction_name)
+        dplyr::select(interaction_name)
     if (nrow(pairLR.use) > 0) {
         p <- netVisual_bubble(cellchat.merge,
             sources.use = cell_type,
@@ -979,7 +1038,7 @@ lapply(cell_types, function(cell_type) {
     # Increased incoming
     pairLR.use <- net.LC_6OHDA.up %>%
         filter(target == cell_type) %>%
-        select(interaction_name)
+        dplyr::select(interaction_name)
     if (nrow(pairLR.use) > 0) {
         p <- netVisual_bubble(cellchat.merge,
             sources.use = cell_types,
@@ -1008,7 +1067,7 @@ lapply(cell_types, function(cell_type) {
     # Decreased incoming
     pairLR.use <- net.LC_6OHDA.down %>%
         filter(target == cell_type) %>%
-        select(interaction_name)
+        dplyr::select(interaction_name)
     if (nrow(pairLR.use) > 0) {
         p <- netVisual_bubble(cellchat.merge,
             sources.use = cell_types,
@@ -1037,7 +1096,7 @@ lapply(cell_types, function(cell_type) {
     # Increased outgoing
     pairLR.use <- net.LC_6OHDA.up %>%
         filter(source == cell_type) %>%
-        select(interaction_name)
+        dplyr::select(interaction_name)
     if (nrow(pairLR.use) > 0) {
         p <- netVisual_bubble(cellchat.merge,
             sources.use = cell_type,
@@ -1066,7 +1125,7 @@ lapply(cell_types, function(cell_type) {
     # Decreased outgoing
     pairLR.use <- net.LC_6OHDA.down %>%
         filter(source == cell_type) %>%
-        select(interaction_name)
+        dplyr::select(interaction_name)
     if (nrow(pairLR.use) > 0) {
         p <- netVisual_bubble(cellchat.merge,
             sources.use = cell_type,
