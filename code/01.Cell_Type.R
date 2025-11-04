@@ -1190,7 +1190,7 @@ levels(Idents(stromal.obj))
 
 gene.selected <- c(
     "Cdh5", "Pecam1", "Prox1", "Lyve1", "Col1a2", "Lum",
-    "Pdgfra", "Rgs5", "H2-Ab1", "H2-Eb1", "Acta2", "Myh11", "Sox10", "S100b",
+    "Pdgfra", "Rgs5", "H2-Ab1", "Cd74", "Acta2", "Myh11", "Sox10", "S100b",
     "Adipoq", "Pck1"
 )
 

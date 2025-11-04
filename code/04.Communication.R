@@ -226,11 +226,14 @@ rm(plot.data, gene.selected)
 gene.selected <- c(
     "Egf", "Hbegf", "Egfr", # Epidermal Growth Factor (EGF) family
     "Ngf", "Bdnf", "Ntrk1", # Nerve Growth Factor (NGF) / Neurotrophin family
-    "Igf1", "Igf2", "Igf1r", # Insulin-like Growth Factor (IGF) family
-    "Fgf2", "Fgf7", "Fgfr1" # Fibroblast Growth Factor (FGF) family
+    "Igf1", "Igf2", "Igf1r", "Igf2r", # Insulin-like Growth Factor (IGF) family
+    "Fgf1", "Fgf2", "Fgf7", "Fgf13", "Fgfr1", "Fgfr2", # Fibroblast Growth Factor (FGF) family
+    "Tgfa", "Tgfb1", "Tgfb2", "Tgfb3", "Tgfbr1", "Tgfbr2" # Transforming Growth Factor (TGF) family
 )
 
-pdf("Expression_Selected/Violin.Expression.Growth_factor.pdf", 16, 16)
+grep("gf", rownames(blca.obj), value = TRUE) %>% sort()
+
+pdf("Expression_Selected/Violin.Expression.Growth_factor.pdf", 16, 28)
 VlnPlot(blca.obj,
     features = gene.selected, cols = mycolor$Cell_Type_2,
     group.by = "Cell_Type_2",
@@ -238,7 +241,7 @@ VlnPlot(blca.obj,
 )
 dev.off()
 
-pdf("Expression_Selected/Violin.Expression.Neuro_factor.split.pdf", 20, 15)
+pdf("Expression_Selected/Violin.Expression.Growth_factor.split.pdf", 20, 35)
 VlnPlot(blca.obj,
     features = gene.selected, split.by = "Condition",
     cols = mycolor$Condition[c(3, 1, 2)],
@@ -246,7 +249,7 @@ VlnPlot(blca.obj,
 )
 dev.off()
 
-pdf("Expression_Selected/Dot.Expression.Growth_factor.pdf", 9, 4.5)
+pdf("Expression_Selected/Dot.Expression.Growth_factor.pdf", 9, 6)
 DotPlot(blca.obj,
     features = gene.selected %>% rev(), scale = FALSE,
     group.by = "Cell_Type_2",
@@ -272,11 +275,11 @@ plot.data$Cell_Type_2 <- factor(plot.data$Cell_Type_2, levels = levels(blca.obj$
 plot.data <- plot.data[!is.na(plot.data$Cell_Type_2), ]
 colnames(plot.data)
 
-pdf("Expression_Selected/Dot.Expression.Growth_factor.split.pdf", 11, 8)
+pdf("Expression_Selected/Dot.Expression.Growth_factor.split.pdf", 20, 12)
 ggplot(plot.data, aes(x = features.plot, y = Condition)) +
     geom_point(aes(size = pct.exp, fill = avg.exp), shape = 21) +
     scale_fill_viridis_c() +
-    facet_wrap(~Cell_Type_2, scales = "free_x", ncol = 5) +
+    facet_wrap(~Cell_Type_2, scales = "free_x", ncol = 4) +
     theme_classic() +
     labs(x = "Gene", y = "Condition") +
     theme(
@@ -526,49 +529,49 @@ dir.create("LR_Pairs_Level/Selected")
 cell_types
 
 lapply(cell_types, function(cell_type) {
-    all
-    p <- netVisual_bubble(cellchat,
-        sources.use = cell_type,
-        remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE
-    ) +
-        facet_grid(
-            cols = vars(source),
-            rows = vars(pathway_name), scales = "free", space = "free"
-        ) +
-        theme(
-            panel.grid.major = element_line(color = "gray90", size = 0.25),
-            strip.background = element_rect(fill = "gray80"),
-            strip.text = element_text(colour = "black"),
-            strip.text.y = element_text(angle = 0)
-        )
-    height <- length(unique(p$data$interaction_name)) / 6 + 1
-    pdf(paste0("LR_Pairs_Level/All/Bubble.", cell_type, "_Outgoing.pdf"), 7, height)
-    plot(p)
-    dev.off()
+    # all
+    # p <- netVisual_bubble(cellchat,
+    #     sources.use = cell_type,
+    #     remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE
+    # ) +
+    #     facet_grid(
+    #         cols = vars(source),
+    #         rows = vars(pathway_name), scales = "free", space = "free"
+    #     ) +
+    #     theme(
+    #         panel.grid.major = element_line(color = "gray90", size = 0.25),
+    #         strip.background = element_rect(fill = "gray80"),
+    #         strip.text = element_text(colour = "black"),
+    #         strip.text.y = element_text(angle = 0)
+    #     )
+    # height <- length(unique(p$data$interaction_name)) / 6 + 1
+    # pdf(paste0("LR_Pairs_Level/All/Bubble.", cell_type, "_Outgoing.pdf"), 7, height)
+    # plot(p)
+    # dev.off()
 
-    p <- netVisual_bubble(cellchat,
-        targets.use = cell_type,
-        remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE
-    ) +
-        facet_grid(
-            cols = vars(target),
-            rows = vars(pathway_name), scales = "free", space = "free"
-        ) +
-        theme(
-            panel.grid.major = element_line(color = "gray90", size = 0.25),
-            strip.background = element_rect(fill = "gray80"),
-            strip.text = element_text(colour = "black"),
-            strip.text.y = element_text(angle = 0)
-        )
-    height <- length(unique(p$data$interaction_name)) / 6 + 1
-    pdf(paste0("LR_Pairs_Level/All/Bubble.", cell_type, "_Incoming.pdf"), 7, height)
-    plot(p)
-    dev.off()
+    # p <- netVisual_bubble(cellchat,
+    #     targets.use = cell_type,
+    #     remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE
+    # ) +
+    #     facet_grid(
+    #         cols = vars(target),
+    #         rows = vars(pathway_name), scales = "free", space = "free"
+    #     ) +
+    #     theme(
+    #         panel.grid.major = element_line(color = "gray90", size = 0.25),
+    #         strip.background = element_rect(fill = "gray80"),
+    #         strip.text = element_text(colour = "black"),
+    #         strip.text.y = element_text(angle = 0)
+    #     )
+    # height <- length(unique(p$data$interaction_name)) / 6 + 1
+    # pdf(paste0("LR_Pairs_Level/All/Bubble.", cell_type, "_Incoming.pdf"), 7, height)
+    # plot(p)
+    # dev.off()
 
     # selected
     p <- netVisual_bubble(cellchat,
         sources.use = cell_type,
-        signaling = pathways.selected %>% setdiff(c("COLLAGEN", "LAMININ")),
+        signaling = pathways.selected %>% setdiff(c("COLLAGEN", "LAMININ", "MHC-I", "MHC-II")),
         remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE
     ) +
         facet_grid(
@@ -588,7 +591,7 @@ lapply(cell_types, function(cell_type) {
 
     p <- netVisual_bubble(cellchat,
         targets.use = cell_type,
-        signaling = pathways.selected %>% setdiff(c("COLLAGEN", "LAMININ")),
+        signaling = pathways.selected %>% setdiff(c("COLLAGEN", "LAMININ", "MHC-I", "MHC-II")),
         remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE
     ) +
         facet_grid(
@@ -748,7 +751,7 @@ for (i in seq_along(object.list)) {
     p.list[[i]] <- netAnalysis_signalingRole_scatter(object.list[[i]],
         color.use = mycolor$Cell_Type_2[cell_types],
         title = names(object.list)[i], weight.MinMax = weight.MinMax
-    )
+    ) + lims(x = c(0, 52), y = c(0, 29))
 }
 
 pdf("Compare_Conditions/Scatter.In_out.Compare.pdf", 12, 3.5)
@@ -841,6 +844,14 @@ lapply(pathways.selected %>% setdiff(c("FGF", "IL6")), function(pathways.show) {
     dev.off()
 })
 rm(pathways.show, ht, i, weight.max)
+
+DotPlot(blca.obj,
+    features = c("Fas", "Faslg"),
+    scale = FALSE,
+    group.by = "Condition",
+    split.by = "Cell_Type_2",
+    cols = rep(RColorBrewer::brewer.pal(9, "YlGnBu"), 5)
+)
 
 ## 3.4. altered interactions (Capsaicin) ----
 dir.create("Compare_Conditions/LR_Pairs_Capsaicin")
