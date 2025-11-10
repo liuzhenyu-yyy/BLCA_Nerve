@@ -507,43 +507,43 @@ cell_types
 
 lapply(cell_types, function(cell_type) {
     # all
-    # p <- netVisual_bubble(cellchat,
-    #     sources.use = cell_type,
-    #     remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE
-    # ) +
-    #     facet_grid(
-    #         cols = vars(source),
-    #         rows = vars(pathway_name), scales = "free", space = "free"
-    #     ) +
-    #     theme(
-    #         panel.grid.major = element_line(color = "gray90", size = 0.25),
-    #         strip.background = element_rect(fill = "gray80"),
-    #         strip.text = element_text(colour = "black"),
-    #         strip.text.y = element_text(angle = 0)
-    #     )
-    # height <- length(unique(p$data$interaction_name)) / 6 + 1
-    # pdf(paste0("LR_Pairs_Level/All/Bubble.", cell_type, "_Outgoing.pdf"), 7, height)
-    # plot(p)
-    # dev.off()
+    p <- netVisual_bubble(cellchat,
+        sources.use = cell_type,
+        remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE
+    ) +
+        facet_grid(
+            cols = vars(source),
+            rows = vars(pathway_name), scales = "free", space = "free"
+        ) +
+        theme(
+            panel.grid.major = element_line(color = "gray90", size = 0.25),
+            strip.background = element_rect(fill = "gray80"),
+            strip.text = element_text(colour = "black"),
+            strip.text.y = element_text(angle = 0)
+        )
+    height <- length(unique(p$data$interaction_name)) / 6 + 1
+    pdf(paste0("LR_Pairs_Level/All/Bubble.", cell_type, "_Outgoing.pdf"), 7, height)
+    plot(p)
+    dev.off()
 
-    # p <- netVisual_bubble(cellchat,
-    #     targets.use = cell_type,
-    #     remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE
-    # ) +
-    #     facet_grid(
-    #         cols = vars(target),
-    #         rows = vars(pathway_name), scales = "free", space = "free"
-    #     ) +
-    #     theme(
-    #         panel.grid.major = element_line(color = "gray90", size = 0.25),
-    #         strip.background = element_rect(fill = "gray80"),
-    #         strip.text = element_text(colour = "black"),
-    #         strip.text.y = element_text(angle = 0)
-    #     )
-    # height <- length(unique(p$data$interaction_name)) / 6 + 1
-    # pdf(paste0("LR_Pairs_Level/All/Bubble.", cell_type, "_Incoming.pdf"), 7, height)
-    # plot(p)
-    # dev.off()
+    p <- netVisual_bubble(cellchat,
+        targets.use = cell_type,
+        remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE
+    ) +
+        facet_grid(
+            cols = vars(target),
+            rows = vars(pathway_name), scales = "free", space = "free"
+        ) +
+        theme(
+            panel.grid.major = element_line(color = "gray90", size = 0.25),
+            strip.background = element_rect(fill = "gray80"),
+            strip.text = element_text(colour = "black"),
+            strip.text.y = element_text(angle = 0)
+        )
+    height <- length(unique(p$data$interaction_name)) / 6 + 1
+    pdf(paste0("LR_Pairs_Level/All/Bubble.", cell_type, "_Incoming.pdf"), 7, height)
+    plot(p)
+    dev.off()
 
     # selected
     p <- netVisual_bubble(cellchat,
@@ -737,12 +737,23 @@ dev.off()
 rm(p.list, num.link, weight.MinMax, i)
 
 ## 3.3. identify altered pathways ----
+# scatter altered pathways
 p.list <- lapply(cell_types, function(cell_type) {
     netAnalysis_signalingChanges_scatter(cellchat.merge,
         comparison = c(1, 2), idents.use = cell_type
     )
 })
 pdf("Compare_Conditions/Scatter.Signaling_Changes.Capsaicin.pdf", 15, 20)
+patchwork::wrap_plots(plots = p.list, ncol = 3)
+dev.off()
+
+p.list <- lapply(cell_types, function(cell_type) {
+    netAnalysis_signalingChanges_scatter(cellchat.merge,
+        signaling.exclude = c("COLLAGEN", "LAMININ"),
+        comparison = c(1, 2), idents.use = cell_type
+    )
+})
+pdf("Compare_Conditions/Scatter.Signaling_Changes.noECM.Capsaicin.pdf", 15, 20)
 patchwork::wrap_plots(plots = p.list, ncol = 3)
 dev.off()
 
@@ -756,6 +767,18 @@ patchwork::wrap_plots(plots = p.list, ncol = 3)
 dev.off()
 rm(p.list)
 
+p.list <- lapply(cell_types, function(cell_type) {
+    netAnalysis_signalingChanges_scatter(cellchat.merge,
+        signaling.exclude = c("COLLAGEN", "LAMININ"),
+        comparison = c(1, 3), idents.use = cell_type
+    )
+})
+pdf("Compare_Conditions/Scatter.Signaling_Changes.noECM.LC_6OHDA.pdf", 15, 20)
+patchwork::wrap_plots(plots = p.list, ncol = 3)
+dev.off()
+rm(p.list)
+
+# bar plot of ranked pathways
 p1 <- rankNet(cellchat.merge,
     mode = "comparison", measure = "weight", sources.use = NULL, comparison = c(1, 2),
     targets.use = NULL, stacked = TRUE, do.stat = TRUE
@@ -1141,6 +1164,149 @@ lapply(cell_types, function(cell_type) {
 })
 
 rm(p, pairLR.use, cell_type, height)
+
+## 3.6. zoom: iCAF to T cells (Capsaicin) ----
+dir.create("Zoom_CAF_to_Tcells")
+
+# pathway intensity
+for (cell.type.select in c("T_CD8", "T_CD4", "Treg", "Neutrophil")) {
+    for (source in c("iCAF", "apCAF", "myCAF")) {
+        p1 <- rankNet(cellchat,
+            mode = "single", measure = "weight", sources.use = source,
+            targets.use = cell.type.select, stacked = TRUE, do.stat = TRUE
+        )
+        p2 <- rankNet(cellchat,
+            mode = "single", measure = "weight", sources.use = source,
+            targets.use = cell.type.select, stacked = FALSE, do.stat = TRUE
+        )
+
+        pdf(paste0("Zoom_CAF_to_Tcells/Bar.Ranked.Single.Capsaicin.", source, "_to_", cell.type.select, ".pdf"), 7, 3.5)
+        patchwork::wrap_plots(p1, p2, ncol = 2) %>% plot()
+        dev.off()
+
+        p1 <- rankNet(cellchat.merge,
+            mode = "comparison", measure = "weight", sources.use = source, comparison = c(1, 2),
+            targets.use = cell.type.select, stacked = TRUE, do.stat = TRUE,
+        ) + scale_fill_manual(values = mycolor$Condition)
+        p2 <- rankNet(cellchat.merge,
+            mode = "comparison", measure = "weight", sources.use = source, comparison = c(1, 2),
+            targets.use = cell.type.select, stacked = FALSE, do.stat = TRUE
+        ) + scale_fill_manual(values = mycolor$Condition)
+        pdf(paste0("Zoom_CAF_to_Tcells/Bar.Ranked.CMP.Capsaicin.", source, "_to_", cell.type.select, ".pdf"), 7, 4)
+        patchwork::wrap_plots(p1, p2, ncol = 2) %>% plot()
+        dev.off()
+        rm(p1, p2)
+    }
+}
+rm(cell.type.select, source, p1, p2)
+
+# L-R interactions
+pdf("Zoom_CAF_to_Tcells/Bubble.CAF_to_Tcells.pdf", 6, 12)
+netVisual_bubble(cellchat,
+    signaling = cellchat@netP$pathways %>% setdiff(c("COLLAGEN", "LAMININ", "MHC-I", "MHC-II")),
+    sources.use = c("iCAF", "apCAF", "myCAF"),
+    targets.use = c("T_CD8", "T_CD4", "Treg", "Neutrophil"),
+    remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE,
+) +
+    facet_grid(
+        cols = vars(source),
+        rows = vars(pathway_name), scales = "free", space = "free"
+    ) +
+    theme(
+        panel.grid.major = element_line(color = "gray90", size = 0.25),
+        strip.background = element_rect(fill = "gray80"),
+        strip.text = element_text(colour = "black"),
+        strip.text.y = element_text(angle = 0)
+    )
+dev.off()
+
+# expression of selected genes
+plot.data <- netVisual_bubble(cellchat,
+    signaling = cellchat@netP$pathways %>% setdiff(c("COLLAGEN", "LAMININ", "MHC-I", "MHC-II")),
+    sources.use = c("iCAF", "apCAF", "myCAF"),
+    targets.use = c("T_CD8", "T_CD4", "Treg", "Neutrophil"),
+    remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE,
+)$data
+
+gene.selected <- list(
+    "ligand" = unique(plot.data$ligand) %>% intersect(rownames(blca.obj)),
+    "receptor" = unique(plot.data$receptor) %>% intersect(rownames(blca.obj))
+)
+
+pdf("Zoom_CAF_to_Tcells/Violin.Expression.Ligands.pdf", 20, 24)
+VlnPlot(blca.obj,
+    features = gene.selected$ligand, cols = mycolor$Cell_Type_2,
+    group.by = "Cell_Type_2",
+    pt.size = 0, ncol = 4
+)
+dev.off()
+
+pdf("Zoom_CAF_to_Tcells/Violin.Expression.Receptors.pdf", 20, 18)
+VlnPlot(blca.obj,
+    features = gene.selected$receptor, cols = mycolor$Cell_Type_2,
+    group.by = "Cell_Type_2",
+    pt.size = 0, ncol = 4
+)
+dev.off()
+
+pdf("Zoom_CAF_to_Tcells/Dot.Expression.Ligands.pdf", 9, 8)
+DotPlot(blca.obj,
+    features = gene.selected$ligand %>% rev(), scale = FALSE,
+    group.by = "Cell_Type_2",
+) +
+    coord_flip() +
+    theme_classic() +
+    scale_color_viridis_c() +
+    theme(
+        axis.text.x = element_text(angle = 45, hjust = 1)
+    ) +
+    ggtitle("Expression of Neurotrophic Factors")
+dev.off()
+
+pdf("Zoom_CAF_to_Tcells/Dot.Expression.Receptors.pdf", 9, 6.5)
+DotPlot(blca.obj,
+    features = gene.selected$receptor %>% rev(), scale = FALSE,
+    group.by = "Cell_Type_2",
+) +
+    coord_flip() +
+    theme_classic() +
+    scale_color_viridis_c() +
+    theme(
+        axis.text.x = element_text(angle = 45, hjust = 1)
+    ) +
+    ggtitle("Expression of Neurotrophic Factors")
+dev.off()
+
+rm(plot.data, gene.selected)
+
+# differential interactions
+pairLR.use <- net.Capsaicin.up %>%
+    # filter(!pathway_name %in% c("COLLAGEN", "LAMININ", "MHC-I", "MHC-II")) %>%
+    filter(target %in% c("T_CD8", "T_CD4", "Treg", "Neutrophil")) %>%
+    filter(source %in% c("iCAF", "apCAF", "myCAF")) %>%
+    dplyr::select(interaction_name)
+
+pdf("Zoom_CAF_to_Tcells/Bubble.Increase.CAF_to_Tcells.pdf", 7, 6)
+netVisual_bubble(cellchat.merge,
+    sources.use = c("iCAF", "apCAF", "myCAF"),
+    targets.use = c("T_CD8", "T_CD4", "Treg", "Neutrophil"),
+    pairLR.use = pairLR.use,
+    remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE,
+    comparison = c(1, 2), max.dataset = 2, angle.x = 45,
+    title.name = paste0("Increased CAF to T cell signal in Capsaicin"),
+) +
+    facet_grid(
+        cols = vars(source),
+        rows = vars(pathway_name), scales = "free", space = "free"
+    ) +
+    theme(
+        panel.grid.major = element_line(color = "gray90", size = 0.25),
+        strip.background = element_rect(fill = "gray80"),
+        strip.text = element_text(colour = "black"),
+        strip.text.y = element_text(angle = 0)
+    )
+dev.off()
+rm(pairLR.use)
 
 # save data ----
 gc()
