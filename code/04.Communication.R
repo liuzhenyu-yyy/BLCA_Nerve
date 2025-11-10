@@ -149,7 +149,7 @@ VlnPlot(blca.obj,
 dev.off()
 
 Idents(blca.obj) <- blca.obj$Cell_Type_2
-pdf("Expression_Selected/Violin.Expression.Neuro_factor.split.pdf", 20, 15)
+pdf("Expression_Selected/Violin.Expression.Neuro_factor.split.pdf", 24, 20)
 VlnPlot(blca.obj,
     features = gene.selected, split.by = "Condition",
     cols = mycolor$Condition[c(3, 1, 2)],
@@ -171,14 +171,15 @@ DotPlot(blca.obj,
     ggtitle("Expression of Neurotrophic Factors")
 dev.off()
 
+blca.obj$Cell_Type_2_Condition <- paste0(blca.obj$Cell_Type_2, "-", blca.obj$Condition)
 plot.data <- DotPlot(blca.obj,
     features = gene.selected, scale = FALSE,
-    group.by = "Condition", split.by = "Cell_Type_2", cols = rep(RColorBrewer::brewer.pal(9, "YlGnBu"), 5)
+    group.by = "Cell_Type_2_Condition"
 )$data
 
-plot.data$Condition <- gsub("_.+?$", "", plot.data$id)
-plot.data$Condition <- factor(plot.data$Condition, levels = c("CTRL", "Capsaicin", "LC"))
-plot.data$Cell_Type_2 <- gsub("Capsaicin_|CTRL_|LC_6OHDA_", "", plot.data$id)
+plot.data$Condition <- gsub("^.+?-", "", plot.data$id)
+plot.data$Condition <- factor(plot.data$Condition, levels = c("CTRL", "Capsaicin", "LC_6OHDA"))
+plot.data$Cell_Type_2 <- gsub("-.+?*$", "", plot.data$id)
 plot.data$Cell_Type_2 <- factor(plot.data$Cell_Type_2, levels = levels(blca.obj$Cell_Type_2))
 plot.data <- plot.data[!is.na(plot.data$Cell_Type_2), ]
 colnames(plot.data)
@@ -190,31 +191,6 @@ ggplot(plot.data, aes(x = features.plot, y = Condition)) +
     facet_wrap(~Cell_Type_2, scales = "free_x", ncol = 5) +
     theme_classic() +
     labs(x = "Gene", y = "Condition") +
-    theme(
-        axis.text.x = element_text(angle = 45, hjust = 1)
-    ) +
-    ggtitle("Expression of Neuronal Factors")
-dev.off()
-
-plot.data <- DotPlot(blca.obj,
-    features = gene.selected[1], scale = FALSE,
-    group.by = "Condition", split.by = "Cell_Type_2", cols = rep(RColorBrewer::brewer.pal(9, "YlGnBu"), 5)
-)$data
-
-plot.data$Condition <- gsub("_.+?$", "", plot.data$id)
-plot.data$Condition <- factor(plot.data$Condition, levels = c("CTRL", "Capsaicin", "LC"))
-plot.data$Cell_Type_2 <- gsub("Capsaicin_|CTRL_|LC_6OHDA_", "", plot.data$id)
-plot.data$Cell_Type_2 <- factor(plot.data$Cell_Type_2, levels = levels(blca.obj$Cell_Type_2))
-plot.data <- plot.data[!is.na(plot.data$Cell_Type_2), ]
-colnames(plot.data)
-
-pdf("Expression_Selected/Dot.Expression.Ngf.pdf", 10, 7)
-ggplot(plot.data, aes(x = Condition, y = features.plot)) +
-    geom_point(aes(size = pct.exp, fill = avg.exp), shape = 21) +
-    scale_fill_viridis_c() +
-    facet_wrap(~Cell_Type_2, scales = "free_x", ncol = 5) +
-    theme_classic() +
-    labs(x = "Condition", y = "Gene") +
     theme(
         axis.text.x = element_text(angle = 45, hjust = 1)
     ) +
@@ -265,21 +241,22 @@ dev.off()
 
 plot.data <- DotPlot(blca.obj,
     features = gene.selected, scale = FALSE,
-    group.by = "Condition", split.by = "Cell_Type_2", cols = rep(RColorBrewer::brewer.pal(9, "YlGnBu"), 5)
+    group.by = "Cell_Type_2_Condition"
 )$data
 
-plot.data$Condition <- gsub("_.+?$", "", plot.data$id)
-plot.data$Condition <- factor(plot.data$Condition, levels = c("CTRL", "Capsaicin", "LC"))
-plot.data$Cell_Type_2 <- gsub("Capsaicin_|CTRL_|LC_6OHDA_", "", plot.data$id)
+plot.data$Condition <- gsub("^.+?-", "", plot.data$id)
+plot.data$Condition <- factor(plot.data$Condition, levels = c("CTRL", "Capsaicin", "LC_6OHDA"))
+plot.data$Cell_Type_2 <- gsub("-.+?*$", "", plot.data$id)
 plot.data$Cell_Type_2 <- factor(plot.data$Cell_Type_2, levels = levels(blca.obj$Cell_Type_2))
 plot.data <- plot.data[!is.na(plot.data$Cell_Type_2), ]
 colnames(plot.data)
+# plot.data[plot.data$avg.exp > 5, ]$avg.exp <- 5
 
-pdf("Expression_Selected/Dot.Expression.Growth_factor.split.pdf", 20, 12)
+pdf("Expression_Selected/Dot.Expression.Growth_factor.split.pdf", 15, 15)
 ggplot(plot.data, aes(x = features.plot, y = Condition)) +
     geom_point(aes(size = pct.exp, fill = avg.exp), shape = 21) +
     scale_fill_viridis_c() +
-    facet_wrap(~Cell_Type_2, scales = "free_x", ncol = 4) +
+    facet_wrap(~Cell_Type_2, scales = "free_x", ncol = 3) +
     theme_classic() +
     labs(x = "Gene", y = "Condition") +
     theme(
