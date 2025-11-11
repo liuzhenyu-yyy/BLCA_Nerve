@@ -1306,6 +1306,27 @@ netVisual_bubble(cellchat.merge,
         strip.text.y = element_text(angle = 0)
     )
 dev.off()
+
+pdf("Zoom_CAF_to_Tcells/Bubble.Increase.CAF_to_Tcells.All.pdf", 7, 6)
+netVisual_bubble(cellchat.merge,
+    sources.use = c("iCAF", "apCAF", "myCAF"),
+    targets.use = c("T_CD8", "T_CD4", "Treg", "Neutrophil"),
+    pairLR.use = pairLR.use,
+    remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE,
+    comparison = c(1, 2), angle.x = 45,
+    title.name = paste0("Increased CAF to T cell signal in Capsaicin"),
+) +
+    facet_grid(
+        cols = vars(source),
+        rows = vars(pathway_name), scales = "free", space = "free"
+    ) +
+    theme(
+        panel.grid.major = element_line(color = "gray90", size = 0.25),
+        strip.background = element_rect(fill = "gray80"),
+        strip.text = element_text(colour = "black"),
+        strip.text.y = element_text(angle = 0)
+    )
+dev.off()
 rm(pairLR.use)
 
 # save data ----
