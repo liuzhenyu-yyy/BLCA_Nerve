@@ -6,6 +6,8 @@ library(ggplot2)
 library(RColorBrewer)
 library(CellChat)
 
+# load("04.Communication.RData")
+
 load("../01.Cell_Type/01.Cell_Type.RData")
 rm(DEG.cancer.conditions, DEG.cancer.clusters, DEG.cancer.states, data.dir, marker.genes)
 
@@ -138,13 +140,18 @@ dir.create("Expression_Selected")
 blca.obj <- readRDS("blca.obj.rds")
 
 # neurotrophic factor genes
-gene.selected <- c("Ngf", "Nrg1", "Bdnf", "Ntf3", "Gdnf", "Cntf", "Lif")
+gene.selected <- c(
+    # Neurotrophin Family
+    "Ngf", "Ntrk1", "Bdnf", "Ntrk2", "Ntf3", "Ntrk3", "Ngfr",
+    # GDNF Family
+    "Gdnf", "Gfra1", "Nrtn", "Gfra2", "Artn", "Gfra3", "Pspn", "Gfra4", "Ret"
+)
 
-pdf("Expression_Selected/Violin.Expression.Neuro_factor.pdf", 16, 12)
+pdf("Expression_Selected/Violin.Expression.Neuro_factor.pdf", 20, 12)
 VlnPlot(blca.obj,
     features = gene.selected, cols = mycolor$Cell_Type_2,
     group.by = "Cell_Type_2",
-    pt.size = 0, ncol = 3
+    pt.size = 0, ncol = 4
 )
 dev.off()
 
@@ -153,11 +160,11 @@ pdf("Expression_Selected/Violin.Expression.Neuro_factor.split.pdf", 24, 20)
 VlnPlot(blca.obj,
     features = gene.selected, split.by = "Condition",
     cols = mycolor$Condition[c(3, 1, 2)],
-    pt.size = 0, ncol = 2
+    pt.size = 0, ncol = 3
 )
 dev.off()
 
-pdf("Expression_Selected/Dot.Expression.Neuro_factor.pdf", 9, 4)
+pdf("Expression_Selected/Dot.Expression.Neuro_factor.pdf", 9, 5)
 DotPlot(blca.obj,
     features = gene.selected %>% rev(), scale = FALSE,
     group.by = "Cell_Type_2",

@@ -1081,6 +1081,7 @@ marker.genes[["Stromal"]] <- c(
     "Cd34", # vascular
     "Col1a1", "Col1a2", "Dcn", # fibroblast
     "Lum", "Pdgfra", # iCAF
+    "Itga11",
     "Pdgfrb", "Rgs5", "Myh11", # myCAF
     "H2-Ab1", "H2-Eb1", "Cd74", # antigen-presenting CAF
     "Acta2", "Tagln", "Myl9", # smooth muscle
