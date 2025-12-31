@@ -1,4 +1,4 @@
-setwd("/thinker/tb269store/user/liuzhenyu/Project/BLCA_Neuro/BLCA_Neuro/results/02.Immune")
+setwd("/Users/zhenyuliu/Research/Project/BLCA_Neuro/results/02.Immune")
 
 library(Seurat)
 library(dplyr)

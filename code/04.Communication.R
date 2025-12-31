@@ -1,4 +1,4 @@
-setwd("/thinker/tb269store/user/liuzhenyu/Project/BLCA_Neuro/BLCA_Neuro/results/04.Conmmunication")
+setwd("/Users/zhenyuliu/Research/Project/BLCA_Neuro/results/04.Conmmunication")
 
 library(Seurat)
 library(dplyr)
@@ -135,6 +135,54 @@ ggplot(plot.data, aes(x = Condition, y = Fraction)) +
 dev.off()
 rm(plot.data, temp)
 
+# Ro/e
+colnames(blca.obj@meta.data)
+Roe <- Startrac::calTissueDist(
+    blca.obj@meta.data,
+    byPatient = FALSE,
+    colname.cluster = "Cell_Type_1",
+    colname.patient = "Sample",
+    colname.tissue = "Condition",
+    method = "chisq",
+    min.rowSum = 0
+)
+
+pdf("Heatmap.Roe.Cell_Type_1.Condition.pdf", 4, 5)
+pheatmap::pheatmap(
+    Roe,
+    scale = "none",
+    display_numbers = TRUE,
+    cluster_rows = TRUE,
+    cluster_cols = TRUE,
+    fontsize_row = 8,
+    fontsize_col = 8,
+    main = "Ro/e of Cell_Type_2"
+)
+dev.off()
+
+Roe <- Startrac::calTissueDist(
+    blca.obj@meta.data,
+    byPatient = FALSE,
+    colname.cluster = "Cell_Type_2",
+    colname.patient = "Sample",
+    colname.tissue = "Condition",
+    method = "chisq",
+    min.rowSum = 0
+)
+
+pdf("Heatmap.Roe.Cell_Type_2.Condition.pdf", 4, 5)
+pheatmap::pheatmap(
+    Roe,
+    scale = "none",
+    display_numbers = TRUE,
+    cluster_rows = TRUE,
+    cluster_cols = TRUE,
+    fontsize_row = 8,
+    fontsize_col = 8,
+    main = "Ro/e of Cell_Type_2"
+)
+dev.off()
+rm(Roe)
 ## 1.3. expression of selected genes ----
 dir.create("Expression_Selected")
 blca.obj <- readRDS("blca.obj.rds")
@@ -501,6 +549,13 @@ lapply(pathways.selected, function(pathway) {
         color.use = mycolor$Cell_Type_2[cell_types],
         width = 8, height = 2.5, font.size = 10
     )
+    dev.off()
+
+    pdf(paste0("Pathway_Level/Bar.LR_Contribution.", pathway, ".pdf"), 5, 4)
+    p <- netAnalysis_contribution(cellchat,
+        signaling = pathway,
+    )
+    plot(p)
     dev.off()
 })
 rm(p)
@@ -1175,9 +1230,10 @@ rm(p, pairLR.use, cell_type, height)
 ## 3.6. zoom: iCAF to T cells (Capsaicin) ----
 dir.create("Zoom_CAF_to_Tcells")
 
-# pathway intensity
+# compare pathway intensity
 for (cell.type.select in c("T_CD8", "T_CD4", "Treg", "Neutrophil")) {
     for (source in c("iCAF", "apCAF", "myCAF")) {
+        # merged intensity
         p1 <- rankNet(cellchat,
             mode = "single", measure = "weight", sources.use = source,
             targets.use = cell.type.select, stacked = TRUE, do.stat = TRUE
@@ -1191,6 +1247,7 @@ for (cell.type.select in c("T_CD8", "T_CD4", "Treg", "Neutrophil")) {
         patchwork::wrap_plots(p1, p2, ncol = 2) %>% plot()
         dev.off()
 
+        # compare intensity
         p1 <- rankNet(cellchat.merge,
             mode = "comparison", measure = "weight", sources.use = source, comparison = c(1, 2),
             targets.use = cell.type.select, stacked = TRUE, do.stat = TRUE,
@@ -1202,7 +1259,6 @@ for (cell.type.select in c("T_CD8", "T_CD4", "Treg", "Neutrophil")) {
         pdf(paste0("Zoom_CAF_to_Tcells/Bar.Ranked.CMP.Capsaicin.", source, "_to_", cell.type.select, ".pdf"), 7, 4)
         patchwork::wrap_plots(p1, p2, ncol = 2) %>% plot()
         dev.off()
-        rm(p1, p2)
     }
 }
 rm(cell.type.select, source, p1, p2)
@@ -1225,6 +1281,15 @@ netVisual_bubble(cellchat,
         strip.text = element_text(colour = "black"),
         strip.text.y = element_text(angle = 0)
     )
+dev.off()
+
+pdf("Zoom_CAF_to_Tcells/Chord.gene.iCAF_to_Tcells.pdf", 8, 8)
+netVisual_chord_gene(cellchat,
+    sources.use = c("iCAF"),
+    targets.use = c("T_CD8", "T_CD4", "Treg", "Neutrophil"),
+    lab.cex = 0.5, legend.pos.y = 30,
+    # color.use = mycolor$Cell_Type_2[c("iCAF", "T_CD8", "T_CD4", "Treg", "Neutrophil")]
+)
 dev.off()
 
 # expression of selected genes
