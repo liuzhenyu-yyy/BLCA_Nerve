@@ -248,6 +248,104 @@ lapply(names(GO.DEG.LC_6OHDA.Down), function(x) {
     dev.off()
 })
 
+# 2. iCAF functions ----
+## 2.1. CGRP receptor ----
+pdf("UMAP_Ramp1.split.pdf", 12, 4)
+FeaturePlot(
+    stromal.obj,
+    features = c("Ramp1"), cols = c("lightgrey", "red"),
+    split.by = "Condition", order = TRUE, raster = TRUE, pt.size = 2
+)
+dev.off()
+
+pdf("Violin_Ramp1.CAF.pdf", 7, 4)
+VlnPlot(
+    stromal.obj,
+    features = c("Ramp1"), idents = c("iCAF", "apCAF"),
+    split.by = "Condition", cols = mycolor$Condition
+)
+dev.off()
+
+stromal.obj$Cell_Type_2_Condition <- paste0(stromal.obj$Cell_Type_2, "_", stromal.obj$Condition)
+stromal.obj$Cell_Type_2_Condition <- factor(
+    stromal.obj$Cell_Type_2_Condition,
+    levels = c(
+        "iCAF_CTRL", "iCAF_Capsaicin", "iCAF_LC_6OHDA",
+        "apCAF_CTRL", "apCAF_Capsaicin", "apCAF_LC_6OHDA"
+    ) %>% rev()
+)
+
+pdf("DotPlot_Ramp1.CAF.pdf", 5, 5)
+DotPlot(
+    stromal.obj,
+    features = c("Ramp1"),
+    idents = c("iCAF", "apCAF"),
+    group.by = "Cell_Type_2_Condition"
+) + scale_color_viridis_c()
+dev.off()
+
+## 2.2. iCAF subsets ----
+dir.create("iCAF")
+iCAF.obj <- subset(stromal.obj, subset = Cell_Type_2 == "iCAF")
+iCAF.obj <- iCAF.obj %>%
+    NormalizeData() %>%
+    FindVariableFeatures(selection.method = "vst", nfeatures = 2000) %>%
+    ScaleData() %>%
+    RunPCA(npcs = 30) %>%
+    FindNeighbors(dims = 1:20) %>%
+    RunUMAP(dims = 1:20)
+
+iCAF.obj <- FindClusters(iCAF.obj, resolution = 0.3)
+
+pdf("iCAF/UMAP_iCAF.Subclusters.split.pdf", 12, 4)
+DimPlot(iCAF.obj, split.by = "Condition", raster = TRUE, pt.size = 2, label = TRUE) +
+    labs(title = "iCAF Subclusters")
+dev.off()
+
+pdf("iCAF/UMAP_iCAF.Ramp1.split.pdf", 12, 4)
+FeaturePlot(
+    iCAF.obj,
+    features = c("Ramp1"), cols = c("lightgrey", "red"),
+    split.by = "Condition", order = TRUE, raster = TRUE, pt.size = 2
+)
+dev.off()
+
+marker.iCAF.subset <- FindAllMarkers(
+    iCAF.obj,
+    only.pos = TRUE,
+    min.pct = 0.25,
+    logfc.threshold = 0.25
+)
+
+marker.iCAF.subset %>%
+    group_by(cluster) %>%
+    slice_max(n = 30, order_by = avg_log2FC) %>%
+    as.data.frame() %>%
+    split(.$cluster) %>%
+    lapply(function(x) x$gene)
+
+marker.iCAF.subset %>%
+    filter(gene == "Ramp1")
+
+iCAF.obj$iCAF_subtype <- iCAF.obj$seurat_clusters
+levels(iCAF.obj$seurat_clusters) <- c(
+    "c0_iCAF_Frmpd4_Chodl", "c1_iCAF_Grem2_Hhip",
+    "c2_iCAF_Cxcl12_Eln", "c3_iCAF_Cxcl13_Ptx3", "c4_iCAF_Cxcl9_Itga1"
+)
+
+mycolor$iCAF_subtype <- brewer.pal(n = 5, name = "Set2") %>% setNames(levels(iCAF.obj$seurat_clusters))
+
+pdf("iCAF/UMAP_iCAF.Subclusters2.split.pdf", 12, 4)
+DimPlot(iCAF.obj,
+    group.by = "iCAF_subtype", split.by = "Condition", raster = TRUE,
+    pt.size = 2, cols = mycolor$iCAF_subtype
+) +
+    labs(title = "iCAF Subclusters")
+dev.off()
+
+## 2.1. immune modulation ----
+View(GO.DEG.Capsaicin.Up[["iCAF"]]@result)
+
 ## save data
 gc()
 rm(stromal.obj)

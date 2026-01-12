@@ -147,7 +147,7 @@ Roe <- Startrac::calTissueDist(
     min.rowSum = 0
 )
 
-pdf("Heatmap.Roe.Cell_Type_1.Condition.pdf", 4, 5)
+pdf("Heatmap.Roe.Cell_Type_1.Condition.pdf", 3.5, 5)
 pheatmap::pheatmap(
     Roe,
     scale = "none",
@@ -169,20 +169,29 @@ Roe <- Startrac::calTissueDist(
     method = "chisq",
     min.rowSum = 0
 )
+anno.row <- data.frame(
+    Cell_Type_2 = rownames(Roe),
+    "Compartment" = rep(c("Immune", "Stromal", "Epithelial"), times = c(15, 8, 2))
+)
 
-pdf("Heatmap.Roe.Cell_Type_2.Condition.pdf", 4, 5)
+pdf("Heatmap.Roe.Cell_Type_2.Condition.pdf", 4.6, 7)
 pheatmap::pheatmap(
     Roe,
     scale = "none",
+    annotation_row = anno.row %>% tibble::column_to_rownames("Cell_Type_2"),
+    annotation_colors = list(
+        Compartment = c("Immune" = "#FC8D62", "Stromal" = "#66C2A5", "Epithelial" = "#8DA0CB")
+    ),
     display_numbers = TRUE,
     cluster_rows = TRUE,
-    cluster_cols = TRUE,
-    fontsize_row = 8,
-    fontsize_col = 8,
+    cluster_cols = FALSE,
+    fontsize = 8,
+    fontsize_number = 6.2,
     main = "Ro/e of Cell_Type_2"
 )
 dev.off()
 rm(Roe)
+
 ## 1.3. expression of selected genes ----
 dir.create("Expression_Selected")
 blca.obj <- readRDS("blca.obj.rds")
@@ -1227,11 +1236,16 @@ lapply(cell_types, function(cell_type) {
 
 rm(p, pairLR.use, cell_type, height)
 
-## 3.6. zoom: iCAF to T cells (Capsaicin) ----
-dir.create("Zoom_CAF_to_Tcells")
+## 3.6. zoom: iCAF to immune cells (Capsaicin) ----
+dir.create("Zoom_CAF_to_Immune")
+table(blca.obj$Cell_Type_2, blca.obj$Condition)
 
+immune.types <- c(
+    "T_CD8", "T_CD4", "Treg", "NK", "B",
+    "Macrophage", "Monocyte", "cDC", "pDC", "Neutrophil"
+)
 # compare pathway intensity
-for (cell.type.select in c("T_CD8", "T_CD4", "Treg", "Neutrophil")) {
+for (cell.type.select in immune.types) {
     for (source in c("iCAF", "apCAF", "myCAF")) {
         # merged intensity
         p1 <- rankNet(cellchat,
@@ -1243,7 +1257,7 @@ for (cell.type.select in c("T_CD8", "T_CD4", "Treg", "Neutrophil")) {
             targets.use = cell.type.select, stacked = FALSE, do.stat = TRUE
         )
 
-        pdf(paste0("Zoom_CAF_to_Tcells/Bar.Ranked.Single.Capsaicin.", source, "_to_", cell.type.select, ".pdf"), 7, 3.5)
+        pdf(paste0("Zoom_CAF_to_Immune/Bar.Ranked.Single.Capsaicin.", source, "_to_", cell.type.select, ".pdf"), 7, 3.5)
         patchwork::wrap_plots(p1, p2, ncol = 2) %>% plot()
         dev.off()
 
@@ -1256,7 +1270,7 @@ for (cell.type.select in c("T_CD8", "T_CD4", "Treg", "Neutrophil")) {
             mode = "comparison", measure = "weight", sources.use = source, comparison = c(1, 2),
             targets.use = cell.type.select, stacked = FALSE, do.stat = TRUE
         ) + scale_fill_manual(values = mycolor$Condition)
-        pdf(paste0("Zoom_CAF_to_Tcells/Bar.Ranked.CMP.Capsaicin.", source, "_to_", cell.type.select, ".pdf"), 7, 4)
+        pdf(paste0("Zoom_CAF_to_Immune/Bar.Ranked.CMP.Capsaicin.", source, "_to_", cell.type.select, ".pdf"), 7, 4)
         patchwork::wrap_plots(p1, p2, ncol = 2) %>% plot()
         dev.off()
     }
@@ -1264,11 +1278,11 @@ for (cell.type.select in c("T_CD8", "T_CD4", "Treg", "Neutrophil")) {
 rm(cell.type.select, source, p1, p2)
 
 # L-R interactions
-pdf("Zoom_CAF_to_Tcells/Bubble.CAF_to_Tcells.pdf", 6, 12)
+pdf("Zoom_CAF_to_Immune/Bubble.CAF_to_T.pdf", 6, 12)
 netVisual_bubble(cellchat,
     signaling = cellchat@netP$pathways %>% setdiff(c("COLLAGEN", "LAMININ", "MHC-I", "MHC-II")),
     sources.use = c("iCAF", "apCAF", "myCAF"),
-    targets.use = c("T_CD8", "T_CD4", "Treg", "Neutrophil"),
+    targets.use = c("T_CD8", "T_CD4", "Treg"),
     remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE,
 ) +
     facet_grid(
@@ -1283,12 +1297,40 @@ netVisual_bubble(cellchat,
     )
 dev.off()
 
-pdf("Zoom_CAF_to_Tcells/Chord.gene.iCAF_to_Tcells.pdf", 8, 8)
+pdf("Zoom_CAF_to_Immune/Bubble.CAF_to_Immune.pdf", 9, 20)
+netVisual_bubble(cellchat,
+    signaling = cellchat@netP$pathways %>% setdiff(c("COLLAGEN", "LAMININ", "MHC-I", "MHC-II")),
+    sources.use = c("iCAF", "apCAF", "myCAF"),
+    targets.use = immune.types,
+    remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE,
+) +
+    facet_grid(
+        cols = vars(source),
+        rows = vars(pathway_name), scales = "free", space = "free"
+    ) +
+    theme(
+        panel.grid.major = element_line(color = "gray90", size = 0.25),
+        strip.background = element_rect(fill = "gray80"),
+        strip.text = element_text(colour = "black"),
+        strip.text.y = element_text(angle = 0)
+    )
+dev.off()
+
+pdf("Zoom_CAF_to_Immune/Chord.gene.iCAF_to_T.pdf", 8, 8)
 netVisual_chord_gene(cellchat,
     sources.use = c("iCAF"),
-    targets.use = c("T_CD8", "T_CD4", "Treg", "Neutrophil"),
+    targets.use = c("T_CD8", "T_CD4", "Treg"),
     lab.cex = 0.5, legend.pos.y = 30,
-    # color.use = mycolor$Cell_Type_2[c("iCAF", "T_CD8", "T_CD4", "Treg", "Neutrophil")]
+    # color.use = mycolor$Cell_Type_2[immune.types]
+)
+dev.off()
+
+pdf("Zoom_CAF_to_Immune/Chord.gene.iCAF_to_Immune.pdf", 8, 8)
+netVisual_chord_gene(cellchat,
+    sources.use = c("iCAF"),
+    targets.use = immune.types,
+    lab.cex = 0.5, legend.pos.y = 30,
+    # color.use = mycolor$Cell_Type_2[immune.types]
 )
 dev.off()
 
@@ -1296,7 +1338,7 @@ dev.off()
 plot.data <- netVisual_bubble(cellchat,
     signaling = cellchat@netP$pathways %>% setdiff(c("COLLAGEN", "LAMININ", "MHC-I", "MHC-II")),
     sources.use = c("iCAF", "apCAF", "myCAF"),
-    targets.use = c("T_CD8", "T_CD4", "Treg", "Neutrophil"),
+    targets.use = immune.types,
     remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE,
 )$data
 
@@ -1305,23 +1347,23 @@ gene.selected <- list(
     "receptor" = unique(plot.data$receptor) %>% intersect(rownames(blca.obj))
 )
 
-pdf("Zoom_CAF_to_Tcells/Violin.Expression.Ligands.pdf", 20, 24)
+pdf("Zoom_CAF_to_Immune/Violin.Expression.Ligands.pdf", 40, 27)
 VlnPlot(blca.obj,
     features = gene.selected$ligand, cols = mycolor$Cell_Type_2,
     group.by = "Cell_Type_2",
-    pt.size = 0, ncol = 4
+    pt.size = 0, ncol = 8
 )
 dev.off()
 
-pdf("Zoom_CAF_to_Tcells/Violin.Expression.Receptors.pdf", 20, 18)
+pdf("Zoom_CAF_to_Immune/Violin.Expression.Receptors.pdf", 40, 24)
 VlnPlot(blca.obj,
     features = gene.selected$receptor, cols = mycolor$Cell_Type_2,
     group.by = "Cell_Type_2",
-    pt.size = 0, ncol = 4
+    pt.size = 0, ncol = 8
 )
 dev.off()
 
-pdf("Zoom_CAF_to_Tcells/Dot.Expression.Ligands.pdf", 9, 8)
+pdf("Zoom_CAF_to_Immune/Dot.Expression.Ligands.pdf", 9, 15)
 DotPlot(blca.obj,
     features = gene.selected$ligand %>% rev(), scale = FALSE,
     group.by = "Cell_Type_2",
@@ -1331,11 +1373,10 @@ DotPlot(blca.obj,
     scale_color_viridis_c() +
     theme(
         axis.text.x = element_text(angle = 45, hjust = 1)
-    ) +
-    ggtitle("Expression of Neurotrophic Factors")
+    )
 dev.off()
 
-pdf("Zoom_CAF_to_Tcells/Dot.Expression.Receptors.pdf", 9, 6.5)
+pdf("Zoom_CAF_to_Immune/Dot.Expression.Receptors.pdf", 9, 12)
 DotPlot(blca.obj,
     features = gene.selected$receptor %>% rev(), scale = FALSE,
     group.by = "Cell_Type_2",
@@ -1345,8 +1386,7 @@ DotPlot(blca.obj,
     scale_color_viridis_c() +
     theme(
         axis.text.x = element_text(angle = 45, hjust = 1)
-    ) +
-    ggtitle("Expression of Neurotrophic Factors")
+    )
 dev.off()
 
 rm(plot.data, gene.selected)
@@ -1358,7 +1398,7 @@ pairLR.use <- net.Capsaicin.up %>%
     filter(source %in% c("iCAF", "apCAF", "myCAF")) %>%
     dplyr::select(interaction_name)
 
-pdf("Zoom_CAF_to_Tcells/Bubble.Increase.CAF_to_Tcells.pdf", 7, 6)
+pdf("Zoom_CAF_to_Immune/Bubble.Increase.CAF_to_Tcells.pdf", 7, 6)
 netVisual_bubble(cellchat.merge,
     sources.use = c("iCAF", "apCAF", "myCAF"),
     targets.use = c("T_CD8", "T_CD4", "Treg", "Neutrophil"),
@@ -1379,10 +1419,58 @@ netVisual_bubble(cellchat.merge,
     )
 dev.off()
 
-pdf("Zoom_CAF_to_Tcells/Bubble.Increase.CAF_to_Tcells.All.pdf", 7, 6)
+pdf("Zoom_CAF_to_Immune/Bubble.Increase.CAF_to_Tcells.All.pdf", 7, 6)
 netVisual_bubble(cellchat.merge,
     sources.use = c("iCAF", "apCAF", "myCAF"),
     targets.use = c("T_CD8", "T_CD4", "Treg", "Neutrophil"),
+    pairLR.use = pairLR.use,
+    remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE,
+    comparison = c(1, 2), angle.x = 45,
+    title.name = paste0("Increased CAF to T cell signal in Capsaicin"),
+) +
+    facet_grid(
+        cols = vars(source),
+        rows = vars(pathway_name), scales = "free", space = "free"
+    ) +
+    theme(
+        panel.grid.major = element_line(color = "gray90", size = 0.25),
+        strip.background = element_rect(fill = "gray80"),
+        strip.text = element_text(colour = "black"),
+        strip.text.y = element_text(angle = 0)
+    )
+dev.off()
+
+pairLR.use <- net.Capsaicin.up %>%
+    # filter(!pathway_name %in% c("COLLAGEN", "LAMININ", "MHC-I", "MHC-II")) %>%
+    filter(target %in% immune.types) %>%
+    filter(source %in% c("iCAF", "apCAF", "myCAF")) %>%
+    dplyr::select(interaction_name)
+
+pdf("Zoom_CAF_to_Immune/Bubble.Increase.CAF_to_Immune.pdf", 12, 8)
+netVisual_bubble(cellchat.merge,
+    sources.use = c("iCAF", "apCAF", "myCAF"),
+    targets.use = immune.types,
+    pairLR.use = pairLR.use,
+    remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE,
+    comparison = c(1, 2), max.dataset = 2, angle.x = 45,
+    title.name = paste0("Increased CAF to T cell signal in Capsaicin"),
+) +
+    facet_grid(
+        cols = vars(source),
+        rows = vars(pathway_name), scales = "free", space = "free"
+    ) +
+    theme(
+        panel.grid.major = element_line(color = "gray90", size = 0.25),
+        strip.background = element_rect(fill = "gray80"),
+        strip.text = element_text(colour = "black"),
+        strip.text.y = element_text(angle = 0)
+    )
+dev.off()
+
+pdf("Zoom_CAF_to_Immune/Bubble.Increase.CAF_to_Immune.All.pdf", 12, 8)
+netVisual_bubble(cellchat.merge,
+    sources.use = c("iCAF", "apCAF", "myCAF"),
+    targets.use = immune.types,
     pairLR.use = pairLR.use,
     remove.isolate = TRUE, thresh = 0.05, grid.on = FALSE,
     comparison = c(1, 2), angle.x = 45,
