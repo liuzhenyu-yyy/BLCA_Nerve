@@ -8,17 +8,9 @@ library(RColorBrewer)
 load("01.Cell_Type.RData")
 
 # 1. Load data & QC ----
-data.dir <- "/thinker/tb269store/user/liuzhenyu/Project/BLCA_Neuro/Summary/1_Cellranger_result"
+data.dir <- "/Users/zhenyuliu/Research/Project/BLCA_Neuro/data/scRNAseq/1_Cellranger_result"
 samples <- list.dirs(data.dir, recursive = FALSE, full.names = FALSE)
 mycolor <- list()
-
-table(stromal.obj$Condition)
-levels(stromal.obj$Condition) <- c("CTRL", "Capsaicin", "LC_6OHDA")
-stromal.obj$Sample <- gsub("LC_60HDA", "LC_6OHDA", stromal.obj$Sample)
-
-table(sample.info$Condition)
-sample.info$Condition <- gsub("LC_60HDA", "LC_6OHDA", sample.info$Condition)
-sample.info$Sample <- gsub("LC_60HDA", "LC_6OHDA", sample.info$Sample)
 
 ## 1.1. Load data ----
 # counts
@@ -30,7 +22,7 @@ rc <- lapply(samples, function(x) {
 })
 rc <- do.call(cbind, rc)
 saveRDS(rc, file = "../../data/rc.rds")
-# rc <- readRDS(file = "../../data/rc.rds")
+rc <- readRDS(file = "../../data/scRNAseq/rc.rds")
 rm(samples)
 
 # metadata
@@ -41,11 +33,16 @@ sample.info <- data.frame(
 ) %>% mutate(
     "Condition" = gsub("_00.+?*$", "", Sample)
 )
+sample.info <- sample.info %>% filter(Condition %in% c("CTRL", "Capsaicin"))
+rc <- rc[, sample.info$Cell]
 
 # singleR
-singleR <- read.table("../../data/cell_annot_MouseRNAseqData_label.main.txt", header = TRUE, sep = "\t")
+singleR <- read.table("../../data/scRNAseq/cell_annot_MouseRNAseqData_label.main.txt", header = TRUE, sep = "\t")
 singleR$Cell <- gsub("-.+?*$", "-1", singleR$Cell)
 singleR$Cell <- paste(singleR$orig.ident, singleR$Cell, sep = "_")
+rownames(singleR) <- singleR$Cell
+singleR <- singleR[sample.info$Cell, ]
+
 table(singleR$orig.ident)
 table(singleR$orig.ident) / table(sample.info$Sample)
 
