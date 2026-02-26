@@ -1,9 +1,13 @@
 setwd("/Users/zhenyuliu/Research/Project/BLCA_Neuro/results/01.Cell_Type")
 
+setwd("/thinker/tb269store/user/liuzhenyu/Project/BLCA_Nerve/results/01.Cell_Type")
+
 library(Seurat)
 library(dplyr)
 library(ggplot2)
 library(RColorBrewer)
+library(parallel)
+library(DoubletFinder)
 
 load("01.Cell_Type.RData")
 
@@ -80,6 +84,7 @@ singler_anno[1:5, ]
 ## 1.2. QC for cells ----
 sample_info$Cell_Type_SingleR <- "none"
 sample_info[singler_anno$Cell, "Cell_Type_SingleR"] <- singler_anno$raw_main_celltype
+sample_info[1:5, ]
 
 blca_obj <- CreateSeuratObject(
     counts = rc,
@@ -88,31 +93,62 @@ blca_obj <- CreateSeuratObject(
 )
 rm(singler_anno, rc)
 
-mycolor$Condition <- ggsci::pal_npg("nrc")(3) %>%
-    setNames(unique(sample_info$Condition))
+blca_obj$Percent_Mito <- PercentageFeatureSet(blca_obj, pattern = "^mt-")
+quantile(blca_obj$Percent_Mito)
+
+sample_info <- blca_obj@meta.data
+
+mycolor$Condition <- ggsci::pal_npg("nrc")(5)[c(3, 2, 1, 4, 5)] %>%
+    setNames(levels(sample_info$Condition))
+
+pdf("Hist.QC.Metrics.pdf", 6, 4)
+hist(blca_obj$nFeature_RNA, breaks = 100)
+hist(log10(blca_obj$nCount_RNA), breaks = 100)
+hist(blca_obj$Percent_Mito, breaks = 100)
+dev.off()
+
+cutoffs <- c(
+    "nFeature_RNA" = 300,
+    "nCount_RNA" = 1000,
+    "Percent_Mito" = 10
+)
 
 pdf("Scatter.QC.pdf", 20, 12)
 ggplot(sample_info, aes(x = nCount_RNA, y = nFeature_RNA, color = Condition)) +
     geom_point(show.legend = FALSE) +
     scale_color_manual(values = mycolor$Condition) +
     theme_classic() +
-    facet_wrap(~Sample, ncol = 5) +
+    geom_vline(xintercept = cutoffs["nCount_RNA"], linetype = "dashed", color = "red") +
+    geom_hline(yintercept = cutoffs["nFeature_RNA"], linetype = "dashed", color = "red") +
+    facet_wrap(~Condition, ncol = 3) +
     labs(title = "Scatter plot of QC metrics")
 dev.off()
 
-pdf("Hist.QC.pdf", 10, 4)
+pdf("Hist.QC.Metrics.pdf", 15, 4)
 patchwork::wrap_plots(
     ggplot(sample_info, aes(x = log10(nCount_RNA))) +
         geom_histogram(bins = 100, position = "identity", alpha = 0.5) +
+        geom_vline(xintercept = log10(cutoffs["nCount_RNA"]), linetype = "dashed", color = "red") +
         theme_classic() +
         labs(title = "Histogram of log10 UMI counts"),
     ggplot(sample_info, aes(x = nFeature_RNA)) +
         geom_histogram(bins = 100, position = "identity", alpha = 0.5) +
+        geom_vline(xintercept = cutoffs["nFeature_RNA"], linetype = "dashed", color = "red") +
         theme_classic() +
         labs(title = "Histogram of gene counts"),
-    ncol = 2
+    ggplot(sample_info, aes(x = Percent_Mito)) +
+        geom_histogram(bins = 100, position = "identity", alpha = 0.5) +
+        geom_vline(xintercept = cutoffs["Percent_Mito"], linetype = "dashed", color = "red") +
+        theme_classic() +
+        labs(title = "Histogram of mitochondrial percentage"),
+    ncol = 3
 )
 dev.off()
+
+blca_obj <- subset(blca_obj, subset = nFeature_RNA > cutoffs["nFeature_RNA"] &
+    nCount_RNA > cutoffs["nCount_RNA"] &
+    Percent_Mito < cutoffs["Percent_Mito"])
+sample_info_all <- sample_info
 
 ## 1.3. Reductions & clustering -----
 blca_obj <- blca_obj %>%
