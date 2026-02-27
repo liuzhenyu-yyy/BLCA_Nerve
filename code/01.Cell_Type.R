@@ -7,41 +7,44 @@ library(Seurat)
 library(dplyr)
 library(ggplot2)
 library(RColorBrewer)
+library(DoubletFinder)
 library(parallel)
 
 load("01.Cell_Type.RData")
 
 # 1. Load data & QC ----
-data_dir <- "/Users/zhenyuliu/Research/Project/BLCA_Nerve/data/CellRanger_Out"
+data_dir <- "/thinker/tb269store/user/liuzhenyu/Project/BLCA_Nerve/data/CellRanger_Out"
 samples <- list.dirs(data_dir, recursive = FALSE, full.names = FALSE)
 mycolor <- list()
 
 ## 1.1. Load data ----
 # counts
-rc <- list()
-rc <- lapply(samples, function(x) {
+rc_list <- list()
+rc_list <- lapply(samples, function(x) {
     data <- Read10X(data_dir = file.path(data_dir, x, "filtered_feature_bc_matrix"))
     colnames(data) <- paste(x, colnames(data), sep = "_")
     data
 })
-lapply(rc, dim)
+lapply(rc_list, dim)
 
-common_genes <- Reduce(intersect, lapply(rc, rownames))
-rc <- lapply(rc, function(x) {
+common_genes <- Reduce(intersect, lapply(rc_list, rownames))
+rc_list <- lapply(rc_list, function(x) {
     x[common_genes, ]
 })
+saveRDS(rc_list, file = "../../data/rc_list.rds")
+rc_list <- readRDS(file = "../../data/rc_list.rds")
 
-rc <- do.call(cbind, rc)
+rc <- do.call(cbind, rc_list)
 saveRDS(rc, file = "../../data/rc.rds")
 rc <- readRDS(file = "../../data/rc.rds")
-rm(samples)
+rm(rc_list)
 
 # metadata
-rc[1:5, 1:5]
+cells <- colnames(rc)
 sample_info <- data.frame(
-    row.names = colnames(rc),
-    "Cell" = colnames(rc),
-    "Sample" = gsub("_A.+?*$|_T.+?*$|_C.+?*$|_G.+?*$", "", colnames(rc))
+    row.names = cells,
+    "Cell" = cells,
+    "Sample" = gsub("_A.+?*$|_T.+?*$|_C.+?*$|_G.+?*$", "", cells)
 ) %>% mutate(
     "Condition" = gsub("_00.+?*$|_1.+?*$|_2.+?*$|_3.+?*$|1$|2$|3$", "", Sample)
 )
@@ -55,10 +58,10 @@ sample_info$Condition <- gsub("RIme", "Rime", sample_info$Condition)
 sample_info$Condition <- factor(sample_info$Condition, levels = c("CTRL", "Capsaicin", "LC_6OHDA", "anti_PD1", "Rime"))
 sample_info <- sample_info[order(sample_info$Condition), ]
 sample_info$Sample <- factor(sample_info$Sample, levels = unique(sample_info$Sample))
+
 table(sample_info$Condition)
 table(sample_info$Sample)
-
-rc <- rc[, sample_info$Cell]
+rm(cells)
 
 # singleR_anno annotation
 singler_anno_1 <- read.table("../../data/scRNAseq_1/cell_annot_MouseRNAseqData_label.main.csv",
@@ -82,6 +85,8 @@ table(sample_info$Cell %in% singler_anno$Cell)
 singler_anno[1:5, ]
 
 ## 1.2. QC for cells ----
+dir.create("QC_Doublet")
+
 sample_info$Cell_Type_SingleR <- "none"
 sample_info[singler_anno$Cell, "Cell_Type_SingleR"] <- singler_anno$raw_main_celltype
 sample_info[1:5, ]
@@ -101,7 +106,7 @@ sample_info <- blca_obj@meta.data
 mycolor$Condition <- ggsci::pal_npg("nrc")(5)[c(3, 2, 1, 4, 5)] %>%
     setNames(levels(sample_info$Condition))
 
-pdf("Hist.QC.Metrics.pdf", 6, 4)
+pdf("QC_Doublet/Hist.QC.Metrics.pdf", 6, 4)
 hist(blca_obj$nFeature_RNA, breaks = 100)
 hist(log10(blca_obj$nCount_RNA), breaks = 100)
 hist(blca_obj$Percent_Mito, breaks = 100)
@@ -113,7 +118,7 @@ cutoffs <- c(
     "Percent_Mito" = 10
 )
 
-pdf("Scatter.QC.pdf", 20, 12)
+pdf("QC_Doublet/Scatter.QC.pdf", 20, 12)
 ggplot(sample_info, aes(x = nCount_RNA, y = nFeature_RNA, color = Condition)) +
     geom_point(show.legend = FALSE) +
     scale_color_manual(values = mycolor$Condition) +
@@ -124,7 +129,7 @@ ggplot(sample_info, aes(x = nCount_RNA, y = nFeature_RNA, color = Condition)) +
     labs(title = "Scatter plot of QC metrics")
 dev.off()
 
-pdf("Hist.QC.Metrics.pdf", 15, 4)
+pdf("QC_Doublet/Hist.QC.Metrics.pdf", 15, 4)
 patchwork::wrap_plots(
     ggplot(sample_info, aes(x = log10(nCount_RNA))) +
         geom_histogram(bins = 100, position = "identity", alpha = 0.5) +
@@ -150,20 +155,55 @@ blca_obj <- subset(blca_obj, subset = nFeature_RNA > cutoffs["nFeature_RNA"] &
     Percent_Mito < cutoffs["Percent_Mito"])
 sample_info_all <- sample_info
 
-## 1.3. Reductions & clustering -----
+## 1.3. Filter doublets -----
+obj_list <- SplitObject(blca_obj, split.by = "Sample")
+
+doublet_res <- mclapply(obj_list, function(seu) {
+    seu <- seu %>%
+        NormalizeData() %>%
+        FindVariableFeatures() %>%
+        ScaleData() %>%
+        RunPCA() %>%
+        RunUMAP(dims = 1:15)
+
+    sweep_res <- paramSweep(seu, PCs = 1:15, sct = FALSE)
+    sweep_stats <- summarizeSweep(sweep_res, GT = FALSE)
+    bcmvn <- find.pK(sweep_stats)
+    optimal_pk <- as.numeric(as.character(bcmvn$pK[which.max(bcmvn$BCmetric)]))
+
+    # Estimate doublet rate based on cell number (~0.8% per 1000 cells)
+    nexp_poi <- round(0.008 * (ncol(seu) / 1000) * ncol(seu))
+
+    # Run DoubletFinder
+    seu <- doubletFinder(seu, PCs = 1:15, pN = 0.25, pK = optimal_pk, nExp = nexp_poi, reuse.pANN = NULL, sct = FALSE)
+
+    df_cols <- grep("DF.classifications", colnames(seu@meta.data), value = TRUE)
+    seu$Doublet_Classification <- seu[[df_cols]]
+
+    data.frame(
+        row.names = colnames(seu),
+        Cell = colnames(seu),
+        Doublet_Classification = seu$Doublet_Classification
+    )
+}, mc.cores = 6)
+
+rm(obj_list)
+save.image("01.Cell_Type.RData")
+saveRDS(mycolor, file = "mycolor.rds")
+
 blca_obj <- blca_obj %>%
     NormalizeData() %>%
     FindVariableFeatures(selection.method = "vst", nfeatures = 3000) %>%
     ScaleData() %>%
     RunPCA(verbose = FALSE)
 
-pdf("ElbowPlot.PCA.pdf", 6, 4)
+pdf("QC_Doublet/ElbowPlot.PCA.pdf", 6, 4)
 ElbowPlot(blca_obj, ndims = 50)
 dev.off()
 
 blca_obj <- RunUMAP(blca_obj, dims = 1:30)
 
-pdf("UMAP.Condition.pdf", 5, 4)
+pdf("QC_Doublet/UMAP.Condition.pdf", 5, 4)
 DimPlot(blca_obj, reduction = "umap", group.by = "Condition") +
     scale_color_manual(values = mycolor$Condition) +
     theme_classic() +
@@ -177,7 +217,7 @@ mycolor$Cluster <- colorRampPalette(brewer.pal(12, "Set3"))(length(unique(blca_o
     setNames(levels(blca_obj$seurat_clusters))
 
 Idents(blca_obj) <- blca_obj$seurat_clusters
-pdf("UMAP.Clusters.pdf", 5.5, 4)
+pdf("QC_Doublet/UMAP.Clusters.pdf", 5.5, 4)
 DimPlot(blca_obj, reduction = "umap", label = TRUE, label.size = 3) +
     scale_color_manual(values = mycolor$Cluster) +
     theme_classic() +
@@ -185,12 +225,13 @@ DimPlot(blca_obj, reduction = "umap", label = TRUE, label.size = 3) +
     labs(title = "UMAP plot colored by Clusters")
 dev.off()
 
-pdf("UMAP.Clusters.split.Condition.pdf", 12, 8)
+pdf("QC_Doublet/UMAP.Clusters.split.Condition.pdf", 12, 8)
 DimPlot(blca_obj, reduction = "umap", label = TRUE, split.by = "Condition", ncol = 3) +
     scale_color_manual(values = mycolor$Cluster) +
     theme_classic() +
     labs(title = "UMAP plot colored by Clusters")
 dev.off()
+
 
 ## 1.4. QC metrics ----
 blca_obj$Percent_Mito
@@ -292,9 +333,6 @@ DimPlot(blca_obj, reduction = "umap", group.by = "Cell_Type_1", label = TRUE, sp
     theme_classic() +
     labs(title = "UMAP plot colored by Cell_Type_1")
 dev.off()
-
-save.image("01.Cell_Type.RData")
-saveRDS(mycolor, file = "mycolor.rds")
 
 gene_selected <- c(
     "Epcam", "Krt8", "Krt18", # epithelial
