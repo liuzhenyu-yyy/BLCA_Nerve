@@ -1,5 +1,6 @@
-setwd("/Users/zhenyuliu/Research/Project/BLCA_Neuro/results/01.Cell_Type")
-
+# local
+setwd("/Users/zhenyuliu/Research/Project/BLCA_Nerve/results/01.Cell_Type")
+# server
 setwd("/thinker/tb269store/user/liuzhenyu/Project/BLCA_Nerve/results/01.Cell_Type")
 
 library(Seurat)
@@ -7,12 +8,11 @@ library(dplyr)
 library(ggplot2)
 library(RColorBrewer)
 library(parallel)
-library(DoubletFinder)
 
 load("01.Cell_Type.RData")
 
 # 1. Load data & QC ----
-data_dir <- "/Users/zhenyuliu/Research/Project/BLCA_Neuro/data/CellRanger_Out"
+data_dir <- "/Users/zhenyuliu/Research/Project/BLCA_Nerve/data/CellRanger_Out"
 samples <- list.dirs(data_dir, recursive = FALSE, full.names = FALSE)
 mycolor <- list()
 
@@ -163,8 +163,7 @@ dev.off()
 
 blca_obj <- RunUMAP(blca_obj, dims = 1:30)
 
-blca_obj$Condition <- factor(blca_obj$Condition, levels = c("CTRL", "Capsaicin", "LC_6OHDA"))
-pdf("UMAP.Condition.pdf", 7, 6)
+pdf("UMAP.Condition.pdf", 5, 4)
 DimPlot(blca_obj, reduction = "umap", group.by = "Condition") +
     scale_color_manual(values = mycolor$Condition) +
     theme_classic() +
@@ -178,39 +177,34 @@ mycolor$Cluster <- colorRampPalette(brewer.pal(12, "Set3"))(length(unique(blca_o
     setNames(levels(blca_obj$seurat_clusters))
 
 Idents(blca_obj) <- blca_obj$seurat_clusters
-pdf("UMAP.Clusters.pdf", 7, 6)
-DimPlot(blca_obj, reduction = "umap", label = TRUE) +
+pdf("UMAP.Clusters.pdf", 5.5, 4)
+DimPlot(blca_obj, reduction = "umap", label = TRUE, label.size = 3) +
     scale_color_manual(values = mycolor$Cluster) +
     theme_classic() +
+    guides(color = guide_legend(ncol = 3)) +
     labs(title = "UMAP plot colored by Clusters")
 dev.off()
 
-pdf("UMAP.Clusters.split.Condition.pdf", 16, 6)
-DimPlot(blca_obj, reduction = "umap", label = TRUE, split.by = "Condition") +
-    scale_color_manual(values = mycolor$Cluster) +
-    theme_classic() +
-    labs(title = "UMAP plot colored by Clusters")
-dev.off()
-
-pdf("UMAP.Clusters.split.Sample.pdf", 20, 15)
-DimPlot(blca_obj, reduction = "umap", label = TRUE, split.by = "Sample", ncol = 5) +
+pdf("UMAP.Clusters.split.Condition.pdf", 12, 8)
+DimPlot(blca_obj, reduction = "umap", label = TRUE, split.by = "Condition", ncol = 3) +
     scale_color_manual(values = mycolor$Cluster) +
     theme_classic() +
     labs(title = "UMAP plot colored by Clusters")
 dev.off()
 
 ## 1.4. QC metrics ----
-pdf("VlnPlot.QC.Cluster.pdf", 12, 6)
+blca_obj$Percent_Mito
+pdf("VlnPlot.QC.Cluster.pdf", 8, 8)
 VlnPlot(blca_obj,
-    group.by = "seurat_clusters", features = c("nFeature_RNA", "nCount_RNA", "percent.mito", "percent.HB"),
-    ncol = 2, pt.size = 0, cols = mycolor$Cluster
+    group.by = "seurat_clusters", features = c("nFeature_RNA", "nCount_RNA", "Percent_Mito"),
+    ncol = 1, pt.size = 0, cols = mycolor$Cluster
 ) +
     theme_classic()
 dev.off()
 
 pdf("UMAP.QC.Cluster.pdf", 8, 6)
 FeaturePlot(blca_obj,
-    features = c("nFeature_RNA", "nCount_RNA", "percent.mito", "percent.HB"),
+    features = c("nFeature_RNA", "nCount_RNA", "Percent_Mito"),
     ncol = 2, cols = c("gray", "red")
 )
 dev.off()
@@ -260,30 +254,32 @@ dev.off()
 
 ## 2.3. Label cell types ----
 blca_obj$Cell_Type_1 <- "none"
-blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(21))] <- "Bladder_epithelial"
-blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(0, 1, 2, 4, 6, 11, 14, 18, 19, 28))] <- "Cancer"
-blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(26, 33))] <- "Endothelial"
-blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(5, 9, 13, 15, 25, 32))] <- "T"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(23))] <- "Bladder_epithelial"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(0:2, 7:9, 11, 15, 21, 29))] <- "Cancer"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(25, 36))] <- "Endothelial"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(4, 10, 16, 19, 30, 35))] <- "T"
 blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(17))] <- "NK"
-blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(29))] <- "B"
-blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(7, 8, 10, 16, 20, 22, 23, 24, 27, 31))] <- "Myeloid"
-blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(3))] <- "Granulocyte"
-blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(12, 30))] <- "Fibroblast"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(31))] <- "B"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(5, 6, 13, 18, 22, 27, 28))] <- "Myeloid"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(3))] <- "Neutrophil"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(12, 24))] <- "Fibroblast"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(29, 30, 32, 33, 34, 20, 21, 14, 26))] <- "Doublets"
 table(blca_obj$seurat_clusters, blca_obj$Cell_Type_1)
 
 blca_obj$Cell_Type_1 <- factor(blca_obj$Cell_Type_1, levels = c(
     "Bladder_epithelial", "Cancer",
     "Endothelial", "Fibroblast",
     "T", "B", "NK",
-    "Granulocyte", "Myeloid"
+    "Neutrophil", "Myeloid", "Doublets"
 ))
 
 Idents(blca_obj) <- "Cell_Type_1"
 
-mycolor$Cell_Type_1 <- c(ggsci::pal_npg()(9)) %>%
+mycolor$Cell_Type_1 <- c(ggsci::pal_npg()(length(levels(blca_obj$Cell_Type_1)))) %>%
     setNames(levels(blca_obj$Cell_Type_1))
+mycolor$Cell_Type_1["Doublets"] <- "gray"
 
-pdf("UMAP.Cell_Type_1.pdf", 7, 6)
+pdf("UMAP.Cell_Type_1.pdf", 5.5, 4)
 DimPlot(blca_obj, reduction = "umap", group.by = "Cell_Type_1", label = TRUE) +
     scale_color_manual(values = mycolor$Cell_Type_1) +
     theme_classic() +
@@ -291,11 +287,14 @@ DimPlot(blca_obj, reduction = "umap", group.by = "Cell_Type_1", label = TRUE) +
 dev.off()
 
 pdf("UMAP.Cell_Type_1.split.Condition.pdf", 16, 6)
-DimPlot(blca_obj, reduction = "umap", group.by = "Cell_Type_1", label = TRUE, , split.by = "Condition") +
+DimPlot(blca_obj, reduction = "umap", group.by = "Cell_Type_1", label = TRUE, split.by = "Condition") +
     scale_color_manual(values = mycolor$Cell_Type_1) +
     theme_classic() +
     labs(title = "UMAP plot colored by Cell_Type_1")
 dev.off()
+
+save.image("01.Cell_Type.RData")
+saveRDS(mycolor, file = "mycolor.rds")
 
 gene_selected <- c(
     "Epcam", "Krt8", "Krt18", # epithelial
