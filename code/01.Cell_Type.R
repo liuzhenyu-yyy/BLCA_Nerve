@@ -80,16 +80,15 @@ singler_anno$Cell <- gsub("-.+?*$", "-1", singler_anno$Cell)
 singler_anno$Cell <- paste(singler_anno$orig.ident, singler_anno$Cell, sep = "_")
 rownames(singler_anno) <- singler_anno$Cell
 
-table(singler_anno$Cell %in% sample_info$Cell)
+table(singler_anno$Cell %in% sample_info$Cell) # 376867 cells
 table(sample_info$Cell %in% singler_anno$Cell)
 singler_anno[1:5, ]
 
 ## 1.2. QC for cells ----
-dir.create("QC_Doublet")
-
 sample_info$Cell_Type_SingleR <- "none"
 sample_info[singler_anno$Cell, "Cell_Type_SingleR"] <- singler_anno$raw_main_celltype
 sample_info[1:5, ]
+rm(singler_anno)
 
 blca_obj <- CreateSeuratObject(
     counts = rc,
@@ -106,7 +105,7 @@ sample_info <- blca_obj@meta.data
 mycolor$Condition <- ggsci::pal_npg("nrc")(5)[c(3, 2, 1, 4, 5)] %>%
     setNames(levels(sample_info$Condition))
 
-pdf("QC_Doublet/Hist.QC.Metrics.pdf", 6, 4)
+pdf("Hist.QC.Metrics.pdf", 6, 4)
 hist(blca_obj$nFeature_RNA, breaks = 100)
 hist(log10(blca_obj$nCount_RNA), breaks = 100)
 hist(blca_obj$Percent_Mito, breaks = 100)
@@ -118,7 +117,7 @@ cutoffs <- c(
     "Percent_Mito" = 10
 )
 
-pdf("QC_Doublet/Scatter.QC.pdf", 20, 12)
+pdf("Scatter.QC.pdf", 20, 12)
 ggplot(sample_info, aes(x = nCount_RNA, y = nFeature_RNA, color = Condition)) +
     geom_point(show.legend = FALSE) +
     scale_color_manual(values = mycolor$Condition) +
@@ -129,7 +128,7 @@ ggplot(sample_info, aes(x = nCount_RNA, y = nFeature_RNA, color = Condition)) +
     labs(title = "Scatter plot of QC metrics")
 dev.off()
 
-pdf("QC_Doublet/Hist.QC.Metrics.pdf", 15, 4)
+pdf("Hist.QC.Metrics.pdf", 15, 4)
 patchwork::wrap_plots(
     ggplot(sample_info, aes(x = log10(nCount_RNA))) +
         geom_histogram(bins = 100, position = "identity", alpha = 0.5) +
@@ -158,7 +157,7 @@ sample_info_all <- sample_info
 ## 1.3. Filter doublets -----
 obj_list <- SplitObject(blca_obj, split.by = "Sample")
 
-doublet_res <- mclapply(obj_list, function(seu) {
+doublet_res <- lapply(obj_list, function(seu) {
     seu <- seu %>%
         NormalizeData() %>%
         FindVariableFeatures() %>%
@@ -185,25 +184,38 @@ doublet_res <- mclapply(obj_list, function(seu) {
         Cell = colnames(seu),
         Doublet_Classification = seu$Doublet_Classification
     )
-}, mc.cores = 6)
+})
+doublet_res <- do.call(rbind, doublet_res)
+rownames(doublet_res) <- gsub("^.+?\\.", "", rownames(doublet_res))
 
-rm(obj_list)
-save.image("01.Cell_Type.RData")
-saveRDS(mycolor, file = "mycolor.rds")
+table(rownames(sample_info_all) %in% rownames(doublet_res))
+sample_info_all$Doublet_Classification <- "none"
+sample_info_all[rownames(doublet_res), "Doublet_Classification"] <- doublet_res$Doublet_Classification
+table(sample_info_all$Doublet_Classification)
 
+table(colnames(blca_obj) %in% rownames(doublet_res))
+blca_obj$Doublet_Classification <- "none"
+blca_obj@meta.data[rownames(doublet_res), "Doublet_Classification"] <- doublet_res$Doublet_Classification
+table(blca_obj$Doublet_Classification)
+
+blca_obj <- subset(blca_obj, subset = Doublet_Classification == "Singlet")
+sample_info <- blca_obj@meta.data
+rm(doublet_res, obj_list)
+
+## 1.4. Reductions & clustering ----
 blca_obj <- blca_obj %>%
     NormalizeData() %>%
     FindVariableFeatures(selection.method = "vst", nfeatures = 3000) %>%
     ScaleData() %>%
     RunPCA(verbose = FALSE)
 
-pdf("QC_Doublet/ElbowPlot.PCA.pdf", 6, 4)
+pdf("ElbowPlot.PCA.pdf", 6, 4)
 ElbowPlot(blca_obj, ndims = 50)
 dev.off()
 
 blca_obj <- RunUMAP(blca_obj, dims = 1:30)
 
-pdf("QC_Doublet/UMAP.Condition.pdf", 5, 4)
+pdf("UMAP.Condition.pdf", 5, 4)
 DimPlot(blca_obj, reduction = "umap", group.by = "Condition") +
     scale_color_manual(values = mycolor$Condition) +
     theme_classic() +
@@ -213,11 +225,11 @@ dev.off()
 blca_obj <- FindNeighbors(blca_obj, dims = 1:30)
 blca_obj <- FindClusters(blca_obj, resolution = 0.8)
 
-mycolor$Cluster <- colorRampPalette(brewer.pal(12, "Set3"))(length(unique(blca_obj$seurat_clusters))) %>%
+mycolor$Cluster <- colorRampPalette(ggsci::pal_npg()(10))(length(unique(blca_obj$seurat_clusters))) %>%
     setNames(levels(blca_obj$seurat_clusters))
 
 Idents(blca_obj) <- blca_obj$seurat_clusters
-pdf("QC_Doublet/UMAP.Clusters.pdf", 5.5, 4)
+pdf("UMAP.Clusters.pdf", 5.5, 4)
 DimPlot(blca_obj, reduction = "umap", label = TRUE, label.size = 3) +
     scale_color_manual(values = mycolor$Cluster) +
     theme_classic() +
@@ -225,15 +237,13 @@ DimPlot(blca_obj, reduction = "umap", label = TRUE, label.size = 3) +
     labs(title = "UMAP plot colored by Clusters")
 dev.off()
 
-pdf("QC_Doublet/UMAP.Clusters.split.Condition.pdf", 12, 8)
+pdf("UMAP.Clusters.split.Condition.pdf", 12, 8)
 DimPlot(blca_obj, reduction = "umap", label = TRUE, split.by = "Condition", ncol = 3) +
     scale_color_manual(values = mycolor$Cluster) +
     theme_classic() +
     labs(title = "UMAP plot colored by Clusters")
 dev.off()
 
-
-## 1.4. QC metrics ----
 blca_obj$Percent_Mito
 pdf("VlnPlot.QC.Cluster.pdf", 8, 8)
 VlnPlot(blca_obj,
@@ -253,9 +263,9 @@ dev.off()
 # 2. Initial cell type annotation ----
 ## 2.1. SingleR annotation ----
 table(blca_obj$Cell_Type_SingleR)
-pdf("UMAP.SingleR.pdf", 7, 6)
-DimPlot(blca_obj, reduction = "umap", group.by = "Cell_Type_SingleR", label = TRUE) +
-    scale_color_manual(values = brewer.pal(9, "Set3")) +
+pdf("UMAP.SingleR.pdf", 5, 4)
+DimPlot(blca_obj, reduction = "umap", group.by = "Cell_Type_SingleR", label = TRUE, label.size = 3) +
+    scale_color_manual(values = brewer.pal(10, "Set3")) +
     theme_classic() +
     labs(title = "UMAP plot colored by SingleR annotation")
 dev.off()
@@ -295,23 +305,23 @@ dev.off()
 
 ## 2.3. Label cell types ----
 blca_obj$Cell_Type_1 <- "none"
-blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(23))] <- "Bladder_epithelial"
-blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(0:2, 7:9, 11, 15, 21, 29))] <- "Cancer"
-blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(25, 36))] <- "Endothelial"
-blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(4, 10, 16, 19, 30, 35))] <- "T"
-blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(17))] <- "NK"
-blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(31))] <- "B"
-blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(5, 6, 13, 18, 22, 27, 28))] <- "Myeloid"
-blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(3))] <- "Neutrophil"
-blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(12, 24))] <- "Fibroblast"
-blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(29, 30, 32, 33, 34, 20, 21, 14, 26))] <- "Doublets"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(26))] <- "Epithelial"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(0, 1, 5, 6, 8, 9, 12, 13, 21, 22, 25, 31))] <- "Cancer"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(30, 33))] <- "Endothelial"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(3, 10, 15, 16, 18, 29))] <- "T"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(19))] <- "NK"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(28))] <- "B"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(2, 7, 11, 17, 20, 23, 24, 32))] <- "Macro/Mono"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(17, 27, 34))] <- "DC"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(4))] <- "Granulocyte"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(14))] <- "Fibroblast"
 table(blca_obj$seurat_clusters, blca_obj$Cell_Type_1)
 
 blca_obj$Cell_Type_1 <- factor(blca_obj$Cell_Type_1, levels = c(
-    "Bladder_epithelial", "Cancer",
+    "Epithelial", "Cancer",
     "Endothelial", "Fibroblast",
     "T", "B", "NK",
-    "Neutrophil", "Myeloid", "Doublets"
+    "Granulocyte", "Macro/Mono", "DC"
 ))
 
 Idents(blca_obj) <- "Cell_Type_1"
@@ -321,14 +331,14 @@ mycolor$Cell_Type_1 <- c(ggsci::pal_npg()(length(levels(blca_obj$Cell_Type_1))))
 mycolor$Cell_Type_1["Doublets"] <- "gray"
 
 pdf("UMAP.Cell_Type_1.pdf", 5.5, 4)
-DimPlot(blca_obj, reduction = "umap", group.by = "Cell_Type_1", label = TRUE) +
+DimPlot(blca_obj, reduction = "umap", group.by = "Cell_Type_1", label = TRUE, label.size = 3) +
     scale_color_manual(values = mycolor$Cell_Type_1) +
     theme_classic() +
     labs(title = "UMAP plot colored by Cell_Type_1")
 dev.off()
 
-pdf("UMAP.Cell_Type_1.split.Condition.pdf", 16, 6)
-DimPlot(blca_obj, reduction = "umap", group.by = "Cell_Type_1", label = TRUE, split.by = "Condition") +
+pdf("UMAP.Cell_Type_1.split.Condition.pdf", 12, 8)
+DimPlot(blca_obj, reduction = "umap", group.by = "Cell_Type_1", label = TRUE, split.by = "Condition", ncol = 3) +
     scale_color_manual(values = mycolor$Cell_Type_1) +
     theme_classic() +
     labs(title = "UMAP plot colored by Cell_Type_1")
@@ -337,14 +347,13 @@ dev.off()
 gene_selected <- c(
     "Epcam", "Krt8", "Krt18", # epithelial
     "Pecam1", "Cdh5", # endothelial
-    "Col1a2", "Dcn", "Pdgfra", # fibroblast
+    "Col1a2", "Dcn", # fibroblast
     "Ptprc", # leukocyte
     "Cd3d", "Cd3g", "Cd79a", "Klrb1c", # lymphocyte
     "S100a8", "S100a9", # neutrophils
-    "Cd14", "Cd68" # myeloid
+    "Cd14", "Cd68", "Cst3"# myeloid
 )
-blca_obj$Cell_Type_1
-pdf("DotPlot.Cell_Type_1.pdf", 7, 3)
+pdf("DotPlot.Cell_Type_1.pdf", 7, 3.5)
 DotPlot(blca_obj, features = gene_selected, group.by = "Cell_Type_1") +
     scale_color_viridis_c() +
     theme_classic() +
@@ -354,28 +363,31 @@ rm(gene_selected)
 
 # bigger categories
 blca_obj$Cell_Type_0 <- "none"
-blca_obj$Cell_Type_0[which(blca_obj$Cell_Type_1 %in% c("Bladder_epithelial", "Cancer"))] <- "Epithelial"
+blca_obj$Cell_Type_0[which(blca_obj$Cell_Type_1 %in% c("Epithelial", "Cancer"))] <- "Epithelial"
 blca_obj$Cell_Type_0[which(blca_obj$Cell_Type_1 %in% c("Fibroblast", "Endothelial"))] <- "Stromal"
-blca_obj$Cell_Type_0[which(blca_obj$Cell_Type_1 %in% c("T", "B", "NK", "Myeloid", "Granulocyte"))] <- "Immune"
+blca_obj$Cell_Type_0[which(blca_obj$Cell_Type_1 %in% c("T", "B", "NK", "Granulocyte", "Macro/Mono", "DC"))] <- "Immune"
 table(blca_obj$Cell_Type_0)
 
 blca_obj$Cell_Type_0 <- factor(blca_obj$Cell_Type_0, levels = c("Epithelial", "Stromal", "Immune"))
 mycolor$Cell_Type_0 <- c(ggsci::pal_jco()(4)[c(1, 2, 4)]) %>%
     setNames(levels(blca_obj$Cell_Type_0))
 
-pdf("UMAP.Cell_Type_0.pdf", 7, 6)
+pdf("UMAP.Cell_Type_0.pdf", 5.5, 4)
 DimPlot(blca_obj, reduction = "umap", group.by = "Cell_Type_0", label = TRUE) +
     scale_color_manual(values = mycolor$Cell_Type_0) +
     theme_classic() +
     labs(title = "UMAP plot colored by Cell_Type_0")
 dev.off()
 
-pdf("UMAP.Cell_Type_0.split.Condition.pdf", 16, 6)
-DimPlot(blca_obj, reduction = "umap", group.by = "Cell_Type_0", label = TRUE, , split.by = "Condition") +
+pdf("UMAP.Cell_Type_0.split.Condition.pdf", 12, 8)
+DimPlot(blca_obj, reduction = "umap", group.by = "Cell_Type_0", label = TRUE, split.by = "Condition", ncol = 3) +
     scale_color_manual(values = mycolor$Cell_Type_0) +
     theme_classic() +
     labs(title = "UMAP plot colored by Cell_Type_0")
 dev.off()
+
+save.image("01.Cell_Type.RData")
+saveRDS(mycolor, file = "mycolor.rds")
 
 ## 2.4. Cell types cross conditions ----
 plot.data <- as.data.frame(table(blca_obj$Cell_Type_1, blca_obj$Condition))
@@ -423,21 +435,20 @@ dev.off()
 # fraction compare
 plot.data <- as.data.frame(table(blca_obj$Cell_Type_0, blca_obj$Sample))
 colnames(plot.data) <- c("Cell_Type_0", "Sample", "Count")
-plot.data$Condition <- gsub("_00.+?*$", "", plot.data$Sample)
+plot.data$Condition <- gsub("_[1-5]+?*$", "", plot.data$Sample)
 table(plot.data$Condition)
 table(plot.data$Sample)
 
 temp <- table(blca_obj$Sample)
 plot.data$Fraction <- plot.data$Count / temp[plot.data$Sample] * 100
-plot.data$Condition <- factor(plot.data$Condition, levels = c("CTRL", "Capsaicin", "LC_6OHDA"))
+plot.data$Condition <- factor(plot.data$Condition, levels = names(mycolor$Condition))
 
 pdf("Boxplot.Fraction.Cell_Type_0.pdf", 5, 3)
 ggplot(plot.data, aes(x = Condition, y = Fraction)) +
     geom_boxplot(aes(fill = Cell_Type_0), outlier.shape = NA, alpha = 0.5) +
     geom_jitter(width = 0.2, size = 0.5, alpha = 1) +
     ggpubr::stat_compare_means(
-        label = "p.signif", label.y.npc = 1, size = 2.5,
-        comparisons = list(c("CTRL", "Capsaicin"), c("Capsaicin", "LC_6OHDA"), c("CTRL", "LC_6OHDA"))
+        label = "p.signif", label.y.npc = 0.98, size = 3, ref.group = "CTRL",
     ) +
     facet_wrap(~Cell_Type_0, ncol = 3, scales = "free") +
     labs(title = "Cell Type composition across Samples") +
@@ -450,21 +461,20 @@ dev.off()
 
 plot.data <- as.data.frame(table(blca_obj$Cell_Type_1, blca_obj$Sample))
 colnames(plot.data) <- c("Cell_Type_1", "Sample", "Count")
-plot.data$Condition <- gsub("_00.+?*$", "", plot.data$Sample)
+plot.data$Condition <- gsub("_[1-5]+?*$", "", plot.data$Sample)
 table(plot.data$Condition)
 table(plot.data$Sample)
 
 temp <- table(blca_obj$Sample)
 plot.data$Fraction <- plot.data$Count / temp[plot.data$Sample] * 100
-plot.data$Condition <- factor(plot.data$Condition, levels = c("CTRL", "Capsaicin", "LC_6OHDA"))
+plot.data$Condition <- factor(plot.data$Condition, levels = names(mycolor$Condition))
 
 pdf("Boxplot.Fraction.Cell_Type_1.pdf", 8, 5)
 ggplot(plot.data, aes(x = Condition, y = Fraction)) +
     geom_boxplot(aes(fill = Cell_Type_1), outlier.shape = NA, alpha = 0.5) +
     geom_jitter(width = 0.2, size = 0.5, alpha = 1) +
     ggpubr::stat_compare_means(
-        label = "p.signif", label.y.npc = 1, size = 2.5,
-        comparisons = list(c("CTRL", "Capsaicin"), c("Capsaicin", "LC_6OHDA"), c("CTRL", "LC_6OHDA"))
+        label = "p.signif", label.y.npc = 0.98, size = 3, ref.group = "CTRL",
     ) +
     facet_wrap(~Cell_Type_1, ncol = 5, scales = "free") +
     labs(title = "Cell Type composition across Samples") +
@@ -475,6 +485,30 @@ ggplot(plot.data, aes(x = Condition, y = Fraction)) +
     NoLegend()
 dev.off()
 rm(plot.data, temp)
+
+# Roe
+roe <- Startrac::calTissueDist(
+    blca_obj@meta.data,
+    byPatient = FALSE,
+    colname.cluster = "Cell_Type_1",
+    colname.patient = "Sample",
+    colname.tissue = "Condition",
+    method = "chisq",
+    min.rowSum = 0
+)
+
+pdf("Heatmap.Roe.Cell_Type_1.Condition.pdf", 3.5, 5)
+pheatmap::pheatmap(
+    roe,
+    scale = "none",
+    display_numbers = TRUE,
+    cluster_rows = TRUE,
+    cluster_cols = TRUE,
+    fontsize_row = 8,
+    fontsize_col = 8,
+    main = "Ro/e of Cell_Type_1"
+)
+dev.off()
 
 # 3. Immune compartment ----
 ##  3.1. Detailed cell typing ----
