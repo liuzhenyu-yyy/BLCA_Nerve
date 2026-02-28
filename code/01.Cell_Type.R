@@ -263,9 +263,11 @@ dev.off()
 # 2. Initial cell type annotation ----
 ## 2.1. SingleR annotation ----
 table(blca_obj$Cell_Type_SingleR)
+mycolor$Cell_Type_SingleR <- colorRampPalette(brewer.pal(10, "Set3"))(length(unique(blca_obj$Cell_Type_SingleR))) %>%
+    setNames(levels(blca_obj$Cell_Type_SingleR))
 pdf("UMAP.SingleR.pdf", 5, 4)
 DimPlot(blca_obj, reduction = "umap", group.by = "Cell_Type_SingleR", label = TRUE, label.size = 3) +
-    scale_color_manual(values = brewer.pal(10, "Set3")) +
+    scale_color_manual(values = mycolor$Cell_Type_SingleR) +
     theme_classic() +
     labs(title = "UMAP plot colored by SingleR annotation")
 dev.off()
@@ -386,9 +388,6 @@ DimPlot(blca_obj, reduction = "umap", group.by = "Cell_Type_0", label = TRUE, sp
     labs(title = "UMAP plot colored by Cell_Type_0")
 dev.off()
 
-save.image("01.Cell_Type.RData")
-saveRDS(mycolor, file = "mycolor.rds")
-
 ## 2.4. Cell types cross conditions ----
 plot.data <- as.data.frame(table(blca_obj$Cell_Type_1, blca_obj$Condition))
 colnames(plot.data) <- c("Cell_Type_1", "Condition", "Count")
@@ -487,6 +486,29 @@ dev.off()
 rm(plot.data, temp)
 
 # Roe
+mycolor$Roe <- colorRampPalette(brewer.pal(9, "RdBu"))(100) %>% rev()
+
+roe <- Startrac::calTissueDist(
+    blca_obj@meta.data,
+    byPatient = FALSE,
+    colname.cluster = "Cell_Type_0",
+    colname.patient = "Sample",
+    colname.tissue = "Condition",
+    method = "chisq",
+    min.rowSum = 0
+)
+pdf("Heatmap.Roe.Cell_Type_0.Condition.pdf", 4, 2.5)
+pheatmap::pheatmap(
+    roe,
+    color = mycolor$Roe,
+    breaks = seq(0, 2, length.out = 101),
+    scale = "none",
+    display_numbers = TRUE,
+    cluster_rows = TRUE,
+    cluster_cols = FALSE,
+)
+dev.off()
+
 roe <- Startrac::calTissueDist(
     blca_obj@meta.data,
     byPatient = FALSE,
@@ -496,31 +518,34 @@ roe <- Startrac::calTissueDist(
     method = "chisq",
     min.rowSum = 0
 )
-
-pdf("Heatmap.Roe.Cell_Type_1.Condition.pdf", 3.5, 5)
+pdf("Heatmap.Roe.Cell_Type_1.Condition.pdf", 4, 5)
 pheatmap::pheatmap(
     roe,
+    color = mycolor$Roe,
+    breaks = seq(0, 2, length.out = 101),
     scale = "none",
     display_numbers = TRUE,
     cluster_rows = TRUE,
-    cluster_cols = TRUE,
-    fontsize_row = 8,
-    fontsize_col = 8,
-    main = "Ro/e of Cell_Type_1"
+    cluster_cols = FALSE,
 )
 dev.off()
+rm(roe)
+
+dir.create("rds")
+saveRDS(blca_obj, file = "rds/blca_obj.rds")
+# rm(blca_obj)
 
 # 3. Immune compartment ----
 ##  3.1. Detailed cell typing ----
 dir.create("sub1_Immune")
 
-immune_obj <- subset(blca_obj, subset = Cell_Type_0 == "Immune") # 122993 cells
-
+immune_obj <- subset(blca_obj, subset = Cell_Type_0 == "Immune") # 167873 cells
 immune_obj <- immune_obj %>%
     NormalizeData() %>%
     FindVariableFeatures(selection.method = "vst", nfeatures = 3000) %>%
     ScaleData() %>%
     RunPCA(verbose = FALSE)
+# immune_obj <- readRDS("rds/immune_obj.rds")
 
 pdf("sub1_Immune/ElbowPlot.PCA.pdf", 6, 4)
 ElbowPlot(immune_obj, ndims = 50)
@@ -531,18 +556,19 @@ immune_obj <- FindClusters(immune_obj, resolution = 1.0)
 
 immune_obj <- RunUMAP(immune_obj, dims = 1:30)
 
-pdf("sub1_Immune/UMAP.Clusters.pdf", 7, 6)
+pdf("sub1_Immune/UMAP.Clusters.pdf", 5.5, 4)
 DimPlot(immune_obj,
-    reduction = "umap", group.by = "seurat_clusters", label = TRUE,
+    reduction = "umap", group.by = "seurat_clusters", label = TRUE, label.size = 3,
     cols = mycolor$Cluster, raster = TRUE
 ) +
     theme_classic() +
+    guides(color = guide_legend(ncol = 3)) +
     labs(title = "UMAP plot colored by clusters")
 dev.off()
 
-pdf("sub1_Immune/UMAP.Clusters.split.pdf", 12, 4)
+pdf("sub1_Immune/UMAP.Clusters.split.pdf", 10, 6)
 DimPlot(immune_obj,
-    reduction = "umap", group.by = "seurat_clusters", split.by = "Condition",
+    reduction = "umap", group.by = "seurat_clusters", split.by = "Condition", ncol = 3,
     label = TRUE, cols = mycolor$Cluster, raster = TRUE
 ) +
     theme_classic() +
@@ -550,14 +576,14 @@ DimPlot(immune_obj,
 dev.off()
 
 table(immune_obj$Cell_Type_SingleR)
-pdf("sub1_Immune/UMAP.SingleR.pdf", 7, 6)
+pdf("sub1_Immune/UMAP.SingleR.pdf", 5, 4)
 DimPlot(immune_obj, reduction = "umap", group.by = "Cell_Type_SingleR", label = TRUE, raster = TRUE) +
-    scale_color_manual(values = brewer.pal(9, "Set3")) +
+    scale_color_manual(values = mycolor$Cell_Type_SingleR) +
     theme_classic() +
     labs(title = "UMAP plot colored by SingleR annotation")
 dev.off()
 
-pdf("sub1_Immune/UMAP.Cell_Type_1.pdf", 7, 6)
+pdf("sub1_Immune/UMAP.Cell_Type_1.pdf", 5, 4)
 DimPlot(immune_obj,
     reduction = "umap", group.by = "Cell_Type_1", label = TRUE,
     cols = mycolor$Cell_Type_1, raster = TRUE
@@ -603,66 +629,34 @@ DotPlot(immune_obj,
     theme_classic() + coord_flip()
 dev.off()
 
-# undefined cluster markers
-marker_undefined_c9 <- FindMarkers(immune_obj,
-    ident.1 = 9,
-    group.by = "seurat_clusters",
-    min.pct = 0.25, logfc.threshold = 0.25,
-    max.cells.per.ident = 1000
-)
-marker_undefined_c9 <- marker_undefined_c9[order(marker_undefined_c9$avg_log2FC, decreasing = TRUE), ]
-head(rownames(marker_undefined_c9), 50) # Neurogenic markers: Ngf, Ncam1, Sox5, Tenm4 MDSC?
-
-marker_undefined_c20 <- FindMarkers(immune_obj,
-    ident.1 = c(20),
-    group.by = "seurat_clusters",
-    min.pct = 0.25, logfc.threshold = 0.25,
-    max.cells.per.ident = 1000
-)
-marker_undefined_c20 <- marker_undefined_c20[order(marker_undefined_c20$avg_log2FC, decreasing = TRUE), ]
-head(rownames(marker_undefined_c20), 50) #  Macrophage markers: C1qa Ms4a7 Ccl8
-
-marker_undefined_c22 <- FindMarkers(immune_obj,
-    ident.1 = 22,
-    group.by = "seurat_clusters",
-    min.pct = 0.25, logfc.threshold = 0.25,
-    max.cells.per.ident = 1000
-)
-marker_undefined_c22 <- marker_undefined_c22[order(marker_undefined_c22$avg_log2FC, decreasing = TRUE), ]
-head(rownames(marker_undefined_c22), 200) #  markers: CD8T + Myeloid, suppressed
-
 immune_obj$Cell_Type_2 <- "none"
-immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(12, 16))] <- "T_CD4"
-immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(29))] <- "T_CD4_Cycling"
-immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(10, 33))] <- "Treg"
-immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(0, 1, 18, 21, 28))] <- "T_CD8"
-immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(11))] <- "T_CD8_Cycling"
-immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(22))] <- "T_CD8_Suppressed"
-immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(13))] <- "NK"
-immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(27))] <- "B"
-immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(3, 4, 6, 8, 14, 19, 20))] <- "Macrophage"
-immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(7, 24))] <- "Monocyte"
-immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(15, 23, 26, 32))] <- "cDC"
-immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(30))] <- "pDC"
-immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(2, 5, 25))] <- "Neutrophil"
-immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(9))] <- "MDSC_Neurogenic"
-immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(17, 31))] <- "Myeloid_Cycling"
+immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(12, 33))] <- "T_CD4"
+immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(30))] <- "T_CD4_Cycling"
+immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(11))] <- "Treg"
+immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(0, 2, 9, 24, 25, 28))] <- "T_CD8"
+immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(10, 19))] <- "T_CD8_Cycling"
+immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(20))] <- "NKT"
+immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(16))] <- "NK"
+immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(26))] <- "B"
+immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(4, 5, 15, 22))] <- "Macrophage"
+immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(6:8, 13, 17, 23, 32))] <- "Monocyte"
+immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(14, 21, 27))] <- "cDC"
+immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(31))] <- "pDC"
+immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(1, 3, 29))] <- "Neutrophil"
+immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(18))] <- "Myeloid_Cycling"
+immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(24))] <- "Doublet"
 
 table(immune_obj$seurat_clusters, immune_obj$Cell_Type_2)
 
 immune_obj$Cell_Type_2 <- factor(immune_obj$Cell_Type_2, levels = c(
-    "T_CD4", "T_CD4_Cycling", "Treg",
-    "T_CD8", "T_CD8_Cycling", "T_CD8_Suppressed",
-    "NK",
-    "B",
-    "Macrophage", "Monocyte",
-    "cDC", "pDC",
-    "Neutrophil", "MDSC_Neurogenic", "Myeloid_Cycling"
+    "T_CD4", "T_CD4_Cycling", "Treg", "T_CD8", "T_CD8_Cycling", "NKT", "NK",
+    "B", "Macrophage", "Monocyte", "cDC", "pDC",  "Neutrophil", "Myeloid_Cycling",
+    "Doublet"
 ))
-mycolor$Cell_Type_2 <- colorRampPalette(ggsci::pal_npg()(9))(length(levels(immune_obj$Cell_Type_2))) %>%
+mycolor$Cell_Type_2 <- colorRampPalette(ggsci::pal_npg()(10))(length(levels(immune_obj$Cell_Type_2))) %>%
     setNames(levels(immune_obj$Cell_Type_2))
 
-pdf("sub1_Immune/UMAP.Cell_Type_2.pdf", 13, 6)
+pdf("sub1_Immune/UMAP.Cell_Type_2.pdf", 9, 4)
 DimPlot(immune_obj,
     reduction = "umap", group.by = "Cell_Type_2", label = TRUE, raster = TRUE,
     cols = mycolor$Cell_Type_2
@@ -677,9 +671,9 @@ DimPlot(immune_obj,
     labs(title = "UMAP plot colored by Cell_Type_2")
 dev.off()
 
-pdf("sub1_Immune/UMAP.Cell_Type_2.split.pdf", 12, 4)
+pdf("sub1_Immune/UMAP.Cell_Type_2.split.pdf", 8, 5)
 DimPlot(immune_obj,
-    reduction = "umap", group.by = "Cell_Type_2", split.by = "Condition",
+    reduction = "umap", group.by = "Cell_Type_2", split.by = "Condition", ncol = 3,
     label = FALSE, raster = TRUE,
     cols = mycolor$Cell_Type_2
 ) +
@@ -687,13 +681,13 @@ DimPlot(immune_obj,
 dev.off()
 
 p <- DimPlot(immune_obj,
-    reduction = "umap", group.by = "Cell_Type_2", split.by = "Condition",
+    reduction = "umap", group.by = "Cell_Type_2", split.by = "Condition", ncol = 3,
     label = FALSE, raster = TRUE, pt.size = NULL,
     cols = mycolor$Cell_Type_2
 ) +
     theme_classic()
 
-pdf("sub1_Immune/UMAP.Cell_Type_2.split.density.pdf", 12, 4)
+pdf("sub1_Immune/UMAP.Cell_Type_2.split.density.pdf", 8, 5)
 plot(p + stat_density_2d(aes_string(x = "umap_1", y = "umap_2", fill = "after_stat(level)"),
     linewidth = 0, geom = "density_2d_filled",
     n = 150, h = c(1.2, 1.2)
@@ -709,19 +703,20 @@ Idents(immune_obj) <- immune_obj$Cell_Type_2
 levels(Idents(immune_obj))
 
 gene_selected <- c(
-    "Cd3d", "Cd4", "Foxp3", "Cd8a", "Prf1", "Arg2", "Klrb1c", "Cd79a",
+    "Cd3d", "Cd4", "Foxp3", "Cd8a", "Prf1", "Klrb1c", "Cd79a",
     "Cd68", "Mrc1", "Lrc2", "Cst3", "Siglech", "S100a8", "Hdc",
-    "Sox5", "Dclk1", "Ncam1", "Mki67"
+    "Mki67"
 )
 
-pdf("sub1_Immune/DotPlot.Cell_Type_2.pdf", 7, 4)
-DotPlot(immune_obj, features = gene_selected) +
+pdf("sub1_Immune/DotPlot.Cell_Type_2.pdf", 6, 3.5)
+DotPlot(immune_obj,
+    features = gene_selected,
+    idents = setdiff(levels(immune_obj$Cell_Type_2), c("Doublet", "NKT"))
+) +
     scale_color_viridis_c() +
     theme_classic() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 dev.off()
-
-rm(list = grep("marker.undefined", ls(), value = TRUE))
 rm(gene_selected)
 
 ## 3.3. Percentage changes ----
@@ -750,21 +745,20 @@ dev.off()
 # fraction compare
 plot.data <- as.data.frame(table(immune_obj$Cell_Type_2, immune_obj$Sample))
 colnames(plot.data) <- c("Cell_Type_2", "Sample", "Count")
-plot.data$Condition <- gsub("_00.+?*$", "", plot.data$Sample)
+plot.data$Condition <- gsub("_[0-5].+?*$", "", plot.data$Sample)
 table(plot.data$Condition)
 table(plot.data$Sample)
 
 temp <- table(immune_obj$Sample)
 plot.data$Fraction <- plot.data$Count / temp[plot.data$Sample] * 100
-plot.data$Condition <- factor(plot.data$Condition, levels = c("CTRL", "Capsaicin", "LC_6OHDA"))
+plot.data$Condition <- factor(plot.data$Condition, levels = names(mycolor$Condition))
 
 pdf("sub1_Immune/Boxplot.Fraction.pdf", 8, 7)
 ggplot(plot.data, aes(x = Condition, y = Fraction)) +
     geom_boxplot(aes(fill = Cell_Type_2), outlier.shape = NA, alpha = 0.5) +
     geom_jitter(width = 0.2, size = 0.5, alpha = 1) +
     ggpubr::stat_compare_means(
-        label = "p.signif", label.y.npc = 1, size = 2.5,
-        comparisons = list(c("CTRL", "Capsaicin"), c("Capsaicin", "LC_6OHDA"), c("CTRL", "LC_6OHDA"))
+        label = "p.signif", label.y.npc = 0.98, size = 3, ref.group = "CTRL"
     ) +
     facet_wrap(~Cell_Type_2, ncol = 5, scales = "free") +
     labs(title = "Cell Type composition across Samples") +
@@ -776,8 +770,34 @@ ggplot(plot.data, aes(x = Condition, y = Fraction)) +
 dev.off()
 rm(plot.data, temp)
 
-saveRDS(immune_obj, file = "sub1_Immune/immune_obj.rds")
-rm(immune_obj)
+# Roe
+roe <- Startrac::calTissueDist(
+    immune_obj@meta.data,
+    byPatient = FALSE,
+    colname.cluster = "Cell_Type_2",
+    colname.patient = "Sample",
+    colname.tissue = "Condition",
+    method = "chisq",
+    min.rowSum = 0
+)
+roe <- roe[grep("Cycling|Doublet", rownames(roe), invert = TRUE), ]
+pdf("sub1_Immune/Heatmap.Roe.Cell_Type_2.Condition.pdf", 4, 5.5)
+pheatmap::pheatmap(
+    roe,
+    color = mycolor$Roe,
+    breaks = seq(0, 2, length.out = 101),
+    scale = "none",
+    display_numbers = TRUE,
+    cluster_rows = TRUE,
+    cluster_cols = FALSE,
+)
+dev.off()
+
+saveRDS(immune_obj, file = "rds/immune_obj.rds")
+rm(immune_obj, roe)
+
+save.image("01.Cell_Type.RData")
+saveRDS(mycolor, file = "rds/mycolor.rds")
 
 # 4. Epithelial compartment ----
 ##  4.1. Clustering of cell states ----
