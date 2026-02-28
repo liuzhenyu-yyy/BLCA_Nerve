@@ -1179,6 +1179,7 @@ stromal_obj <- stromal_obj %>%
     FindVariableFeatures(selection.method = "vst", nfeatures = 3000) %>%
     ScaleData() %>%
     RunPCA(verbose = FALSE)
+stromal_obj <- readRDS("rds/stromal_obj.rds")
 
 pdf("sub3_Stromal/ElbowPlot.PCA.pdf", 6, 4)
 ElbowPlot(stromal_obj, ndims = 50)
@@ -1189,18 +1190,19 @@ stromal_obj <- FindClusters(stromal_obj, resolution = 1.0)
 
 stromal_obj <- RunUMAP(stromal_obj, dims = 1:30)
 
-pdf("sub3_Stromal/UMAP.Clusters.pdf", 7, 6)
+pdf("sub3_Stromal/UMAP.Clusters.pdf", 5.5, 4)
 DimPlot(stromal_obj,
-    reduction = "umap", group.by = "seurat_clusters", label = TRUE,
+    reduction = "umap", group.by = "seurat_clusters", label = TRUE, label.size = 3,
     cols = mycolor$Cluster, raster = TRUE, pt.size = 1.5
 ) +
     theme_classic() +
+    guides(color = guide_legend(ncol = 3)) +
     labs(title = "UMAP plot colored by clusters")
 dev.off()
 
-pdf("sub3_Stromal/UMAP.Clusters.split.pdf", 12, 4)
+pdf("sub3_Stromal/UMAP.Clusters.split.pdf", 8, 6)
 DimPlot(stromal_obj,
-    reduction = "umap", group.by = "seurat_clusters", split.by = "Condition",
+    reduction = "umap", group.by = "seurat_clusters", split.by = "Condition", ncol = 3,
     label = TRUE, cols = mycolor$Cluster, raster = TRUE, pt.size = 1.5
 ) +
     theme_classic() +
@@ -1208,14 +1210,14 @@ DimPlot(stromal_obj,
 dev.off()
 
 table(stromal_obj$Cell_Type_SingleR)
-pdf("sub3_Stromal/UMAP.SingleR.pdf", 7, 6)
+pdf("sub3_Stromal/UMAP.SingleR.pdf", 5, 4)
 DimPlot(stromal_obj, reduction = "umap", group.by = "Cell_Type_SingleR", label = TRUE, raster = TRUE, pt.size = 1.5) +
     scale_color_manual(values = brewer.pal(9, "Set3")) +
     theme_classic() +
     labs(title = "UMAP plot colored by SingleR annotation")
 dev.off()
 
-pdf("sub3_Stromal/UMAP.Cell_Type_1.pdf", 7, 6)
+pdf("sub3_Stromal/UMAP.Cell_Type_1.pdf", 5, 4)
 DimPlot(stromal_obj,
     reduction = "umap", group.by = "Cell_Type_1", label = TRUE,
     cols = mycolor$Cell_Type_1, raster = TRUE, pt.size = 1.5
@@ -1237,6 +1239,7 @@ marker_genes[["Stromal"]] <- c(
     "Tubb3", "Nefl", "Map2", # neuron
     "S100b", "Sox10", # Schwann cell
     "Fabp7", "P2rx7", # Satellite glial cells,
+    "Adipoq", "Pck1", # adipocyte
     "Mki67", "Top2a" # cycling
 )
 length(marker_genes[["Stromal"]])
@@ -1270,29 +1273,27 @@ marker_undefined_c24 <- marker_undefined_c24[order(marker_undefined_c24$avg_log2
 head(rownames(marker_undefined_c24), 100) #  Adipocyte  markers: Adipoq Pck1
 
 stromal_obj$Cell_Type_2 <- "none"
-stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(4, 16, 20, 23))] <- "Vascular_Endothelial"
-stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(13, 25))] <- "Lymphatic_Endothelial"
-stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(0:3, 5, 7, 8, 17))] <- "iCAF"
-stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(12))] <- "myCAF"
-stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(6, 9, 10, 11, 14, 15, 18, 19))] <- "apCAF"
+stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(8, 23))] <- "Vascular_Endothelial"
+stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(2, 11, 17, 19, 22))] <- "Lymphatic_Endothelial"
+stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(0, 1, 3:7, 9, 12:16, 18))] <- "iCAF"
+stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(10))] <- "myCAF"
 stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(21))] <- "Smooth_Muscle"
-stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(22))] <- "Schwann"
+stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(20))] <- "Schwann"
 stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(24))] <- "Adipocyte"
 
 table(stromal_obj$seurat_clusters, stromal_obj$Cell_Type_2)
 
 stromal_obj$Cell_Type_2 <- factor(stromal_obj$Cell_Type_2, levels = c(
     "Vascular_Endothelial", "Lymphatic_Endothelial",
-    "iCAF", "myCAF", "apCAF", "Smooth_Muscle", "Schwann", "Adipocyte"
+    "iCAF", "myCAF", "Smooth_Muscle", "Schwann", "Adipocyte"
 ))
 
-mycolor$Cell_Type_2 <- mycolor$Cell_Type_2[1:20]
 mycolor$Cell_Type_2 <- c(
     mycolor$Cell_Type_2,
     setNames(ggsci::pal_lancet()(8), levels(stromal_obj$Cell_Type_2))
 )
 
-pdf("sub3_Stromal/UMAP.Cell_Type_2.pdf", 13, 6)
+pdf("sub3_Stromal/UMAP.Cell_Type_2.pdf", 9, 4)
 DimPlot(stromal_obj,
     reduction = "umap", group.by = "Cell_Type_2", label = TRUE, raster = TRUE, pt.size = 1.5,
     cols = mycolor$Cell_Type_2
@@ -1307,10 +1308,10 @@ DimPlot(stromal_obj,
     labs(title = "UMAP plot colored by Cell_Type_2")
 dev.off()
 
-pdf("sub3_Stromal/UMAP.Cell_Type_2.split.pdf", 9, 3)
+pdf("sub3_Stromal/UMAP.Cell_Type_2.split.pdf", 8, 5)
 DimPlot(stromal_obj,
     reduction = "umap", group.by = "Cell_Type_2", split.by = "Condition",
-    label = FALSE, raster = TRUE, pt.size = 1.5,
+    label = FALSE, raster = TRUE, pt.size = 3, ncol = 3,
     cols = mycolor$Cell_Type_2
 ) +
     theme_classic()
@@ -1318,12 +1319,12 @@ dev.off()
 
 p <- DimPlot(stromal_obj,
     reduction = "umap", group.by = "Cell_Type_2", split.by = "Condition",
-    label = FALSE, raster = TRUE, pt.size = NULL,
+    label = FALSE, raster = TRUE, pt.size = NULL, ncol = 3,
     cols = mycolor$Cell_Type_2
 ) +
     theme_classic()
 
-pdf("sub3_Stromal/UMAP.Cell_Type_2.split.density.pdf", 12, 4)
+pdf("sub3_Stromal/UMAP.Cell_Type_2.split.density.pdf", 8, 5)
 plot(p + stat_density_2d(aes_string(x = "umap_1", y = "umap_2", fill = "after_stat(level)"),
     linewidth = 0, geom = "density_2d_filled",
     n = 150, h = c(1.2, 1.2)
@@ -1339,8 +1340,8 @@ Idents(stromal_obj) <- stromal_obj$Cell_Type_2
 levels(Idents(stromal_obj))
 
 gene_selected <- c(
-    "Cdh5", "Pecam1", "Prox1", "Lyve1", "Col1a2", "Lum",
-    "Pdgfra", "Rgs5", "H2-Ab1", "Cd74", "Acta2", "Myh11", "Sox10", "S100b",
+    "Cdh5", "Pecam1", "Prox1", "Lyve1", "Cd34", "Col1a2", "Lum",
+    "Pdgfra", "Rgs5", "Acta2", "Myh11", "Sox10", "S100b",
     "Adipoq", "Pck1"
 )
 
@@ -1351,7 +1352,6 @@ DotPlot(stromal_obj, features = gene_selected) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 dev.off()
 
-rm(list = grep("marker.undefined", ls(), value = TRUE))
 rm(gene_selected, p)
 
 ## 5.3. Percentage changes ----
@@ -1380,23 +1380,22 @@ dev.off()
 # fraction compare
 plot.data <- as.data.frame(table(stromal_obj$Cell_Type_2, stromal_obj$Sample))
 colnames(plot.data) <- c("Cell_Type_2", "Sample", "Count")
-plot.data$Condition <- gsub("_00.+?*$", "", plot.data$Sample)
+plot.data$Condition <- gsub("_[0-5].+?*$", "", plot.data$Sample)
 table(plot.data$Condition)
 table(plot.data$Sample)
 
 temp <- table(stromal_obj$Sample)
 plot.data$Fraction <- plot.data$Count / temp[plot.data$Sample] * 100
-plot.data$Condition <- factor(plot.data$Condition, levels = c("CTRL", "Capsaicin", "LC_6OHDA"))
+plot.data$Condition <- factor(plot.data$Condition, levels = names(mycolor$Condition))
 
 pdf("sub3_Stromal/Boxplot.Fraction.pdf", 6.5, 4.8)
 ggplot(plot.data, aes(x = Condition, y = Fraction)) +
     geom_boxplot(aes(fill = Cell_Type_2), outlier.shape = NA, alpha = 0.5) +
     geom_jitter(width = 0.2, size = 0.5, alpha = 1) +
     ggpubr::stat_compare_means(
-        label = "p.signif", label.y.npc = 1, size = 2.5,
-        comparisons = list(c("CTRL", "Capsaicin"), c("Capsaicin", "LC_6OHDA"), c("CTRL", "LC_6OHDA"))
+        label = "p.signif", label.y.npc = 0.98, size = 2.5, ref.group = "CTRL"
     ) +
-    facet_wrap(~Cell_Type_2, ncol = 5, scales = "free") +
+    facet_wrap(~Cell_Type_2, ncol = 4, scales = "free") +
     labs(title = "Cell Type composition across Samples") +
     ylab("Fraction within immune compartment (%)") +
     scale_fill_manual(values = mycolor$Cell_Type_2) +
@@ -1406,9 +1405,9 @@ ggplot(plot.data, aes(x = Condition, y = Fraction)) +
 dev.off()
 rm(plot.data, temp)
 
-saveRDS(stromal_obj, file = "sub3_Stromal/stromal_obj.rds")
+saveRDS(stromal_obj, file = "rds/stromal_obj.rds")
 rm(stromal_obj)
 
 # save data ----
 save.image("01.Cell_Type.RData")
-saveRDS(mycolor, file = "mycolor.rds")
+saveRDS(mycolor, file = "rds/mycolor.rds")
