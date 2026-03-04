@@ -1,4 +1,4 @@
-setwd("/Users/zhenyuliu/Research/Project/BLCA_Neuro/results/03.Stromal")
+setwd("/Users/zhenyuliu/Research/Project/BLCA_Nerve/results/03.Stromal")
 
 library(Seurat)
 library(dplyr)
@@ -7,287 +7,221 @@ library(RColorBrewer)
 library(clusterProfiler)
 library(org.Mm.eg.db)
 library(enrichplot)
+library(parallel)
 
-stromal.obj <- readRDS("../01.Cell_Type/sub3_Stromal/stromal.obj.rds")
-mycolor <- readRDS("../01.Cell_Type/mycolor.rds")
+stromal_obj <- readRDS("../01.Cell_Type/rds/stromal_obj.rds")
+mycolor <- readRDS("../01.Cell_Type/rds/mycolor.rds")
 
 # load("03.Stromal.RData")
 
 # 1. Differential analysis of each cell type ----
-dir.create("DEG_Cell_Type")
-
 ## 1.1. Identify DEGs ----
-table(stromal.obj$Cell_Type_2, stromal.obj$Condition)
-DEG.stromal.Capsaicin <- list()
-DEG.stromal.LC_6OHDA <- list()
+table(stromal_obj$Cell_Type_2, stromal_obj$Condition)
+DEG_list_conditions <- mclapply(levels(stromal_obj$Condition)[-1], function(x) {
+    DEG_list <- list()
 
-for (cell_type in levels(stromal.obj$Cell_Type_2) %>% setdiff("Adipocyte")) {
-    message(Sys.time(), ": Processing: ", cell_type)
-    stromal.sub <- subset(stromal.obj, subset = Cell_Type_2 == cell_type)
+    for (cell_type in levels(stromal_obj$Cell_Type_2)[1:4]) {
+        message(Sys.time(), ": Differential analysis: ", x, " vs Control, ", cell_type)
 
-    temp <- FindMarkers(stromal.sub,
-        ident.1 = "Capsaicin", ident.2 = "CTRL",
-        group.by = "Condition",
-        min.pct = 0.25, logfc.threshold = 0.25
-    )
-    temp <- temp[order(temp$avg_log2FC, decreasing = TRUE), ]
-    temp$gene <- rownames(temp)
-    temp$Cell_Type_2 <- cell_type
-    DEG.stromal.Capsaicin[[cell_type]] <- temp
+        stromal_sub <- subset(stromal_obj, subset = Cell_Type_2 == cell_type)
 
-    temp <- FindMarkers(stromal.sub,
-        ident.1 = "LC_6OHDA", ident.2 = "CTRL",
-        group.by = "Condition",
-        min.pct = 0.25, logfc.threshold = 0.25,
-        max.cells.per.ident = 1000
-    )
-    temp <- temp[order(temp$avg_log2FC, decreasing = TRUE), ]
-    temp$gene <- rownames(temp)
-    temp$Cell_Type_2 <- cell_type
-    DEG.stromal.LC_6OHDA[[cell_type]] <- temp
-}
-rm(stromal.sub, cell_type, temp)
+        temp <- FindMarkers(stromal_sub,
+            ident.1 = x, ident.2 = "CTRL",
+            group.by = "Condition",
+            min.pct = 0.25, logfc.threshold = 0.25
+        )
+        temp <- temp[order(temp$avg_log2FC, decreasing = TRUE), ]
+        temp$gene <- rownames(temp)
+        temp$Cell_Type_2 <- cell_type
+        temp$Condition <- paste0(x, "_vs_CTRL")
 
-dir.create("DEG_Cell_Type/tables")
-lapply(names(DEG.stromal.Capsaicin), function(x) {
-    write.csv(DEG.stromal.Capsaicin[[x]],
-        file = paste0("DEG_Cell_Type/tables/DEG_Capsaicin_vs_CTRL_in_", x, ".csv"),
-        row.names = FALSE
-    )
+        temp$DEG <- "Stable"
+        temp$DEG[which(temp$p_val_adj < 0.05 & temp$avg_log2FC > 0.25)] <- "Up"
+        temp$DEG[which(temp$p_val_adj < 0.05 & temp$avg_log2FC < -0.25)] <- "Down"
+        DEG_list[[cell_type]] <- temp
+    }
+
+    DEG_list
+}, mc.cores = 4)
+names(DEG_list_conditions) <- levels(stromal_obj$Condition)[-1]
+lapply(DEG_list_conditions, names)
+
+lapply(names(DEG_list_conditions), function(x) {
+    dir.create(paste0("DEG_", x))
+    lapply(names(DEG_list_conditions[[x]]), function(cell_type) {
+        write.csv(DEG_list_conditions[[x]][[cell_type]],
+            file = paste0("DEG_", x, "/DEG_", x, "_in_", cell_type, ".csv"),
+            row.names = FALSE
+        )
+    })
 })
-lapply(names(DEG.stromal.LC_6OHDA), function(x) {
-    write.csv(DEG.stromal.LC_6OHDA[[x]],
-        file = paste0("DEG_Cell_Type/tables/DEG_LC_6OHDA_vs_CTRL_in_", x, ".csv"),
-        row.names = FALSE
-    )
+rm(temp, stromal_sub, cell_type, x)
+
+saveRDS(DEG_list_conditions, file = "DEG_list_conditions.rds")
+DEG_list_conditions <- readRDS("DEG_list_conditions.rds")
+
+# volcano plot
+lapply(names(DEG_list_conditions), function(x) {
+    plot_data <- do.call(rbind, DEG_list_conditions[[x]]) %>% mutate(Comparison = paste0(x, "_vs_CTRL"))
+    plot_data$Cell_Type_2 <- factor(plot_data$Cell_Type_2, levels = names(mycolor$Cell_Type_2)[21:24])
+
+    x_max <- max(abs(plot_data$avg_log2FC), na.rm = TRUE)
+    y_max <- max(-log10(plot_data$p_val_adj), na.rm = TRUE)
+
+    label_data <- table(plot_data$Cell_Type_2, plot_data$Comparison, plot_data$DEG) %>%
+        as.data.frame()
+    colnames(label_data) <- c("Cell_Type_2", "Comparison", "DEG", "Count")
+    label_data <- label_data %>%
+        filter(DEG != "Stable") %>%
+        mutate(
+            "x" = ifelse(DEG == "Up", x_max * 0.4, -x_max * 0.4), "y" = y_max * 0.9,
+            "label" = paste0(DEG, ": ", Count)
+        )
+
+    p <- ggplot(plot_data, aes(x = avg_log2FC, y = -log10(p_val_adj))) +
+        geom_point(aes(color = Cell_Type_2), alpha = 0.5, size = 0.5) +
+        geom_text(
+            data = label_data,
+            aes(x = x, y = y, label = label), inherit.aes = FALSE, size = 3
+        ) +
+        scale_color_manual(values = mycolor$Cell_Type_2) +
+        facet_wrap(~Cell_Type_2, ncol = 5) +
+        theme_classic() +
+        labs(title = paste0("Volcano plot of DEGs in each cell type, ", x, "vs CTRL")) +
+        xlab("Average log2 fold change") +
+        ylab("-log10 adjusted p value") +
+        xlim(-x_max * 0.7, x_max * 0.7) +
+        geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "#ec8a8a", linewidth = 0.5) +
+        geom_vline(xintercept = c(-0.25, 0.25), linetype = "dashed", color = "#ec8a8a", linewidth = 0.5) +
+        theme(legend.position = "none")
+    pdf(paste0("Volcano.", x, "_vs_CTRL.pdf"), 8, 3.5)
+    plot(p)
+    dev.off()
 })
-save(DEG.stromal.Capsaicin, DEG.stromal.LC_6OHDA, file = "DEG_Cell_Type/DEG.stromal.rda")
-
-plot.data <- rbind(
-    do.call(rbind, DEG.stromal.Capsaicin) %>% mutate(Comparison = "Capsaicin_vs_CTRL"),
-    do.call(rbind, DEG.stromal.LC_6OHDA) %>% mutate(Comparison = "LC_6OHDA_vs_CTRL")
-)
-plot.data$DEG <- "Stable"
-plot.data$DEG[which(plot.data$p_val_adj < 0.05 & plot.data$avg_log2FC > 0.25)] <- "Up"
-plot.data$DEG[which(plot.data$p_val_adj < 0.05 & plot.data$avg_log2FC < -0.25)] <- "Down"
-table(plot.data$Cell_Type_2, plot.data$Comparison, plot.data$DEG)
-
-plot.data$Cell_Type_2 <- factor(plot.data$Cell_Type_2, levels = levels(stromal.obj$Cell_Type_2))
-
-label.data <- table(plot.data$Cell_Type_2, plot.data$Comparison, plot.data$DEG) %>%
-    as.data.frame()
-colnames(label.data) <- c("Cell_Type_2", "Comparison", "DEG", "Count")
-label.data <- label.data %>%
-    filter(DEG != "Stable") %>%
-    mutate("x" = ifelse(DEG == "Up", 3, -3), label = paste0(DEG, ": ", Count))
-
-pdf("DEG_Cell_Type/Volcano.Capsaicin_vs_CTRL.pdf", 7.5, 4.5)
-ggplot(plot.data %>% filter(Comparison == "Capsaicin_vs_CTRL"), aes(x = avg_log2FC, y = -log10(p_val_adj))) +
-    geom_point(aes(color = Cell_Type_2), alpha = 0.5, size = 0.5) +
-    geom_text(
-        data = label.data %>% filter(Comparison == "Capsaicin_vs_CTRL"),
-        aes(x = x, y = 260, label = label), inherit.aes = FALSE, size = 3
-    ) +
-    scale_color_manual(values = mycolor$Cell_Type_2) +
-    facet_wrap(~Cell_Type_2, ncol = 4) +
-    theme_classic() +
-    labs(title = "Volcano plot of DEGs in each cell type") +
-    xlab("Average log2 fold change") +
-    ylab("-log10 adjusted p value") +
-    geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "#ec8a8a", linewidth = 0.5) +
-    geom_vline(xintercept = c(-0.25, 0.25), linetype = "dashed", color = "#ec8a8a", linewidth = 0.5) +
-    theme(legend.position = "none")
-dev.off()
-
-pdf("DEG_Cell_Type/Volcano.LC_6OHDA_vs_CTRL.pdf", 7.5, 4.5)
-ggplot(plot.data %>% filter(Comparison == "LC_6OHDA_vs_CTRL"), aes(x = avg_log2FC, y = -log10(p_val_adj))) +
-    geom_point(aes(color = Cell_Type_2), alpha = 0.5, size = 0.5) +
-    geom_text(
-        data = label.data %>% filter(Comparison == "LC_6OHDA_vs_CTRL"),
-        aes(x = x, y = 260, label = label), inherit.aes = FALSE, size = 3
-    ) +
-    scale_color_manual(values = mycolor$Cell_Type_2) +
-    facet_wrap(~Cell_Type_2, ncol = 4) +
-    theme_classic() +
-    labs(title = "Volcano plot of DEGs in each cell type") +
-    xlab("Average log2 fold change") +
-    ylab("-log10 adjusted p value") +
-    geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "#ec8a8a", linewidth = 0.5) +
-    geom_vline(xintercept = c(-0.25, 0.25), linetype = "dashed", color = "#ec8a8a", linewidth = 0.5) +
-    theme(legend.position = "none")
-dev.off()
-rm(plot.data, label.data)
 
 ## 1.2. GO enrichment analysis ----
-GO.DEG.Capsaicin.Up <- lapply(DEG.stromal.Capsaicin, function(x) {
-    temp <- x %>%
-        filter(p_val_adj < 0.05 & avg_log2FC > 0.25) %>%
-        pull(gene)
-    GO.res <- enrichGO(
-        gene = temp, OrgDb = org.Mm.eg.db,
-        keyType = "SYMBOL", ont = "BP",
-        pAdjustMethod = "BH", qvalueCutoff = 0.05
-    )
-    if (is.null(GO.res)) {
-        return(NULL)
-    }
-    simplify(GO.res)
+DEG_list_genes <- lapply(DEG_list_conditions, function(x) {
+    lapply(x, function(y) {
+        list(
+            up = y %>%
+                filter(p_val_adj < 0.05 & avg_log2FC > 0.25) %>%
+                pull(gene),
+            down = y %>%
+                filter(p_val_adj < 0.05 & avg_log2FC < -0.25) %>%
+                pull(gene)
+        )
+    })
 })
 
-GO.DEG.Capsaicin.Down <- lapply(DEG.stromal.Capsaicin, function(x) {
-    temp <- x %>%
-        filter(p_val_adj < 0.05 & avg_log2FC < -0.25) %>%
-        pull(gene)
-    GO.res <- enrichGO(
-        gene = temp, OrgDb = org.Mm.eg.db,
-        keyType = "SYMBOL", ont = "BP",
-        pAdjustMethod = "BH", qvalueCutoff = 0.05
-    )
-    if (is.null(GO.res)) {
-        return(NULL)
-    }
-    simplify(GO.res)
-})
+GO_list <- mclapply(names(DEG_list_genes), function(x) {
+    lapply(names(DEG_list_genes[[x]]), function(cell_type) {
+        message(Sys.time(), ": GO enrichment: ", x, " vs Control, ", cell_type)
 
-GO.DEG.LC_6OHDA.Up <- lapply(DEG.stromal.LC_6OHDA, function(x) {
-    temp <- x %>%
-        filter(p_val_adj < 0.05 & avg_log2FC > 0.25) %>%
-        pull(gene)
-    GO.res <- enrichGO(
-        gene = temp, OrgDb = org.Mm.eg.db,
-        keyType = "SYMBOL", ont = "BP",
-        pAdjustMethod = "BH", qvalueCutoff = 0.05
-    )
-    if (is.null(GO.res)) {
-        return(NULL)
-    }
-    simplify(GO.res)
-})
+        gene_up <- DEG_list_genes[[x]][[cell_type]]$up
+        gene_down <- DEG_list_genes[[x]][[cell_type]]$down
 
-GO.DEG.LC_6OHDA.Down <- lapply(DEG.stromal.LC_6OHDA, function(x) {
-    temp <- x %>%
-        filter(p_val_adj < 0.05 & avg_log2FC < -0.25) %>%
-        pull(gene)
-    GO.res <- enrichGO(
-        gene = temp, OrgDb = org.Mm.eg.db,
-        keyType = "SYMBOL", ont = "BP",
-        pAdjustMethod = "BH", qvalueCutoff = 0.05
-    )
-    if (is.null(GO.res)) {
-        return(NULL)
-    }
-    simplify(GO.res)
-})
+        GO_up <- enrichGO(
+            gene = gene_up, OrgDb = org.Mm.eg.db,
+            keyType = "SYMBOL", ont = "BP",
+            pAdjustMethod = "BH", qvalueCutoff = 0.05
+        )
+        GO_down <- enrichGO(
+            gene = gene_down, OrgDb = org.Mm.eg.db,
+            keyType = "SYMBOL", ont = "BP",
+            pAdjustMethod = "BH", qvalueCutoff = 0.05
+        )
+
+        list(
+            up = if (is.null(GO_up)) NULL else simplify(GO_up),
+            down = if (is.null(GO_down)) NULL else simplify(GO_down)
+        )
+    }) %>% setNames(names(DEG_list_genes[[x]]))
+}, mc.cores = 4)
+names(GO_list) <- names(DEG_list_genes)
 
 # output GO results
-dir.create("DEG_Cell_Type/GO_Capsaicin_Up")
-lapply(names(GO.DEG.Capsaicin.Up), function(x) {
-    if (is.null(GO.DEG.Capsaicin.Up[[x]])) {
-        return(NULL)
-    }
-    write.csv(GO.DEG.Capsaicin.Up[[x]]@result,
-        file = paste0("DEG_Cell_Type/GO_Capsaicin_Up/GO_Capsaicin_vs_CTRL_Up_in_", x, ".csv"),
-        row.names = TRUE
-    )
-    pdf(paste0("DEG_Cell_Type/GO_Capsaicin_Up/GO_Capsaicin_vs_CTRL_Up_in_", x, ".pdf"), 7, 5)
-    p <- dotplot(GO.DEG.Capsaicin.Up[[x]], showCategory = 20, label_format = 60) +
-        theme_classic() +
-        labs(title = paste("Capsaicin vs CTRL - Upregulated in ", x, sep = ""))
-    plot(p)
-    dev.off()
+lapply(names(GO_list), function(x) {
+    dir.create(paste0("GO_", x))
+    lapply(names(DEG_list_conditions[[x]]), function(cell_type) {
+        if (!is.null(GO_list[[x]][[cell_type]]$up)) {
+            write.csv(GO_list[[x]][[cell_type]]$up@result,
+                file = paste0("GO_", x, "/GO_", x, "_vs_CTRL_", cell_type, "_UP.csv"),
+                row.names = FALSE
+            )
+        }
+        if (!is.null(GO_list[[x]][[cell_type]]$down)) {
+            write.csv(GO_list[[x]][[cell_type]]$down@result,
+                file = paste0("GO_", x, "/GO_", x, "_vs_CTRL_", cell_type, "_DOWN.csv"),
+                row.names = FALSE
+            )
+        }
+    })
+})
+lapply(names(GO_list), function(x) {
+    lapply(names(DEG_list_conditions[[x]]), function(cell_type) {
+        if (!is.null(GO_list[[x]][[cell_type]]$up)) {
+            p <- dotplot(GO_list[[x]][[cell_type]]$up, showCategory = 20, label_format = 60) +
+                theme_classic() +
+                labs(title = paste(x, " vs CTRL in ", cell_type, " (UP)", sep = ""))
+            pdf(paste0("GO_", x, "/Dot.GO_", x, "_vs_CTRL_", cell_type, "_UP.pdf"), 7, 5)
+            plot(p)
+            dev.off()
+        }
+        if (!is.null(GO_list[[x]][[cell_type]]$down)) {
+            p <- dotplot(GO_list[[x]][[cell_type]]$down, showCategory = 20, label_format = 60) +
+                theme_classic() +
+                labs(title = paste(x, " vs CTRL in ", cell_type, " (DOWN)", sep = ""))
+            pdf(paste0("GO_", x, "/Dot.GO_", x, "_vs_CTRL_", cell_type, "_DOWN.pdf"), 7, 5)
+            plot(p)
+            dev.off()
+        }
+    })
 })
 
-dir.create("DEG_Cell_Type/GO_Capsaicin_Down")
-lapply(names(GO.DEG.Capsaicin.Down), function(x) {
-    if (is.null(GO.DEG.Capsaicin.Down[[x]])) {
-        return(NULL)
-    }
-    write.csv(GO.DEG.Capsaicin.Down[[x]]@result,
-        file = paste0("DEG_Cell_Type/GO_Capsaicin_Down/GO_Capsaicin_vs_CTRL_Down_in_", x, ".csv"),
-        row.names = TRUE
-    )
-    pdf(paste0("DEG_Cell_Type/GO_Capsaicin_Down/GO_Capsaicin_vs_CTRL_Down_in_", x, ".pdf"), 7, 5)
-    p <- dotplot(GO.DEG.Capsaicin.Down[[x]], showCategory = 20, label_format = 60) +
-        theme_classic() +
-        labs(title = paste("Capsaicin vs CTRL - Downregulated in ", x, sep = ""))
-    plot(p)
-    dev.off()
-})
-
-dir.create("DEG_Cell_Type/GO_LC_6OHDA_Up")
-lapply(names(GO.DEG.LC_6OHDA.Up), function(x) {
-    if (is.null(GO.DEG.LC_6OHDA.Up[[x]])) {
-        return(NULL)
-    }
-    write.csv(GO.DEG.LC_6OHDA.Up[[x]]@result,
-        file = paste0("DEG_Cell_Type/GO_LC_6OHDA_Up/GO_LC_6OHDA_vs_CTRL_Up_in_", x, ".csv"),
-        row.names = TRUE
-    )
-    pdf(paste0("DEG_Cell_Type/GO_LC_6OHDA_Up/GO_LC_6OHDA_vs_CTRL_Up_in_", x, ".pdf"), 7, 5)
-    p <- dotplot(GO.DEG.LC_6OHDA.Up[[x]], showCategory = 20, label_format = 60) +
-        theme_classic() +
-        labs(title = paste("LC_6OHDA vs CTRL - Upregulated in ", x, sep = ""))
-    plot(p)
-    dev.off()
-})
-
-dir.create("DEG_Cell_Type/GO_LC_6OHDA_Down")
-lapply(names(GO.DEG.LC_6OHDA.Down), function(x) {
-    if (is.null(GO.DEG.LC_6OHDA.Down[[x]])) {
-        return(NULL)
-    }
-    write.csv(GO.DEG.LC_6OHDA.Down[[x]]@result,
-        file = paste0("DEG_Cell_Type/GO_LC_6OHDA_Down/GO_LC_6OHDA_vs_CTRL_Down_in_", x, ".csv"),
-        row.names = TRUE
-    )
-    pdf(paste0("DEG_Cell_Type/GO_LC_6OHDA_Down/GO_LC_6OHDA_vs_CTRL_Down_in_", x, ".pdf"), 7, 5)
-    p <- dotplot(GO.DEG.LC_6OHDA.Down[[x]], showCategory = 20, label_format = 60) +
-        theme_classic() +
-        labs(title = paste("LC_6OHDA vs CTRL - Downregulated in ", x, sep = ""))
-    plot(p)
-    dev.off()
-})
-
-# 2. iCAF functions ----
-## 2.1. CGRP receptor ----
-pdf("UMAP_Ramp1.split.pdf", 12, 4)
+## 1.3. expression of CGRP receptor ----
+pdf("UMAP_Ramp1.split.pdf", 16, 3.5)
 FeaturePlot(
-    stromal.obj,
+    stromal_obj,
     features = c("Ramp1"), cols = c("lightgrey", "red"),
-    split.by = "Condition", order = TRUE, raster = TRUE, pt.size = 2
+    split.by = "Condition", order = TRUE, raster = TRUE, pt.size = 3
 )
 dev.off()
 
-pdf("Violin_Ramp1.CAF.pdf", 7, 4)
+pdf("Violin_Ramp1.CAF.pdf", 8, 3.5)
 VlnPlot(
-    stromal.obj,
-    features = c("Ramp1"), idents = c("iCAF", "apCAF"),
+    stromal_obj,
+    features = c("Ramp1"),
     split.by = "Condition", cols = mycolor$Condition
 )
 dev.off()
 
-stromal.obj$Cell_Type_2_Condition <- paste0(stromal.obj$Cell_Type_2, "_", stromal.obj$Condition)
-stromal.obj$Cell_Type_2_Condition <- factor(
-    stromal.obj$Cell_Type_2_Condition,
+stromal_obj$Cell_Type_2_Condition <- paste0(stromal_obj$Cell_Type_2, "_", stromal_obj$Condition)
+stromal_obj$Cell_Type_2_Condition <- factor(
+    stromal_obj$Cell_Type_2_Condition,
     levels = c(
-        "iCAF_CTRL", "iCAF_Capsaicin", "iCAF_LC_6OHDA",
-        "apCAF_CTRL", "apCAF_Capsaicin", "apCAF_LC_6OHDA"
-    ) %>% rev()
+        paste0(levels(stromal_obj$Cell_Type_2), "_", "CTRL"),
+        paste0(levels(stromal_obj$Cell_Type_2), "_", "Capsaicin"),
+        paste0(levels(stromal_obj$Cell_Type_2), "_", "LC_6OHDA"),
+        paste0(levels(stromal_obj$Cell_Type_2), "_", "anti_PD1"),
+        paste0(levels(stromal_obj$Cell_Type_2), "_", "Rime")
+    )
 )
 
-pdf("DotPlot_Ramp1.CAF.pdf", 5, 5)
+pdf("DotPlot_Ramp1.pdf", 7, 7)
 DotPlot(
-    stromal.obj,
+    stromal_obj,
     features = c("Ramp1"),
-    idents = c("iCAF", "apCAF"),
     group.by = "Cell_Type_2_Condition"
 ) + scale_color_viridis_c()
 dev.off()
 
-## 2.2. iCAF subsets ----
+# 2. iCAF functions ----
+## 2.1. identify iCAF subsets ----
 dir.create("iCAF")
-iCAF.obj <- subset(stromal.obj, subset = Cell_Type_2 == "iCAF")
-iCAF.obj <- iCAF.obj %>%
+iCAF_obj <- subset(stromal_obj, subset = Cell_Type_2 == "iCAF") # 7254 cells
+rm(stromal_obj)
+
+iCAF_obj <- iCAF_obj %>%
     NormalizeData() %>%
     FindVariableFeatures(selection.method = "vst", nfeatures = 2000) %>%
     ScaleData() %>%
@@ -295,58 +229,162 @@ iCAF.obj <- iCAF.obj %>%
     FindNeighbors(dims = 1:20) %>%
     RunUMAP(dims = 1:20)
 
-iCAF.obj <- FindClusters(iCAF.obj, resolution = 0.3)
+iCAF_obj <- FindClusters(iCAF_obj, resolution = 0.3)
 
-pdf("iCAF/UMAP_iCAF.Subclusters.split.pdf", 12, 4)
-DimPlot(iCAF.obj, split.by = "Condition", raster = TRUE, pt.size = 2, label = TRUE) +
+pdf("iCAF/UMAP_iCAF.Subclusters.pdf", 5, 4)
+DimPlot(iCAF_obj, raster = TRUE, pt.size = 2, group.by = "seurat_clusters",
+ label = TRUE, cols = mycolor$Cluster) +
     labs(title = "iCAF Subclusters")
 dev.off()
 
-pdf("iCAF/UMAP_iCAF.Ramp1.split.pdf", 12, 4)
+pdf("iCAF/UMAP_iCAF.Subclusters.split.pdf", 9, 6)
+DimPlot(iCAF_obj,
+    split.by = "Condition", raster = TRUE, ncol = 3,
+    cols = mycolor$Cluster, pt.size = 3, label = FALSE
+) +
+    labs(title = "iCAF Subclusters")
+dev.off()
+
+pdf("iCAF/UMAP_iCAF.Ramp1.split.pdf", 16, 3.2)
 FeaturePlot(
-    iCAF.obj,
+    iCAF_obj,
     features = c("Ramp1"), cols = c("lightgrey", "red"),
-    split.by = "Condition", order = TRUE, raster = TRUE, pt.size = 2
+    split.by = "Condition", order = TRUE, raster = TRUE, pt.size = 3
 )
 dev.off()
 
-marker.iCAF.subset <- FindAllMarkers(
-    iCAF.obj,
+## 2.2. functional state of iCAFs ----
+marker_iCAF_subset <- FindAllMarkers(
+    iCAF_obj,
     only.pos = TRUE,
     min.pct = 0.25,
     logfc.threshold = 0.25
 )
 
-marker.iCAF.subset %>%
+marker_iCAF_subset %>%
     group_by(cluster) %>%
-    slice_max(n = 30, order_by = avg_log2FC) %>%
+    slice_max(n = 50, order_by = avg_log2FC) %>%
     as.data.frame() %>%
     split(.$cluster) %>%
     lapply(function(x) x$gene)
 
-marker.iCAF.subset %>%
-    filter(gene == "Ramp1")
+icaf_state_names_v2 <- c(
+    "0" = "c01_Matrix_Smoc2_Cxcl12",
+    "1" = "c02_Niche_Car3_Hhip",
+    "2" = "Others",
+    "3" = "Others",
+    "4" = "c03_Inflammatory_Ptx3_Cxcl13",
+    "5" = "c04_IFN_Ifit3_Cxcl10",
+    "6" = "Others",
+    "7" = "Others",
+    "8" = "Others"
+)
+iCAF_obj <- RenameIdents(iCAF_obj, icaf_state_names_v2)
+iCAF_obj$iCAF_subtype <- Idents(iCAF_obj) %>%
+    as.character() %>%
+    factor(levels = c(
+        "c01_Matrix_Smoc2_Cxcl12", "c02_Niche_Car3_Hhip",
+        "c03_Inflammatory_Ptx3_Cxcl13", "c04_IFN_Ifit3_Cxcl10", "Others"
+    ))
 
-iCAF.obj$iCAF_subtype <- iCAF.obj$seurat_clusters
-levels(iCAF.obj$seurat_clusters) <- c(
-    "c0_iCAF_Frmpd4_Chodl", "c1_iCAF_Grem2_Hhip",
-    "c2_iCAF_Cxcl12_Eln", "c3_iCAF_Cxcl13_Ptx3", "c4_iCAF_Cxcl9_Itga1"
+mycolor$iCAF_subtype <- setNames(
+    c("#1b9e77", "#d95f02", "#7570b3", "#e7298a", "gray"),
+    levels(iCAF_obj$iCAF_subtype)
 )
 
-mycolor$iCAF_subtype <- brewer.pal(n = 5, name = "Set2") %>% setNames(levels(iCAF.obj$seurat_clusters))
-
-pdf("iCAF/UMAP_iCAF.Subclusters2.split.pdf", 12, 4)
-DimPlot(iCAF.obj,
-    group.by = "iCAF_subtype", split.by = "Condition", raster = TRUE,
-    pt.size = 2, cols = mycolor$iCAF_subtype
+pdf("iCAF/UMAP_iCAF.Subtype.pdf", 7, 4)
+DimPlot(iCAF_obj,
+    raster = TRUE, pt.size = 2,
+    label = FALSE, cols = mycolor$iCAF_subtype
 ) +
-    labs(title = "iCAF Subclusters")
+    labs(title = "iCAF Subtypes")
 dev.off()
 
-## 2.1. immune modulation ----
-View(GO.DEG.Capsaicin.Up[["iCAF"]]@result)
+pdf("iCAF/UMAP_iCAF.Subtype.split.pdf", 12, 3)
+DimPlot(iCAF_obj,
+    group.by = "iCAF_subtype", split.by = "Condition", raster = TRUE,
+    pt.size = 3, cols = mycolor$iCAF_subtype
+) +
+    labs(title = "iCAF Subtypes")
+dev.off()
+
+## 2.3. compositional changes of iCAF subtypes ----
+identical(colnames(iCAF_obj), colnames(iCAF_obj))
+
+plot_data <- as.data.frame(table(iCAF_obj$iCAF_subtype, iCAF_obj$Condition))
+colnames(plot_data) <- c("iCAF_subtype", "Condition", "Count")
+
+pdf("iCAF/Barplot.iCAF_subtype.Condition.pdf", 8, 5)
+patchwork::wrap_plots(
+    ggplot(plot_data, aes(x = iCAF_subtype, y = Count, fill = Condition)) +
+        geom_bar(stat = "identity", position = "fill") +
+        scale_fill_manual(values = mycolor$Condition) +
+        theme_classic() +
+        labs(title = "Cell Type composition across Conditions") +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1)),
+    ggplot(plot_data, aes(x = Condition, y = Count, fill = iCAF_subtype)) +
+        geom_bar(stat = "identity", position = "fill") +
+        scale_fill_manual(values = mycolor$iCAF_subtype) +
+        theme_classic() +
+        labs(title = "Cell Type composition across Conditions") +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1)),
+    ncol = 2
+)
+dev.off()
+
+# fraction compare
+plot_data <- as.data.frame(table(iCAF_obj$iCAF_subtype, iCAF_obj$Sample))
+colnames(plot_data) <- c("iCAF_subtype", "Sample", "Count")
+plot_data$Condition <- gsub("_[0-9]$", "", plot_data$Sample)
+table(plot_data$Condition)
+table(plot_data$Sample)
+
+temp <- table(iCAF_obj$Sample)
+plot_data$Fraction <- plot_data$Count / temp[plot_data$Sample] * 100
+plot_data$Condition <- factor(plot_data$Condition, levels = names(mycolor$Condition))
+
+pdf("iCAF/Boxplot.Fraction.iCAF_subtype.pdf", 6, 6)
+ggplot(plot_data, aes(x = Condition, y = Fraction)) +
+    geom_boxplot(aes(fill = iCAF_subtype), outlier.shape = NA, alpha = 0.5) +
+    geom_jitter(width = 0.2, size = 0.5, alpha = 1) +
+    ggpubr::stat_compare_means(
+        label = "p.signif", label.y.npc = 0.98, size = 2.5, ref.group = "CTRL",
+    ) +
+    facet_wrap(~iCAF_subtype, ncol = 3, scales = "free") +
+    labs(title = "Cell Type composition across Samples") +
+    ylab("Fraction (%)") +
+    scale_fill_manual(values = mycolor$iCAF_subtype) +
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    NoLegend()
+dev.off()
+rm(plot_data, temp)
+
+# roe
+roe <- Startrac::calTissueDist(
+    iCAF_obj@meta.data,
+    byPatient = FALSE,
+    colname.cluster = "iCAF_subtype",
+    colname.patient = "Sample",
+    colname.tissue = "Condition",
+    method = "chisq",
+    min.rowSum = 0
+)
+roe <- roe[setdiff(rownames(roe), "Doublet"), ]
+pdf("iCAF/Heatmap.Roe.iCAF_subtype.Condition.pdf", 4, 2.5)
+pheatmap::pheatmap(
+    roe,
+    color = mycolor$Roe,
+    breaks = seq(0, 2, length.out = 101),
+    scale = "none",
+    display_numbers = TRUE,
+    cluster_rows = FALSE,
+    cluster_cols = FALSE,
+)
+dev.off()
+rm(roe)
 
 ## save data
 gc()
-rm(stromal.obj)
+rm(stromal_obj)
 save.image("03.Stromal.RData")

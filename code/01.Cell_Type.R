@@ -1147,6 +1147,7 @@ stromal_obj <- FindNeighbors(stromal_obj, dims = 1:30)
 stromal_obj <- FindClusters(stromal_obj, resolution = 1.0)
 
 stromal_obj <- RunUMAP(stromal_obj, dims = 1:30)
+stromal_obj <- readRDS("rds/stromal_obj.rds")
 
 pdf("sub3_Stromal/UMAP.Clusters.pdf", 5.5, 4)
 DimPlot(stromal_obj,
@@ -1248,7 +1249,7 @@ stromal_obj$Cell_Type_2 <- factor(stromal_obj$Cell_Type_2, levels = c(
 
 mycolor$Cell_Type_2 <- c(
     mycolor$Cell_Type_2,
-    setNames(ggsci::pal_lancet()(8), levels(stromal_obj$Cell_Type_2))
+    setNames(ggsci::pal_lancet()(7), levels(stromal_obj$Cell_Type_2))
 )
 
 pdf("sub3_Stromal/UMAP.Cell_Type_2.pdf", 9, 4)
