@@ -85,7 +85,7 @@ lapply(names(DEG_list_conditions), function(x) {
         scale_color_manual(values = mycolor$Cell_Type_2) +
         facet_wrap(~Cell_Type_2, ncol = 5) +
         theme_classic() +
-        labs(title = "Volcano plot of DEGs in each cell type") +
+        labs(title = paste0("Volcano plot of DEGs in each cell type, ", x, " vs Control")) +
         xlab("Average log2 fold change") +
         ylab("-log10 adjusted p value") +
         xlim(-x_max * 0.7, x_max * 0.7) +
@@ -531,7 +531,7 @@ plot_data <- DotPlot(T_obj %>% subset(!is.na(T_state)),
     group.by = "Condition"
 )$data
 
-pdf("Dot.T_state.Signature.Condition.pdf", 4.5, 5)
+pdf("Dot.T_state.Signature.Condition.pdf", 9, 2.5)
 patchwork::wrap_plots(
     ggplot(plot_data, aes(x = features.plot, y = id)) +
         geom_point(aes(size = pct.exp, fill = avg.exp), shape = 21) +
@@ -551,7 +551,7 @@ patchwork::wrap_plots(
             axis.text.x = element_text(angle = 45, hjust = 1)
         ) +
         ggtitle("Scaled T cell state signatures"),
-    ncol = 1
+    ncol = 2
 )
 dev.off()
 

@@ -87,7 +87,7 @@ lapply(names(DEG_list_conditions), function(x) {
         scale_color_manual(values = mycolor$Cell_Type_2) +
         facet_wrap(~Cell_Type_2, ncol = 5) +
         theme_classic() +
-        labs(title = paste0("Volcano plot of DEGs in each cell type, ", x, "vs CTRL")) +
+        labs(title = paste0("Volcano plot of DEGs in each cell type, ", x, " vs CTRL")) +
         xlab("Average log2 fold change") +
         ylab("-log10 adjusted p value") +
         xlim(-x_max * 0.7, x_max * 0.7) +
@@ -195,24 +195,29 @@ VlnPlot(
 )
 dev.off()
 
-stromal_obj$Cell_Type_2_Condition <- paste0(stromal_obj$Cell_Type_2, "_", stromal_obj$Condition)
-stromal_obj$Cell_Type_2_Condition <- factor(
-    stromal_obj$Cell_Type_2_Condition,
-    levels = c(
-        paste0(levels(stromal_obj$Cell_Type_2), "_", "CTRL"),
-        paste0(levels(stromal_obj$Cell_Type_2), "_", "Capsaicin"),
-        paste0(levels(stromal_obj$Cell_Type_2), "_", "LC_6OHDA"),
-        paste0(levels(stromal_obj$Cell_Type_2), "_", "anti_PD1"),
-        paste0(levels(stromal_obj$Cell_Type_2), "_", "Rime")
-    )
-)
-
-pdf("DotPlot_Ramp1.pdf", 7, 7)
-DotPlot(
+plot_data <- DotPlot(
     stromal_obj,
     features = c("Ramp1"),
-    group.by = "Cell_Type_2_Condition"
-) + scale_color_viridis_c()
+    group.by = "Cell_Type_2",
+    split.by = "Condition",
+    cols = mycolor$Condition
+)$data
+plot_data$Cell_Type_2 <- gsub(paste0(names(mycolor$Condition), collapse = "|"), "", plot_data$id)
+plot_data$Cell_Type_2 <- gsub("_$", "", plot_data$Cell_Type_2)
+plot_data$Condition <- gsub(paste0(names(mycolor$Cell_Type_2), collapse = "|"), "", plot_data$id)
+plot_data$Condition <- gsub("^_", "", plot_data$Condition)
+plot_data$Cell_Type_2 <- factor(plot_data$Cell_Type_2, levels = names(mycolor$Cell_Type_2))
+plot_data$Condition <- factor(plot_data$Condition, levels = names(mycolor$Condition))
+
+pdf("DotPlot_Ramp1.pdf", 5, 3.5)
+ggplot(plot_data, aes(x = Condition, y = Cell_Type_2)) +
+    geom_point(aes(size = pct.exp, fill = avg.exp), shape = 21) +
+    scale_fill_viridis_c() +
+    theme_classic() +
+    theme(
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "right"
+    )
 dev.off()
 
 # 2. iCAF functions ----
@@ -313,6 +318,7 @@ identical(colnames(iCAF_obj), colnames(iCAF_obj))
 
 plot_data <- as.data.frame(table(iCAF_obj$iCAF_subtype, iCAF_obj$Condition))
 colnames(plot_data) <- c("iCAF_subtype", "Condition", "Count")
+plot_data$Condition <- factor(plot_data$Condition, levels = names(mycolor$Condition))
 
 pdf("iCAF/Barplot.iCAF_subtype.Condition.pdf", 8, 5)
 patchwork::wrap_plots(
@@ -343,14 +349,14 @@ temp <- table(iCAF_obj$Sample)
 plot_data$Fraction <- plot_data$Count / temp[plot_data$Sample] * 100
 plot_data$Condition <- factor(plot_data$Condition, levels = names(mycolor$Condition))
 
-pdf("iCAF/Boxplot.Fraction.iCAF_subtype.pdf", 6, 6)
+pdf("iCAF/Boxplot.Fraction.iCAF_subtype.pdf", 8, 2.6)
 ggplot(plot_data, aes(x = Condition, y = Fraction)) +
     geom_boxplot(aes(fill = iCAF_subtype), outlier.shape = NA, alpha = 0.5) +
     geom_jitter(width = 0.2, size = 0.5, alpha = 1) +
     ggpubr::stat_compare_means(
         label = "p.signif", label.y.npc = 0.98, size = 2.5, ref.group = "CTRL",
     ) +
-    facet_wrap(~iCAF_subtype, ncol = 3, scales = "free") +
+    facet_wrap(~iCAF_subtype, ncol = 5, scales = "free") +
     labs(title = "Cell Type composition across Samples") +
     ylab("Fraction (%)") +
     scale_fill_manual(values = mycolor$iCAF_subtype) +

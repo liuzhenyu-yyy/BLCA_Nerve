@@ -1147,7 +1147,7 @@ stromal_obj <- FindNeighbors(stromal_obj, dims = 1:30)
 stromal_obj <- FindClusters(stromal_obj, resolution = 1.0)
 
 stromal_obj <- RunUMAP(stromal_obj, dims = 1:30)
-stromal_obj <- readRDS("rds/stromal_obj.rds")
+# stromal_obj <- readRDS("rds/stromal_obj.rds")
 
 pdf("sub3_Stromal/UMAP.Clusters.pdf", 5.5, 4)
 DimPlot(stromal_obj,
@@ -1343,7 +1343,7 @@ plot_data$Condition <- gsub("_[0-5].+?*$", "", plot_data$Sample)
 table(plot_data$Condition)
 table(plot_data$Sample)
 
-temp <- table(stromal_obj$Sample)
+temp <- table(sample_info$Sample)
 plot_data$Fraction <- plot_data$Count / temp[plot_data$Sample] * 100
 plot_data$Condition <- factor(plot_data$Condition, levels = names(mycolor$Condition))
 
@@ -1356,7 +1356,7 @@ ggplot(plot_data, aes(x = Condition, y = Fraction)) +
     ) +
     facet_wrap(~Cell_Type_2, ncol = 4, scales = "free") +
     labs(title = "Cell Type composition across Samples") +
-    ylab("Fraction within immune compartment (%)") +
+    ylab("Fraction of all cells (%)") +
     scale_fill_manual(values = mycolor$Cell_Type_2) +
     theme_classic() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
