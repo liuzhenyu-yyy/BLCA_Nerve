@@ -400,6 +400,30 @@ ggplot(plot_data, aes(x = Condition, y = Fraction)) +
 dev.off()
 rm(plot_data, temp, T_obj.projected)
 
+# roe
+roe <- Startrac::calTissueDist(
+    T_obj@meta.data,
+    byPatient = FALSE,
+    colname.cluster = "T_state",
+    colname.patient = "Sample",
+    colname.tissue = "Condition",
+    method = "chisq",
+    min.rowSum = 0
+)
+roe <- roe[setdiff(rownames(roe), "Doublet"), ]
+pdf("Heatmap.Roe.T_state.Condition.pdf", 4, 4.5)
+pheatmap::pheatmap(
+    roe,
+    color = mycolor$Roe,
+    breaks = seq(0, 2, length.out = 101),
+    scale = "none",
+    display_numbers = TRUE,
+    cluster_rows = FALSE,
+    cluster_cols = FALSE,
+)
+dev.off()
+rm(roe)
+
 ## 2.3. T state marker expression ----
 gene_selected <- c(
     "Foxp3", "Il2ra", "Il10", "Tgfb1", # Treg
