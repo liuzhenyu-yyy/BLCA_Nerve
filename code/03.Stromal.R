@@ -268,38 +268,41 @@ marker_iCAF_subset <- FindAllMarkers(
 
 marker_iCAF_subset %>%
     group_by(cluster) %>%
-    slice_max(n = 50, order_by = avg_log2FC) %>%
+    slice_max(n = 100, order_by = avg_log2FC) %>%
     as.data.frame() %>%
     split(.$cluster) %>%
     lapply(function(x) x$gene)
 
+Idents(iCAF_obj) <- iCAF_obj$seurat_clusters
 icaf_state_names_v2 <- c(
     "0" = "c01_Matrix_Smoc2_Cxcl12",
     "1" = "c02_Niche_Car3_Hhip",
-    "2" = "Others",
-    "3" = "Others",
+    "2" = "c09_Epithelial_Krt8_Lama3",
+    "3" = "c06_Myeloid_Adgre1_Mrc1",
     "4" = "c03_Inflammatory_Ptx3_Cxcl13",
     "5" = "c04_IFN_Ifit3_Cxcl10",
-    "6" = "Others",
-    "7" = "Others",
-    "8" = "Others"
+    "6" = "c08_Lymphoid_Cd3g_Gzmb",
+    "7" = "c07_Vascular_Pecam1_Vwf",
+    "8" = "c05_Mesothelial_Upk3b_Wt1"
 )
 iCAF_obj <- RenameIdents(iCAF_obj, icaf_state_names_v2)
 iCAF_obj$iCAF_subtype <- Idents(iCAF_obj) %>%
     as.character() %>%
     factor(levels = c(
         "c01_Matrix_Smoc2_Cxcl12", "c02_Niche_Car3_Hhip",
-        "c03_Inflammatory_Ptx3_Cxcl13", "c04_IFN_Ifit3_Cxcl10", "Others"
+        "c03_Inflammatory_Ptx3_Cxcl13", "c04_IFN_Ifit3_Cxcl10", 
+        "c05_Mesothelial_Upk3b_Wt1", "c06_Myeloid_Adgre1_Mrc1",
+        "c07_Vascular_Pecam1_Vwf", "c08_Lymphoid_Cd3g_Gzmb", "c09_Epithelial_Krt8_Lama3"
     ))
 
 mycolor$iCAF_subtype <- setNames(
-    c("#1b9e77", "#d95f02", "#7570b3", "#e7298a", "gray"),
+    ggsci::pal_npg()(9),
     levels(iCAF_obj$iCAF_subtype)
 )
 
 pdf("iCAF/UMAP_iCAF.Subtype.pdf", 7, 4)
 DimPlot(iCAF_obj,
-    raster = TRUE, pt.size = 2,
+    raster = TRUE, pt.size = 2, group.by = "iCAF_subtype",
     label = FALSE, cols = mycolor$iCAF_subtype
 ) +
     labs(title = "iCAF Subtypes")
@@ -320,7 +323,7 @@ plot_data <- as.data.frame(table(iCAF_obj$iCAF_subtype, iCAF_obj$Condition))
 colnames(plot_data) <- c("iCAF_subtype", "Condition", "Count")
 plot_data$Condition <- factor(plot_data$Condition, levels = names(mycolor$Condition))
 
-pdf("iCAF/Barplot.iCAF_subtype.Condition.pdf", 8, 5)
+pdf("iCAF/Barplot.iCAF_subtype.Condition.pdf", 9, 5)
 patchwork::wrap_plots(
     ggplot(plot_data, aes(x = iCAF_subtype, y = Count, fill = Condition)) +
         geom_bar(stat = "identity", position = "fill") +
@@ -349,7 +352,7 @@ temp <- table(iCAF_obj$Sample)
 plot_data$Fraction <- plot_data$Count / temp[plot_data$Sample] * 100
 plot_data$Condition <- factor(plot_data$Condition, levels = names(mycolor$Condition))
 
-pdf("iCAF/Boxplot.Fraction.iCAF_subtype.pdf", 8, 2.6)
+pdf("iCAF/Boxplot.Fraction.iCAF_subtype.pdf", 8, 5.5)
 ggplot(plot_data, aes(x = Condition, y = Fraction)) +
     geom_boxplot(aes(fill = iCAF_subtype), outlier.shape = NA, alpha = 0.5) +
     geom_jitter(width = 0.2, size = 0.5, alpha = 1) +
@@ -377,7 +380,7 @@ roe <- Startrac::calTissueDist(
     min.rowSum = 0
 )
 roe <- roe[setdiff(rownames(roe), "Doublet"), ]
-pdf("iCAF/Heatmap.Roe.iCAF_subtype.Condition.pdf", 4, 2.5)
+pdf("iCAF/Heatmap.Roe.iCAF_subtype.Condition.pdf", 4, 3.5)
 pheatmap::pheatmap(
     roe,
     color = mycolor$Roe,
