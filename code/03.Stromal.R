@@ -220,6 +220,102 @@ ggplot(plot_data, aes(x = Condition, y = Cell_Type_2)) +
     )
 dev.off()
 
+## 1.4. compare DEG & GO across conditions ----
+names(DEG_list_genes)
+dir.create("Compare_Conditions")
+condition_selected <- c("Capsaicin", "anti_PD1", "Rime")
+
+DEG_list_gene_cell_type <- lapply(names(DEG_list_genes$Capsaicin), function(cell_typex) {
+    list(
+        up = sapply(names(DEG_list_genes), function(condition) {
+            DEG_list_genes[[condition]][[cell_typex]]$up
+        }) %>%
+            setNames(names(DEG_list_genes)) %>%
+            .[condition_selected] %>%
+            .[sapply(., length) > 0],
+        down = sapply(names(DEG_list_genes), function(condition) {
+            DEG_list_genes[[condition]][[cell_typex]]$down
+        }) %>%
+            setNames(names(DEG_list_genes)) %>%
+            .[condition_selected] %>%
+            .[sapply(., length) > 0]
+    )
+}) %>%
+    setNames(names(DEG_list_genes$Capsaicin))
+DEG_list_gene_cell_type$Vascular_Endothelial$up
+
+# compare DEGs
+lapply(names(DEG_list_gene_cell_type)[2:4], function(x) {
+    temp <- DEG_list_gene_cell_type[[x]]$up
+    if (length(temp) > 1) {
+        pdf(paste0("Compare_Conditions/Venn_DEGs_Up_", x, ".pdf"), 5, 5)
+        plot(Vennerable::Venn(temp),
+            doWeights = TRUE,
+            show = list(Faces = FALSE, DarkMatter = FALSE)
+        )
+        dev.off()
+    }
+
+    temp <- DEG_list_gene_cell_type[[x]]$down
+    if (length(temp) > 1) {
+        pdf(paste0("Compare_Conditions/Venn_DEGs_Down_", x, ".pdf"), 5, 5)
+        plot(Vennerable::Venn(temp),
+            doWeights = TRUE,
+            show = list(Faces = FALSE, DarkMatter = FALSE)
+        )
+        dev.off()
+    }
+})
+
+temp <- DEG_list_gene_cell_type$iCAF$down
+temp$Capsaicin %>%
+    setdiff(temp$anti_PD1) %>%
+    setdiff(temp$Rime) %>%
+    sort()
+
+# compare GO
+names(DEG_list_gene_cell_type)
+GO_list_compare <- mclapply(c("iCAF", "Vascular_Endothelial"), function(x) {
+    list(
+        up = compareCluster(DEG_list_gene_cell_type[[x]]$up,
+            fun = "enrichGO",
+            OrgDb = org.Mm.eg.db,
+            keyType = "SYMBOL",
+            ont = "BP",
+            pAdjustMethod = "BH",
+            pvalueCutoff = 0.05
+        ) %>% simplify(),
+        down = compareCluster(DEG_list_gene_cell_type[[x]]$down,
+            fun = "enrichGO",
+            OrgDb = org.Mm.eg.db,
+            keyType = "SYMBOL",
+            ont = "BP",
+            pAdjustMethod = "BH",
+            pvalueCutoff = 0.05
+        ) %>% simplify()
+    )
+}, mc.cores = 2) %>%
+    setNames(c("iCAF", "Vascular_Endothelial"))
+
+lapply(names(GO_list_compare), function(x) {
+    if (!is.null(GO_list_compare[[x]]$up)) {
+        pdf(paste0("Compare_Conditions/GO_Compare_Up_", x, ".pdf"), 7, 6)
+        p <- dotplot(GO_list_compare[[x]]$up, showCategory = 15, label_format = 80) +
+            theme_classic() +
+            labs(title = paste("GO of up-regulated genes in ", x, sep = ""))
+        plot(p)
+        dev.off()
+    }
+    if (!is.null(GO_list_compare[[x]]$down)) {
+        pdf(paste0("Compare_Conditions/GO_Compare_Down_", x, ".pdf"), 7, 6)
+        p <- dotplot(GO_list_compare[[x]]$down, showCategory = 15, label_format = 80) +
+            theme_classic() +
+            labs(title = paste("GO of down-regulated genes in ", x, sep = ""))
+        plot(p)
+        dev.off()
+    }
+})
+
 # 2. iCAF functions ----
 ## 2.1. identify iCAF subsets ----
 dir.create("iCAF")

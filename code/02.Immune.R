@@ -285,6 +285,113 @@ for (i in seq_along(p_list)) {
 dev.off()
 rm(p_list, term_selected, i)
 
+## 1.4. compare DEG & GO across conditions ----
+names(DEG_list_genes)
+dir.create("Compare_Conditions")
+condition_selected <- c("Capsaicin", "anti_PD1", "Rime")
+
+DEG_list_gene_cell_type <- lapply(names(DEG_list_genes$Capsaicin), function(cell_typex) {
+    list(
+        up = sapply(names(DEG_list_genes), function(condition) {
+            DEG_list_genes[[condition]][[cell_typex]]$up
+        }) %>%
+            setNames(names(DEG_list_genes)) %>%
+            .[condition_selected] %>%
+            .[sapply(., length) > 0],
+        down = sapply(names(DEG_list_genes), function(condition) {
+            DEG_list_genes[[condition]][[cell_typex]]$down
+        }) %>%
+            setNames(names(DEG_list_genes)) %>%
+            .[condition_selected] %>%
+            .[sapply(., length) > 0]
+    )
+}) %>%
+    setNames(names(DEG_list_genes$Capsaicin))
+DEG_list_gene_cell_type$B$down
+
+# compare DEGs
+lapply(names(DEG_list_gene_cell_type), function(x) {
+    temp <- DEG_list_gene_cell_type[[x]]$up
+    if (length(temp) > 1) {
+        pdf(paste0("Compare_Conditions/Venn_DEGs_Up_", x, ".pdf"), 5, 5)
+        plot(Vennerable::Venn(temp),
+            doWeights = TRUE,
+            show = list(Faces = FALSE, DarkMatter = FALSE)
+        )
+        dev.off()
+    }
+
+    temp <- DEG_list_gene_cell_type[[x]]$down
+    if (length(temp) > 1) {
+        pdf(paste0("Compare_Conditions/Venn_DEGs_Down_", x, ".pdf"), 5, 5)
+        plot(Vennerable::Venn(temp),
+            doWeights = TRUE,
+            show = list(Faces = FALSE, DarkMatter = FALSE)
+        )
+        dev.off()
+    }
+})
+
+temp <- DEG_list_gene_cell_type$Treg$up
+temp$Capsaicin %>%
+    setdiff(temp$anti_PD1) %>%
+    setdiff(temp$Rime) %>%
+    sort()
+
+# compare GO
+temp <- compareCluster(DEG_list_gene_cell_type$T_CD8$up,
+    fun = "enrichGO",
+    OrgDb = org.Mm.eg.db,
+    keyType = "SYMBOL",
+    ont = "BP",
+    pAdjustMethod = "BH",
+    pvalueCutoff = 0.05
+) %>% simplify()
+dotplot(temp) + theme_classic() + labs(title = "GO comparison of up-regulated genes in T_CD8")
+rm(temp)
+
+names(DEG_list_gene_cell_type)
+GO_list_compare <- mclapply(c("T_CD4", "T_CD8", "Treg", "Neutrophil"), function(x) {
+    list(
+        up = compareCluster(DEG_list_gene_cell_type[[x]]$up,
+            fun = "enrichGO",
+            OrgDb = org.Mm.eg.db,
+            keyType = "SYMBOL",
+            ont = "BP",
+            pAdjustMethod = "BH",
+            pvalueCutoff = 0.05
+        ) %>% simplify(),
+        down = compareCluster(DEG_list_gene_cell_type[[x]]$down,
+            fun = "enrichGO",
+            OrgDb = org.Mm.eg.db,
+            keyType = "SYMBOL",
+            ont = "BP",
+            pAdjustMethod = "BH",
+            pvalueCutoff = 0.05
+        ) %>% simplify()
+    )
+}, mc.cores = 4) %>%
+    setNames(c("T_CD4", "T_CD8", "Treg", "Neutrophil"))
+
+lapply(names(GO_list_compare), function(x) {
+    if (!is.null(GO_list_compare[[x]]$up)) {
+        pdf(paste0("Compare_Conditions/GO_Compare_Up_", x, ".pdf"), 7, 5)
+        p <- dotplot(GO_list_compare[[x]]$up, showCategory = 10, label_format = 80) +
+            theme_classic() +
+            labs(title = paste("GO of up-regulated genes in ", x, sep = ""))
+        plot(p)
+        dev.off()
+    }
+    if (!is.null(GO_list_compare[[x]]$down)) {
+        pdf(paste0("Compare_Conditions/GO_Compare_Down_", x, ".pdf"), 7, 5)
+        p <- dotplot(GO_list_compare[[x]]$down, showCategory = 10, label_format = 80) +
+            theme_classic() +
+            labs(title = paste("GO of down-regulated genes in ", x, sep = ""))
+        plot(p)
+        dev.off()
+    }
+})
+
 # 2. T cell states ----
 ## 2.1. Project T cell states ----
 library(ProjecTILs)
