@@ -386,7 +386,7 @@ iCAF_obj$iCAF_subtype <- Idents(iCAF_obj) %>%
     as.character() %>%
     factor(levels = c(
         "c01_Matrix_Smoc2_Cxcl12", "c02_Niche_Car3_Hhip",
-        "c03_Inflammatory_Ptx3_Cxcl13", "c04_IFN_Ifit3_Cxcl10", 
+        "c03_Inflammatory_Ptx3_Cxcl13", "c04_IFN_Ifit3_Cxcl10",
         "c05_Mesothelial_Upk3b_Wt1", "c06_Myeloid_Adgre1_Mrc1",
         "c07_Vascular_Pecam1_Vwf", "c08_Lymphoid_Cd3g_Gzmb", "c09_Epithelial_Krt8_Lama3"
     ))
