@@ -591,6 +591,55 @@ patchwork::wrap_plots(
 )
 dev.off()
 
+table(T_obj$Cell_Type_2)
+pdf("Dot.T_PDCD1.Condition.pdf", 4, 5)
+DotPlot(T_obj %>% subset(!is.na(T_state)),
+    features = "Pdcd1",
+    group.by = "Condition"
+) + scale_color_viridis_c() +
+    theme_classic() + labs(x = "Gene", y = "Condition") +
+    theme(
+        axis.text.x = element_text(angle = 45, hjust = 1)
+    ) +
+    ggtitle("Expression of Pdcd1 in T cells")
+dev.off()
+
+pdf("Dot.T_CD8_PDCD1.Condition.pdf", 4, 5)
+DotPlot(T_obj %>% subset(Cell_Type_2 == "T_CD8" & !is.na(T_state)),
+    features = "Pdcd1",
+    group.by = "Condition"
+) + scale_color_viridis_c() +
+    theme_classic() + labs(x = "Gene", y = "Condition") +
+    theme(
+        axis.text.x = element_text(angle = 45, hjust = 1)
+    ) +
+    ggtitle("Expression of Pdcd1 in CD8 T cells")
+dev.off()
+
+pdf("Dot.T_CD4_PDCD1.Condition.pdf", 4, 5)
+DotPlot(T_obj %>% subset(Cell_Type_2 == "T_CD4" & !is.na(T_state)),
+    features = "Pdcd1",
+    group.by = "Condition"
+) + scale_color_viridis_c() +
+    theme_classic() + labs(x = "Gene", y = "Condition") +
+    theme(
+        axis.text.x = element_text(angle = 45, hjust = 1)
+    ) +
+    ggtitle("Expression of Pdcd1 in CD4 T cells")
+dev.off()
+
+pdf("Vln.T_CD8_PDCD1.Condition.pdf", 5, 3)
+VlnPlot(T_obj %>% subset(Cell_Type_2 == "T_CD8" & !is.na(T_state)),
+    features = "Pdcd1", col = mycolor$Condition,
+    group.by = "Condition",  pt.size = 0,
+) +
+    theme_classic() +
+    theme(
+        axis.text.x = element_text(angle = 45, hjust = 1)
+    ) +
+    ggtitle("Expression of Pdcd1 in CD8 T cells")
+dev.off()
+
 table(T_obj$T_state)
 p_list <- lapply(levels(T_obj$T_state), function(state) {
     plot_data <- DotPlot(T_obj %>% subset(T_state == state),
