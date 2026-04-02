@@ -1367,6 +1367,60 @@ rm(plot_data, temp)
 saveRDS(stromal_obj, file = "rds/stromal_obj.rds")
 rm(stromal_obj)
 
+# 6. average expression of gene sets ----
+blca_obj <- readRDS("rds/blca_obj.rds")
+
+gene.selected <- c("Pdcd1", "Cd274", "Ramp1", "Igf1")
+
+pdf("Dot.Sample.Gene.pdf", 7, 2)
+DotPlot(blca_obj, features = gene.selected, group.by = "Sample", scale = TRUE) +
+    scale_color_viridis_c() +
+    theme_classic() + coord_flip() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+dev.off()
+
+plot.data <- AggregateExpression(blca_obj,
+    features = gene.selected, group.by = "Sample"
+)
+
+plot.data <- plot.data$RNA %>%
+    t() %>%
+    as.data.frame() %>%
+    mutate("Sample" = gsub("-", "_", rownames(.))) %>%
+    mutate("Condition" = gsub("_[1-5]+?*$", "", Sample)) %>%
+    reshape2::melt(id.vars = c("Sample", "Condition"), variable.name = "features.plot", value.name = "avg.exp")
+plot.data$Condition <- factor(plot.data$Condition, levels = names(mycolor$Condition))
+plot.data$features.plot <- factor(plot.data$features.plot, levels = gene.selected)
+
+pdf("Box.Sample.Gene.pdf", 8, 3)
+ggplot(plot.data, aes(x = Condition, y = avg.exp, color = Condition)) +
+    geom_bar(
+        data = aggregate(plot.data,
+            by = list(plot.data$Condition, plot.data$features.plot),
+            FUN = mean
+        ) %>%
+            select(Group.1, Group.2, avg.exp) %>%
+            setNames(c("Condition", "features.plot", "avg.exp")),
+        aes(x = Condition, y = avg.exp, fill = Condition),
+        stat = "identity", alpha = 0.5
+    ) +
+    ggpubr::stat_compare_means(
+        data = plot.data, aes(x = Condition, y = avg.exp),
+        label = "p.signif", label.y.npc = 0.98, size = 3, ref.group = "CTRL"
+    ) +
+    geom_jitter(size = 1, width = 0.2, height = 0) +
+    # geom_bar(aes(y = after_stat(avg.exp)), stat = "identity", fill = "lightgray", alpha = 0.5, inherit.aes = FALSE) +
+    facet_wrap(~features.plot, ncol = 4, scales = "free_y") +
+    theme_classic() +
+    scale_color_manual(values = mycolor$Condition) +
+    scale_fill_manual(values = mycolor$Condition) +
+    labs(title = "Dot plot of selected genes across Samples") +
+    xlab("Condition") +
+    ylab("Gene") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+dev.off()
+rm(plot.data, gene.selected, blca_obj)
+
 # save data ----
 save.image("01.Cell_Type.RData")
 saveRDS(mycolor, file = "rds/mycolor.rds")
