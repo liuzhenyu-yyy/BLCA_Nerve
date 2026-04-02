@@ -429,6 +429,48 @@ ggplot(plot.data, aes(x = features.plot, y = Condition)) +
 dev.off()
 rm(plot.data, gene.selected)
 
+# additianal genes 
+gene.selected <- c(
+    "Calca", "Calcb", "Crcp",
+    "Tac1", "Tacr1", "Tacr2",
+    "Vip", "Vipr1", "Vipr2",
+    "Adcyap1", "Adcyap1r1",
+    "Gria1", "Gria2", "Gria3", "Gria4",
+    "Grin1", "Grin2a", "Grin2b", "Grin2c", "Grin2d",
+    "Grik1", "Grik2", "Grik3", "Grik4", "Grik5",
+    "Grm1", "Grm2", "Grm3", "Grm4", "Grm5", "Grm6", "Grm7", "Grm8",
+    "P2rx3", "P2rx7",
+    "P2ry1", "P2ry2", "P2ry4", "P2ry6", "P2ry12", "P2ry13", "P2ry14"
+)
+
+pdf("Expression_Selected/Dot.Expression.Selected2.pdf", 8, 9)
+DotPlot(blca_obj,
+    features = gene.selected %>% rev(), scale = FALSE,
+    group.by = "Cell_Type_2",
+) +
+    coord_flip() +
+    theme_classic() +
+    scale_color_viridis_c() +
+    theme(
+        axis.text.x = element_text(angle = 45, hjust = 1)
+    ) +
+    ggtitle("Expression of Cytokines")
+dev.off()
+
+pdf("Expression_Selected/Dot.Expression.Selected2.scaled.pdf", 8, 9)
+DotPlot(blca_obj,
+    features = gene.selected %>% rev(), scale = TRUE,
+    group.by = "Cell_Type_2",
+) +
+    coord_flip() +
+    theme_classic() +
+    scale_color_viridis_c() +
+    theme(
+        axis.text.x = element_text(angle = 45, hjust = 1)
+    ) +
+    ggtitle("Scaled Expression of Cytokines")
+dev.off()
+
 # 2. Joint CellChat analysis ----
 ## 2.1. prepare CellChat object ----
 table(blca_obj$Cell_Type_2) %>% sort()
