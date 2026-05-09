@@ -9,10 +9,12 @@ library(ggplot2)
 library(RColorBrewer)
 library(DoubletFinder)
 library(parallel)
+library(cli)
 
 load("01.Cell_Type.RData")
 
 # 1. Load data & QC ----
+data_dir <- "/Users/zhenyuliu/Research/Project/BLCA_Nerve/data/CellRanger_Out"
 data_dir <- "/thinker/tb269store/user/liuzhenyu/Project/BLCA_Nerve/data/CellRanger_Out"
 samples <- list.dirs(data_dir, recursive = FALSE, full.names = FALSE)
 mycolor <- list()
@@ -21,7 +23,7 @@ mycolor <- list()
 # counts
 rc_list <- list()
 rc_list <- lapply(samples, function(x) {
-    data <- Read10X(data_dir = file.path(data_dir, x, "filtered_feature_bc_matrix"))
+    data <- Read10X(data.dir = file.path(data_dir, x, "filtered_feature_bc_matrix"))
     colnames(data) <- paste(x, colnames(data), sep = "_")
     data
 })
@@ -49,38 +51,41 @@ sample_info <- data.frame(
     "Condition" = gsub("_00.+?*$|_1.+?*$|_2.+?*$|_3.+?*$|1$|2$|3$", "", Sample)
 )
 sample_info$Sample <- gsub("_00", "_", sample_info$Sample)
-sample_info$Sample <- gsub("60HDA", "6OHDA", sample_info$Sample)
-sample_info$Sample <- gsub("RIme", "Rime_", sample_info$Sample)
+sample_info$Sample <- gsub("LC_60HDA", "6OHDA", sample_info$Sample)
+# sample_info$Sample <- gsub("RIme", "Rime_", sample_info$Sample)
 
-sample_info$Condition <- gsub("60HDA", "6OHDA", sample_info$Condition)
-sample_info$Condition <- gsub("RIme", "Rime", sample_info$Condition)
+sample_info$Condition <- gsub("LC_60HDA", "6OHDA", sample_info$Condition)
+# sample_info$Condition <- gsub("RIme", "Rime", sample_info$Condition)
 
-sample_info$Condition <- factor(sample_info$Condition, levels = c("CTRL", "Capsaicin", "LC_6OHDA", "anti_PD1", "Rime"))
+sample_info$Condition <- factor(sample_info$Condition,
+    levels = c("CTRL", "Capsaicin", "6OHDA")
+)
 sample_info <- sample_info[order(sample_info$Condition), ]
 sample_info$Sample <- factor(sample_info$Sample, levels = unique(sample_info$Sample))
 
 table(sample_info$Condition)
 table(sample_info$Sample)
-rm(cells)
+rm(cells, samples, common_genes)
 
 # singleR_anno annotation
 singler_anno_1 <- read.table("../../data/scRNAseq_1/cell_annot_MouseRNAseqData_label.main.csv",
     header = TRUE, sep = ","
 )
 colnames(singler_anno_1)
-singler_anno_2 <- read.table("../../data/scRNAseq_2/cell_annot_MouseRNAseqData_label.main.csv",
-    header = TRUE, sep = ","
-)
-colnames(singler_anno_2)
+# singler_anno_2 <- read.table("../../data/scRNAseq_2/cell_annot_MouseRNAseqData_label.main.csv",
+#     header = TRUE, sep = ","
+# )
+# colnames(singler_anno_2)
 
-singler_anno <- rbind(singler_anno_1, singler_anno_2[, colnames(singler_anno_1)])
+singler_anno <- singler_anno_1
+# singler_anno <- rbind(singler_anno_1, singler_anno_2[, colnames(singler_anno_1)])
 rm(singler_anno_1, singler_anno_2)
 
 singler_anno$Cell <- gsub("-.+?*$", "-1", singler_anno$Cell)
 singler_anno$Cell <- paste(singler_anno$orig.ident, singler_anno$Cell, sep = "_")
 rownames(singler_anno) <- singler_anno$Cell
 
-table(singler_anno$Cell %in% sample_info$Cell) # 376867 cells
+table(singler_anno$Cell %in% sample_info$Cell) # 274268 cells
 table(sample_info$Cell %in% singler_anno$Cell)
 singler_anno[1:5, ]
 
@@ -88,7 +93,6 @@ singler_anno[1:5, ]
 sample_info$Cell_Type_SingleR <- "none"
 sample_info[singler_anno$Cell, "Cell_Type_SingleR"] <- singler_anno$raw_main_celltype
 sample_info[1:5, ]
-rm(singler_anno)
 
 blca_obj <- CreateSeuratObject(
     counts = rc,
@@ -102,8 +106,9 @@ quantile(blca_obj$Percent_Mito)
 
 sample_info <- blca_obj@meta.data
 
-mycolor$Condition <- ggsci::pal_npg("nrc")(5)[c(3, 2, 1, 4, 5)] %>%
+mycolor$Condition <- ggsci::pal_npg("nrc")(5)[c(3, 2, 1)] %>%
     setNames(levels(sample_info$Condition))
+scales::show_col(mycolor$Condition)
 
 pdf("Hist.QC.Metrics.pdf", 6, 4)
 hist(blca_obj$nFeature_RNA, breaks = 100)
@@ -112,19 +117,21 @@ hist(blca_obj$Percent_Mito, breaks = 100)
 dev.off()
 
 cutoffs <- c(
-    "nFeature_RNA" = 300,
+    "nFeature_RNA_low" = 1000,
+    "nFeature_RNA_high" = 9000,
     "nCount_RNA" = 1000,
-    "Percent_Mito" = 10
+    "Percent_Mito" = 5
 )
 
-pdf("Scatter.QC.pdf", 20, 12)
+pdf("Scatter.QC.pdf", 10, 10)
 ggplot(sample_info, aes(x = nCount_RNA, y = nFeature_RNA, color = Condition)) +
     geom_point(show.legend = FALSE) +
     scale_color_manual(values = mycolor$Condition) +
     theme_classic() +
     geom_vline(xintercept = cutoffs["nCount_RNA"], linetype = "dashed", color = "red") +
-    geom_hline(yintercept = cutoffs["nFeature_RNA"], linetype = "dashed", color = "red") +
-    facet_wrap(~Condition, ncol = 3) +
+    geom_hline(yintercept = cutoffs["nFeature_RNA_low"], linetype = "dashed", color = "red") +
+    geom_hline(yintercept = cutoffs["nFeature_RNA_high"], linetype = "dashed", color = "red") +
+    facet_wrap(~Condition, ncol = 2) +
     labs(title = "Scatter plot of QC metrics")
 dev.off()
 
@@ -137,7 +144,8 @@ patchwork::wrap_plots(
         labs(title = "Histogram of log10 UMI counts"),
     ggplot(sample_info, aes(x = nFeature_RNA)) +
         geom_histogram(bins = 100, position = "identity", alpha = 0.5) +
-        geom_vline(xintercept = cutoffs["nFeature_RNA"], linetype = "dashed", color = "red") +
+        geom_vline(xintercept = cutoffs["nFeature_RNA_low"], linetype = "dashed", color = "red") +
+        geom_vline(xintercept = cutoffs["nFeature_RNA_high"], linetype = "dashed", color = "red") +
         theme_classic() +
         labs(title = "Histogram of gene counts"),
     ggplot(sample_info, aes(x = Percent_Mito)) +
@@ -149,7 +157,8 @@ patchwork::wrap_plots(
 )
 dev.off()
 
-blca_obj <- subset(blca_obj, subset = nFeature_RNA > cutoffs["nFeature_RNA"] &
+blca_obj <- subset(blca_obj, subset = nFeature_RNA > cutoffs["nFeature_RNA_low"] &
+    nFeature_RNA < cutoffs["nFeature_RNA_high"] &
     nCount_RNA > cutoffs["nCount_RNA"] &
     Percent_Mito < cutoffs["Percent_Mito"])
 sample_info_all <- sample_info
@@ -157,13 +166,20 @@ sample_info_all <- sample_info
 ## 1.3. Filter doublets -----
 obj_list <- SplitObject(blca_obj, split.by = "Sample")
 
+saveRDS(blca_obj, file = "blca_obj_before_doublet.rds")
+rm(blca_obj)
+
 doublet_res <- lapply(obj_list, function(seu) {
+    message(
+        col_yellow(format(Sys.time(), "%Y-%m-%d %H:%M:%S")),
+        " Processing sample: ",
+        col_green(unique(seu$Sample))
+    )
     seu <- seu %>%
         NormalizeData() %>%
         FindVariableFeatures() %>%
         ScaleData() %>%
-        RunPCA() %>%
-        RunUMAP(dims = 1:15)
+        RunPCA()
 
     sweep_res <- paramSweep(seu, PCs = 1:15, sct = FALSE)
     sweep_stats <- summarizeSweep(sweep_res, GT = FALSE)
@@ -179,12 +195,14 @@ doublet_res <- lapply(obj_list, function(seu) {
     df_cols <- grep("DF.classifications", colnames(seu@meta.data), value = TRUE)
     seu$Doublet_Classification <- seu[[df_cols]]
 
+    gc()
     data.frame(
         row.names = colnames(seu),
         Cell = colnames(seu),
         Doublet_Classification = seu$Doublet_Classification
     )
 })
+
 doublet_res <- do.call(rbind, doublet_res)
 rownames(doublet_res) <- gsub("^.+?\\.", "", rownames(doublet_res))
 
@@ -193,6 +211,7 @@ sample_info_all$Doublet_Classification <- "none"
 sample_info_all[rownames(doublet_res), "Doublet_Classification"] <- doublet_res$Doublet_Classification
 table(sample_info_all$Doublet_Classification)
 
+blca_obj <- readRDS(file = "blca_obj_before_doublet.rds")
 table(colnames(blca_obj) %in% rownames(doublet_res))
 blca_obj$Doublet_Classification <- "none"
 blca_obj@meta.data[rownames(doublet_res), "Doublet_Classification"] <- doublet_res$Doublet_Classification
@@ -237,14 +256,13 @@ DimPlot(blca_obj, reduction = "umap", label = TRUE, label.size = 3) +
     labs(title = "UMAP plot colored by Clusters")
 dev.off()
 
-pdf("UMAP.Clusters.split.Condition.pdf", 12, 8)
+pdf("UMAP.Clusters.split.Condition.pdf", 12, 4)
 DimPlot(blca_obj, reduction = "umap", label = TRUE, split.by = "Condition", ncol = 3) +
     scale_color_manual(values = mycolor$Cluster) +
     theme_classic() +
     labs(title = "UMAP plot colored by Clusters")
 dev.off()
 
-blca_obj$Percent_Mito
 pdf("VlnPlot.QC.Cluster.pdf", 8, 8)
 VlnPlot(blca_obj,
     group.by = "seurat_clusters", features = c("nFeature_RNA", "nCount_RNA", "Percent_Mito"),
@@ -283,7 +301,7 @@ marker_genes[["All"]] <- c(
     "Cd163", "Mrc1", "Adgre1", # macrophage
     "Itgax", "Fcer1a", "Cst3", # DC
     "S100a8", "S100a9", # neutrophils
-    "Kit", "Hdc", # mast cell
+    "Kit", "Hdc", "Ms4a2", # mast cell
     "Col1a2", "Dcn", "Pdgfra", # fibroblast,
     "Tubb3", "Nefl", "Map2", # neuron
     "S100b", "Sox10", # Schwann cell
@@ -306,33 +324,33 @@ DotPlot(blca_obj, features = marker_genes$All) +
 dev.off()
 
 ## 2.3. Label cell types ----
+blca_obj <- readRDS("../rds/blca_obj.rds")
 blca_obj$Cell_Type_1 <- "none"
-blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(26))] <- "Epithelial"
-blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(0, 1, 5, 6, 8, 9, 12, 13, 21, 25, 31))] <- "Cancer"
-blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(30, 33))] <- "Endothelial"
-blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(3, 10, 15, 16, 18))] <- "T"
-blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(19))] <- "NK"
-blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(28))] <- "B"
-blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(2, 7, 11, 17, 20, 23, 24, 32))] <- "Macro/Mono"
-blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(17, 27, 34))] <- "DC"
-blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(4))] <- "Granulocyte"
-blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(14))] <- "Fibroblast"
-blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(22, 29))] <- "Doublet"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(23))] <- "Epithelial"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(0:3, 9, 11, 14, 19:21))] <- "Cancer"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(27, 30))] <- "Endothelial"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(4, 8, 12, 13, 28))] <- "T"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(18))] <- "NK"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(29))] <- "B"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(5:7, 17, 22, 25))] <- "Macro/Mono"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(15, 26, 31))] <- "DC"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(16))] <- "Neutrophil"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(10, 32))] <- "Fibroblast"
+blca_obj$Cell_Type_1[which(blca_obj$seurat_clusters %in% c(24))] <- "Others"
 table(blca_obj$seurat_clusters, blca_obj$Cell_Type_1)
 
 blca_obj$Cell_Type_1 <- factor(blca_obj$Cell_Type_1, levels = c(
     "Epithelial", "Cancer",
     "Endothelial", "Fibroblast",
     "T", "B", "NK",
-    "Granulocyte", "Macro/Mono", "DC",
-    "Doublet"
+    "Neutrophil", "Macro/Mono", "DC", "Others"
 ))
 table(blca_obj$Cell_Type_1)
 Idents(blca_obj) <- "Cell_Type_1"
 
 mycolor$Cell_Type_1 <- ggsci::pal_npg()(10) %>%
     setNames(levels(blca_obj$Cell_Type_1)[1:10])
-mycolor$Cell_Type_1["Doublet"] <- "gray"
+mycolor$Cell_Type_1["Others"] <- "gray"
 
 pdf("UMAP.Cell_Type_1.pdf", 5.5, 4)
 DimPlot(blca_obj, reduction = "umap", group.by = "Cell_Type_1", label = TRUE, label.size = 3) +
@@ -341,7 +359,7 @@ DimPlot(blca_obj, reduction = "umap", group.by = "Cell_Type_1", label = TRUE, la
     labs(title = "UMAP plot colored by Cell_Type_1")
 dev.off()
 
-pdf("UMAP.Cell_Type_1.split.Condition.pdf", 12, 8)
+pdf("UMAP.Cell_Type_1.split.Condition.pdf", 12, 4)
 DimPlot(blca_obj, reduction = "umap", group.by = "Cell_Type_1", label = TRUE, split.by = "Condition", ncol = 3) +
     scale_color_manual(values = mycolor$Cell_Type_1) +
     theme_classic() +
@@ -355,12 +373,12 @@ gene_selected <- c(
     "Ptprc", # leukocyte
     "Cd3d", "Cd3g", "Cd79a", "Klrb1c", # lymphocyte
     "S100a8", "S100a9", # neutrophils
-    "Cd14", "Cd68", "Cst3"# myeloid
+    "Cd14", "Cd68", "Cst3" # myeloid
 )
 pdf("DotPlot.Cell_Type_1.pdf", 7, 3.5)
 DotPlot(blca_obj,
     features = gene_selected, group.by = "Cell_Type_1",
-    idents = setdiff(levels(blca_obj$Cell_Type_1), "Doublet")
+    idents = setdiff(levels(blca_obj$Cell_Type_1), "Others")
 ) +
     scale_color_viridis_c() +
     theme_classic() +
@@ -372,14 +390,14 @@ rm(gene_selected)
 blca_obj$Cell_Type_0 <- "none"
 blca_obj$Cell_Type_0[which(blca_obj$Cell_Type_1 %in% c("Epithelial", "Cancer"))] <- "Epithelial"
 blca_obj$Cell_Type_0[which(blca_obj$Cell_Type_1 %in% c("Fibroblast", "Endothelial"))] <- "Stromal"
-blca_obj$Cell_Type_0[which(blca_obj$Cell_Type_1 %in% c("T", "B", "NK", "Granulocyte", "Macro/Mono", "DC"))] <- "Immune"
-blca_obj$Cell_Type_0[which(blca_obj$Cell_Type_1 %in% c("Doublet"))] <- "Doublet"
+blca_obj$Cell_Type_0[which(blca_obj$Cell_Type_1 %in% c("T", "B", "NK", "Neutrophil", "Macro/Mono", "DC"))] <- "Immune"
+blca_obj$Cell_Type_0[which(blca_obj$Cell_Type_1 %in% c("Others"))] <- "Others"
 table(blca_obj$Cell_Type_0)
 
-blca_obj$Cell_Type_0 <- factor(blca_obj$Cell_Type_0, levels = c("Epithelial", "Stromal", "Immune", "Doublet"))
+blca_obj$Cell_Type_0 <- factor(blca_obj$Cell_Type_0, levels = c("Epithelial", "Stromal", "Immune", "Others"))
 mycolor$Cell_Type_0 <- c(ggsci::pal_jco()(4)[c(1, 2, 4)]) %>%
     setNames(levels(blca_obj$Cell_Type_0)[1:3])
-mycolor$Cell_Type_0["Doublet"] <- "gray"
+mycolor$Cell_Type_0["Others"] <- "gray"
 
 pdf("UMAP.Cell_Type_0.pdf", 5.5, 4)
 DimPlot(blca_obj, reduction = "umap", group.by = "Cell_Type_0", label = TRUE) +
@@ -388,7 +406,7 @@ DimPlot(blca_obj, reduction = "umap", group.by = "Cell_Type_0", label = TRUE) +
     labs(title = "UMAP plot colored by Cell_Type_0")
 dev.off()
 
-pdf("UMAP.Cell_Type_0.split.Condition.pdf", 12, 8)
+pdf("UMAP.Cell_Type_0.split.Condition.pdf", 12, 4)
 DimPlot(blca_obj, reduction = "umap", group.by = "Cell_Type_0", label = TRUE, split.by = "Condition", ncol = 3) +
     scale_color_manual(values = mycolor$Cell_Type_0) +
     theme_classic() +
@@ -397,10 +415,10 @@ dev.off()
 
 ## 2.4. Cell types cross conditions ----
 plot_data <- as.data.frame(table(blca_obj$Cell_Type_1, blca_obj$Condition)) %>%
-    filter(Var1 != "Doublet")
+    filter(Var1 != "Others")
 colnames(plot_data) <- c("Cell_Type_1", "Condition", "Count")
 
-pdf("Barplot.Cell_Type_1.Condition.pdf", 8, 5)
+pdf("Barplot.Cell_Type_1.Condition.pdf", 8, 4)
 patchwork::wrap_plots(
     ggplot(plot_data, aes(x = Cell_Type_1, y = Count, fill = Condition)) +
         geom_bar(stat = "identity", position = "fill") +
@@ -418,58 +436,9 @@ patchwork::wrap_plots(
 )
 dev.off()
 
-plot_data <- as.data.frame(table(blca_obj$Cell_Type_0, blca_obj$Condition)) %>%
-    filter(Var1 != "Doublet")
-colnames(plot_data) <- c("Cell_Type_0", "Condition", "Count")
-
-pdf("Barplot.Cell_Type_0.Condition.pdf", 8, 5)
-patchwork::wrap_plots(
-    ggplot(plot_data, aes(x = Cell_Type_0, y = Count, fill = Condition)) +
-        geom_bar(stat = "identity", position = "fill") +
-        scale_fill_manual(values = mycolor$Condition) +
-        theme_classic() +
-        labs(title = "Cell Type composition across Conditions") +
-        theme(axis.text.x = element_text(angle = 45, hjust = 1)),
-    ggplot(plot_data, aes(x = Condition, y = Count, fill = Cell_Type_0)) +
-        geom_bar(stat = "identity", position = "fill") +
-        scale_fill_manual(values = mycolor$Cell_Type_0) +
-        theme_classic() +
-        labs(title = "Cell Type composition across Conditions") +
-        theme(axis.text.x = element_text(angle = 45, hjust = 1)),
-    ncol = 2
-)
-dev.off()
-
 # fraction compare
-plot_data <- as.data.frame(table(blca_obj$Cell_Type_0, blca_obj$Sample)) %>%
-    filter(Var1 != "Doublet")
-colnames(plot_data) <- c("Cell_Type_0", "Sample", "Count")
-plot_data$Condition <- gsub("_[1-5]+?*$", "", plot_data$Sample)
-table(plot_data$Condition)
-table(plot_data$Sample)
-
-temp <- table(blca_obj$Sample)
-plot_data$Fraction <- plot_data$Count / temp[plot_data$Sample] * 100
-plot_data$Condition <- factor(plot_data$Condition, levels = names(mycolor$Condition))
-
-pdf("Boxplot.Fraction.Cell_Type_0.pdf", 5, 3)
-ggplot(plot_data, aes(x = Condition, y = Fraction)) +
-    geom_boxplot(aes(fill = Cell_Type_0), outlier.shape = NA, alpha = 0.5) +
-    geom_jitter(width = 0.2, size = 0.5, alpha = 1) +
-    ggpubr::stat_compare_means(
-        label = "p.signif", label.y.npc = 0.98, size = 3, ref.group = "CTRL",
-    ) +
-    facet_wrap(~Cell_Type_0, ncol = 3, scales = "free") +
-    labs(title = "Cell Type composition across Samples") +
-    ylab("Fraction (%)") +
-    scale_fill_manual(values = mycolor$Cell_Type_0) +
-    theme_classic() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-    NoLegend()
-dev.off()
-
 plot_data <- as.data.frame(table(blca_obj$Cell_Type_1, blca_obj$Sample)) %>%
-    filter(Var1 != "Doublet")
+    filter(Var1 != "Others")
 colnames(plot_data) <- c("Cell_Type_1", "Sample", "Count")
 plot_data$Condition <- gsub("_[1-5]+?*$", "", plot_data$Sample)
 table(plot_data$Condition)
@@ -494,32 +463,28 @@ ggplot(plot_data, aes(x = Condition, y = Fraction)) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     NoLegend()
 dev.off()
+
+pdf("Boxplot.Fraction.Cell_Type_1.Merge.pdf", 6, 3)
+ggplot(
+    plot_data %>% filter(Cell_Type_1 != "Cancer"),
+    aes(x = Cell_Type_1, y = Fraction, fill = Condition)
+) +
+    geom_boxplot(outlier.shape = NA, alpha = 0.5) +
+    scale_fill_manual(values = mycolor$Condition) +
+    ggpubr::stat_compare_means(
+        aes(group = Condition),
+        label = "p.signif",
+        label.y.npc = 0.98,
+        size = 3
+    ) +
+    theme_classic() +
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+dev.off()
 rm(plot_data, temp)
 
 # Roe
 mycolor$Roe <- colorRampPalette(brewer.pal(9, "RdBu"))(100) %>% rev()
-
-roe <- Startrac::calTissueDist(
-    blca_obj@meta.data,
-    byPatient = FALSE,
-    colname.cluster = "Cell_Type_0",
-    colname.patient = "Sample",
-    colname.tissue = "Condition",
-    method = "chisq",
-    min.rowSum = 0
-)
-roe <- roe[setdiff(rownames(roe), "Doublet"), ]
-pdf("Heatmap.Roe.Cell_Type_0.Condition.pdf", 4, 2.5)
-pheatmap::pheatmap(
-    roe,
-    color = mycolor$Roe,
-    breaks = seq(0, 2, length.out = 101),
-    scale = "none",
-    display_numbers = TRUE,
-    cluster_rows = TRUE,
-    cluster_cols = FALSE,
-)
-dev.off()
 
 roe <- Startrac::calTissueDist(
     blca_obj@meta.data,
@@ -530,29 +495,31 @@ roe <- Startrac::calTissueDist(
     method = "chisq",
     min.rowSum = 0
 )
-roe <- roe[setdiff(rownames(roe), "Doublet"), ]
-pdf("Heatmap.Roe.Cell_Type_1.Condition.pdf", 4, 5)
+roe <- roe[setdiff(rownames(roe), c("Others")), ]
+pdf("Heatmap.Roe.Cell_Type_1.Condition.pdf", 3, 4)
 pheatmap::pheatmap(
     roe,
     color = mycolor$Roe,
-    breaks = seq(0, 2, length.out = 101),
+    # breaks = seq(0, 2, length.out = 101),
     scale = "none",
     display_numbers = TRUE,
     cluster_rows = TRUE,
-    cluster_cols = FALSE,
+    cluster_cols = FALSE
 )
 dev.off()
 rm(roe)
 
-dir.create("rds")
-saveRDS(blca_obj, file = "rds/blca_obj.rds")
+dir.create("../rds/")
+saveRDS(blca_obj, file = "../rds/blca_obj.rds")
 # rm(blca_obj)
 
 # 3. Immune compartment ----
 ##  3.1. Detailed cell typing ----
 dir.create("sub1_Immune")
 
-immune_obj <- subset(blca_obj, subset = Cell_Type_0 == "Immune") # 165931 cells
+immune_obj <- subset(blca_obj, subset = Cell_Type_0 == "Immune") # 90765 cells
+rm(blca_obj)
+
 immune_obj <- immune_obj %>%
     NormalizeData() %>%
     FindVariableFeatures(selection.method = "vst", nfeatures = 3000) %>%
@@ -568,8 +535,8 @@ immune_obj <- FindClusters(immune_obj, resolution = 1.0)
 
 immune_obj <- RunUMAP(immune_obj, dims = 1:30)
 
-# saveRDS(immune_obj, file = "rds/immune_obj.rds")
-# immune_obj <- readRDS("rds/immune_obj.rds")
+saveRDS(immune_obj, file = "../rds/immune_obj.rds")
+# immune_obj <- readRDS("../rds/immune_obj.rds")
 
 pdf("sub1_Immune/UMAP.Clusters.pdf", 5.5, 4)
 DimPlot(immune_obj,
@@ -581,7 +548,7 @@ DimPlot(immune_obj,
     labs(title = "UMAP plot colored by clusters")
 dev.off()
 
-pdf("sub1_Immune/UMAP.Clusters.split.pdf", 10, 6)
+pdf("sub1_Immune/UMAP.Clusters.split.pdf", 10, 4)
 DimPlot(immune_obj,
     reduction = "umap", group.by = "seurat_clusters", split.by = "Condition", ncol = 3,
     label = TRUE, cols = mycolor$Cluster, raster = TRUE
@@ -608,8 +575,7 @@ DimPlot(immune_obj,
 dev.off()
 
 marker_genes[["Immune"]] <- c(
-    "Ptprc",
-    "Cd3d", "Cd3g", "Cd4", "Foxp3",
+    "Cd3d", "Cd3g", "Cd4", "Foxp3", "Trdc", "Trac", "Trbc1", "Trbc2",
     "Cd8a", "Gzma", "Gzmb", "Havcr2", "Pdcd1",
     "Nkg7", "Ncam1", "Klrb1c",
     "Cd79a", "Ms4a1", "Igkc", "Sdc1",
@@ -645,26 +611,26 @@ DotPlot(immune_obj,
 dev.off()
 
 immune_obj$Cell_Type_2 <- "none"
-immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(14, 17, 33))] <- "T_CD4"
-immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(29))] <- "T_CD4_Cycling"
-immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(10))] <- "Treg"
-immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(0, 1, 9, 22, 11, 16))] <- "T_CD8"
+immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(14))] <- "T_CD4"
+immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(27))] <- "T_CD4_Cycling"
+immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(8))] <- "Treg"
+immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(0, 1, 16, 17, 25, 30))] <- "T_CD8"
 immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(9))] <- "T_CD8_Cycling"
-immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(18))] <- "NK"
+immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(10))] <- "NKT"
+immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(15))] <- "NK"
 immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(26))] <- "B"
-immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(3, 4, 6, 13, 23))] <- "Macrophage"
-immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(5, 8, 12, 25, 31, 19))] <- "Monocyte"
-immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(15, 27, 24))] <- "cDC"
-immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(30))] <- "pDC"
-immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(34))] <- "Mast"
-immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(2, 7, 20, 28))] <- "Neutrophil"
-immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(32, 21))] <- "Myeloid_Cycling"
-
+immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(3, 4, 6, 13, 21))] <- "Macrophage"
+immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(2, 5, 20, 24))] <- "Monocyte"
+immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(11, 19, 29, 23))] <- "cDC"
+immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(28))] <- "pDC"
+immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(7))] <- "MDSC"
+immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(12, 22))] <- "Neutrophil"
+immune_obj$Cell_Type_2[which(immune_obj$seurat_clusters %in% c(18))] <- "Myeloid_Cycling"
 table(immune_obj$seurat_clusters, immune_obj$Cell_Type_2)
 
 immune_obj$Cell_Type_2 <- factor(immune_obj$Cell_Type_2, levels = c(
-    "T_CD4", "T_CD4_Cycling", "Treg", "T_CD8", "T_CD8_Cycling", "NK", "B",
-    "Macrophage", "Monocyte", "cDC", "pDC", "Mast", "Neutrophil", "Myeloid_Cycling"
+    "T_CD4", "T_CD4_Cycling", "Treg", "T_CD8", "T_CD8_Cycling", "NKT", "NK", "B",
+    "Macrophage", "Monocyte", "cDC", "pDC", "MDSC", "Neutrophil", "Myeloid_Cycling"
 ))
 
 mycolor$Cell_Type_2 <- colorRampPalette(ggsci::pal_npg()(10))(length(levels(immune_obj$Cell_Type_2))) %>%
@@ -685,7 +651,7 @@ DimPlot(immune_obj,
     labs(title = "UMAP plot colored by Cell_Type_2")
 dev.off()
 
-pdf("sub1_Immune/UMAP.Cell_Type_2.split.pdf", 8, 5)
+pdf("sub1_Immune/UMAP.Cell_Type_2.split.pdf", 8, 3)
 DimPlot(immune_obj,
     reduction = "umap", group.by = "Cell_Type_2", split.by = "Condition", ncol = 3,
     label = FALSE, raster = TRUE, pt.size = 2,
@@ -700,8 +666,7 @@ p <- DimPlot(immune_obj,
     cols = mycolor$Cell_Type_2
 ) +
     theme_classic()
-
-pdf("sub1_Immune/UMAP.Cell_Type_2.split.density.pdf", 8, 5)
+pdf("sub1_Immune/UMAP.Cell_Type_2.split.density.pdf", 8, 3)
 plot(p + stat_density_2d(aes_string(x = "umap_1", y = "umap_2", fill = "after_stat(level)"),
     linewidth = 0, geom = "density_2d_filled",
     n = 150, h = c(1.2, 1.2)
@@ -715,10 +680,10 @@ rm(p)
 ## 3.2. Marker gene expression ----
 gene_selected <- c(
     "Cd3d", "Cd4", "Foxp3", "Cd8a", "Prf1", "Klrb1c", "Cd79a",
-    "Cd68", "Mrc1", "Cst3", "Siglech", "Hdc", "S100a8", "Mki67"
+    "Cd68", "Mrc1", "Cst3", "Siglech", "Sox5", "S100a8", "Mki67"
 )
 
-pdf("sub1_Immune/DotPlot.Cell_Type_2.pdf", 6, 3.5)
+pdf("sub1_Immune/DotPlot.Cell_Type_2.pdf", 7, 3.8)
 DotPlot(immune_obj,  features = gene_selected, group.by = "Cell_Type_2") +
     scale_color_viridis_c() +
     theme_classic() +
@@ -731,7 +696,7 @@ rm(gene_selected)
 plot_data <- as.data.frame(table(immune_obj$Cell_Type_2, immune_obj$Condition))
 colnames(plot_data) <- c("Cell_Type_2", "Condition", "Count")
 
-pdf("sub1_Immune/Barplot.Cell_Type_2.Condition.pdf", 9, 5)
+pdf("sub1_Immune/Barplot.Cell_Type_2.Condition.pdf", 9, 4)
 patchwork::wrap_plots(
     ggplot(plot_data, aes(x = Cell_Type_2, y = Count, fill = Condition)) +
         geom_bar(stat = "identity", position = "fill") +
@@ -759,21 +724,40 @@ table(plot_data$Sample)
 temp <- table(immune_obj$Sample)
 plot_data$Fraction <- plot_data$Count / temp[plot_data$Sample] * 100
 plot_data$Condition <- factor(plot_data$Condition, levels = names(mycolor$Condition))
+plot_data[which(plot_data$Cell_Type_2 == "T_CD4"), ]
 
 pdf("sub1_Immune/Boxplot.Fraction.pdf", 8, 7)
 ggplot(plot_data, aes(x = Condition, y = Fraction)) +
     geom_boxplot(aes(fill = Cell_Type_2), outlier.shape = NA, alpha = 0.5) +
     geom_jitter(width = 0.2, size = 0.5, alpha = 1) +
     ggpubr::stat_compare_means(
-        label = "p.signif", label.y.npc = 0.98, size = 3, ref.group = "CTRL"
+        label = "p.signif", label.y.npc = 0.98, size = 3, ref.group = "CTRL",
     ) +
     facet_wrap(~Cell_Type_2, ncol = 5, scales = "free") +
     labs(title = "Cell Type composition across Samples") +
-    ylab("Fraction within immune compartment (%)") +
+    ylab("Fraction of immune cells (%)") +
     scale_fill_manual(values = mycolor$Cell_Type_2) +
     theme_classic() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     NoLegend()
+dev.off()
+
+pdf("sub1_Immune/Boxplot.Fraction.Merge.pdf", 6, 3)
+ggplot(
+    plot_data,
+    aes(x = Cell_Type_2, y = Fraction, fill = Condition)
+) +
+    geom_boxplot(outlier.shape = NA, alpha = 0.5) +
+    scale_fill_manual(values = mycolor$Condition) +
+    ggpubr::stat_compare_means(
+        aes(group = Condition),
+        label = "p.signif",
+        label.y.npc = 0.98,
+        size = 3
+    ) +
+    theme_classic() +
+    ylab("Fraction of immune cells (%)") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
 dev.off()
 rm(plot_data, temp)
 
@@ -788,26 +772,29 @@ roe <- Startrac::calTissueDist(
     min.rowSum = 0
 )
 roe <- roe[grep("Cycling|Doublet", rownames(roe), invert = TRUE), ]
-pdf("sub1_Immune/Heatmap.Roe.Cell_Type_2.Condition.pdf", 4, 5.5)
+pdf("sub1_Immune/Heatmap.Roe.Cell_Type_2.Condition.pdf", 3, 4.4)
 pheatmap::pheatmap(
     roe,
     color = mycolor$Roe,
-    breaks = seq(0, 2, length.out = 101),
+    # breaks = seq(0, 2, length.out = 101),
     scale = "none",
     display_numbers = TRUE,
     cluster_rows = TRUE,
     cluster_cols = FALSE,
 )
 dev.off()
+rm(roe)
 
-saveRDS(immune_obj, file = "rds/immune_obj.rds")
-rm(immune_obj, roe)
+saveRDS(immune_obj, file = "../rds/immune_obj.rds")
+rm(immune_obj)
 
 # 4. Epithelial compartment ----
 ##  4.1. Clustering of cell states ----
 dir.create("sub2_Cancer")
 
-cancer_obj <- subset(blca_obj, subset = Cell_Type_1 %in% c("Cancer")) # 161321 cells
+blca_obj <- readRDS("../rds/blca_obj.rds")
+cancer_obj <- subset(blca_obj, subset = Cell_Type_1 %in% c("Cancer")) # 116883 cells
+rm(blca_obj)
 
 cancer_obj <- cancer_obj %>%
     NormalizeData() %>%
@@ -827,10 +814,10 @@ cancer_obj <- FindClusters(cancer_obj, resolution = 0.3)
 # saveRDS(cancer_obj, file = "rds/cancer_obj.rds")
 # cancer_obj <- readRDS("rds/cancer_obj.rds")
 
-library(ggraph)
-pdf("sub2_Cancer/ClusteringTree.pdf", 8, 6)
-clustree::clustree(cancer_obj, prefix = "RNA_snn_res.")
-dev.off()
+# library(ggraph)
+# pdf("sub2_Cancer/ClusteringTree.pdf", 8, 6)
+# clustree::clustree(cancer_obj, prefix = "RNA_snn_res.")
+# dev.off()
 
 cancer_obj$seurat_clusters <- cancer_obj$RNA_snn_res.0.3
 pdf("sub2_Cancer/UMAP.Clusters.pdf", 5, 4)
@@ -842,7 +829,7 @@ DimPlot(cancer_obj,
     labs(title = "UMAP plot colored by clusters")
 dev.off()
 
-pdf("sub2_Cancer/UMAP.Clusters.split.pdf", 8, 6)
+pdf("sub2_Cancer/UMAP.Clusters.split.pdf", 8, 3)
 DimPlot(cancer_obj,
     reduction = "umap", group.by = "seurat_clusters", split.by = "Condition",
     label = TRUE, cols = mycolor$Cluster, raster = TRUE, ncol = 3
@@ -890,23 +877,22 @@ FeaturePlot(cancer_obj,
 dev.off()
 
 cancer_obj$Cell_Type_2 <- "none"
-cancer_obj$Cell_Type_2[which(cancer_obj$seurat_clusters %in% c(4, 7))] <- "C1: Proliferative"
-cancer_obj$Cell_Type_2[which(cancer_obj$seurat_clusters %in% c(0))] <- "C2: Hypoxic"
-cancer_obj$Cell_Type_2[which(cancer_obj$seurat_clusters %in% c(1))] <- "C3: EMT"
-cancer_obj$Cell_Type_2[which(cancer_obj$seurat_clusters %in% c(5))] <- "C4: Acute_Stress"
-cancer_obj$Cell_Type_2[which(cancer_obj$seurat_clusters %in% c(2, 6))] <- "C5: Ribosomal_Adhesion"
-cancer_obj$Cell_Type_2[which(cancer_obj$seurat_clusters %in% c(3, 8, 9))] <- "Doublet"
+cancer_obj$Cell_Type_2[which(cancer_obj$seurat_clusters %in% c(0))] <- "C1: Hypoxic"
+cancer_obj$Cell_Type_2[which(cancer_obj$seurat_clusters %in% c(1))] <- "C2: Inflammatory"
+cancer_obj$Cell_Type_2[which(cancer_obj$seurat_clusters %in% c(3, 4, 5))] <- "C3: Proliferative"
+cancer_obj$Cell_Type_2[which(cancer_obj$seurat_clusters %in% c(6))] <- "C4: Plastic_EMT"
+cancer_obj$Cell_Type_2[which(cancer_obj$seurat_clusters %in% c(2, 7, 8))] <- "Others"
 table(cancer_obj$seurat_clusters, cancer_obj$Cell_Type_2)
 
 cancer_obj$Cell_Type_2 <- factor(cancer_obj$Cell_Type_2, levels = c(
-    "C1: Proliferative", "C2: Hypoxic", "C3: EMT", "C4: Acute_Stress", "C5: Ribosomal_Adhesion", "Doublet"
+    "C1: Hypoxic", "C2: Inflammatory", "C3: Proliferative", "C4: Plastic_EMT", "Others"
 ))
 
 mycolor$Cell_Type_2 <- c(
     mycolor$Cell_Type_2,
     setNames(ggsci::pal_jco()(6)[c(1:2, 4:6)], levels(cancer_obj$Cell_Type_2)[1:5])
 )
-mycolor$Cell_Type_2["Doublet"] <- "gray"
+mycolor$Cell_Type_2["Others"] <- "gray"
 
 pdf("sub2_Cancer/UMAP.Cell_Type_2.pdf", 8, 6)
 DimPlot(cancer_obj,
@@ -923,7 +909,7 @@ plot_data <- as.data.frame(table(cancer_obj$Cell_Type_2, cancer_obj$Condition)) 
     filter(Var1 != "Doublet")
 colnames(plot_data) <- c("Cell_Type_2", "Condition", "Count")
 
-pdf("sub2_Cancer/Barplot.Cell_Type_2.Condition.pdf", 9, 5)
+pdf("sub2_Cancer/Barplot.Cell_Type_2.Condition.pdf", 9, 4)
 patchwork::wrap_plots(
     ggplot(plot_data, aes(x = Cell_Type_2, y = Count, fill = Condition)) +
         geom_bar(stat = "identity", position = "fill") +
@@ -968,6 +954,24 @@ ggplot(plot_data, aes(x = Condition, y = Fraction)) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     NoLegend()
 dev.off()
+
+pdf("sub2_Cancer/Boxplot.Fraction.Merge.pdf", 4, 3)
+ggplot(
+    plot_data %>% filter(Cell_Type_2 != "Others"),
+    aes(x = Cell_Type_2, y = Fraction, fill = Condition)
+) +
+    geom_boxplot(outlier.shape = NA, alpha = 0.5) +
+    scale_fill_manual(values = mycolor$Condition) +
+    ggpubr::stat_compare_means(
+        aes(group = Condition),
+        label = "p.signif",
+        label.y.npc = 0.98,
+        size = 3
+    ) +
+    theme_classic() +
+    ylab("Fraction of cancer cells (%)") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+dev.off()
 rm(plot_data, temp)
 
 # Roe
@@ -980,12 +984,12 @@ roe <- Startrac::calTissueDist(
     method = "chisq",
     min.rowSum = 0
 )
-roe <- roe[grep("Cycling|Doublet", rownames(roe), invert = TRUE), ]
-pdf("sub2_Cancer/Heatmap.Roe.Cell_Type_2.Condition.pdf", 5, 3)
+roe <- roe[grep("Cycling|Others", rownames(roe), invert = TRUE), ]
+pdf("sub2_Cancer/Heatmap.Roe.Cell_Type_2.Condition.pdf", 4, 3)
 pheatmap::pheatmap(
     roe,
     color = mycolor$Roe,
-    breaks = seq(0, 2, length.out = 101),
+    # breaks = seq(0, 2, length.out = 101),
     scale = "none",
     display_numbers = TRUE,
     cluster_rows = TRUE,
@@ -1037,12 +1041,12 @@ label_data <- label_data %>%
     filter(DEG != "Stable") %>%
     mutate("x" = ifelse(DEG == "Up", 2, -2), label = paste0(DEG, ": ", Count))
 
-pdf("sub2_Cancer/Volcano.Condition_vs_CTRL.pdf", 7, 3)
+pdf("sub2_Cancer/Volcano.Condition_vs_CTRL.pdf", 4, 3)
 ggplot(plot_data, aes(x = avg_log2FC, y = -log10(p_val_adj))) +
     geom_point(aes(color = Condition), alpha = 0.5, size = 0.5) +
     geom_text(
         data = label_data,
-        aes(x = x, y = 350, label = label), inherit.aes = FALSE, size = 3
+        aes(x = x, y = 280, label = label), inherit.aes = FALSE, size = 3
     ) +
     scale_color_manual(values = mycolor$Condition) +
     facet_wrap(~Condition, ncol = 5) +
@@ -1050,7 +1054,7 @@ ggplot(plot_data, aes(x = avg_log2FC, y = -log10(p_val_adj))) +
     labs(title = "Volcano plot of DEGs in each Condition") +
     xlab("Average log2 fold change") +
     ylab("-log10 adjusted p value") +
-    xlim(c(-3, 3)) + ylim(c(0, 380)) +
+    xlim(c(-3, 3)) + ylim(c(0, 300)) +
     geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "#ec8a8a", linewidth = 0.5) +
     geom_vline(xintercept = c(-0.25, 0.25), linetype = "dashed", color = "#ec8a8a", linewidth = 0.5) +
     theme(legend.position = "none")
@@ -1123,21 +1127,22 @@ lapply(names(go_deg_cancer_conditions_down), function(x) {
     dev.off()
 })
 
-saveRDS(cancer_obj, file = "rds/cancer_obj.rds")
+saveRDS(cancer_obj, file = "../rds/cancer_obj.rds")
 rm(cancer_obj)
 
 # 5. Stromal compartment ----
 ##  5.1. Detailed cell typing ----
 dir.create("sub3_Stromal")
 
+blca_obj <- readRDS("../rds/blca_obj.rds")
 stromal_obj <- subset(blca_obj, subset = Cell_Type_0 == "Stromal") # 12146 cells
+rm(blca_obj)
 
 stromal_obj <- stromal_obj %>%
     NormalizeData() %>%
     FindVariableFeatures(selection.method = "vst", nfeatures = 3000) %>%
     ScaleData() %>%
     RunPCA(verbose = FALSE)
-stromal_obj <- readRDS("rds/stromal_obj.rds")
 
 pdf("sub3_Stromal/ElbowPlot.PCA.pdf", 6, 4)
 ElbowPlot(stromal_obj, ndims = 50)
@@ -1159,10 +1164,10 @@ DimPlot(stromal_obj,
     labs(title = "UMAP plot colored by clusters")
 dev.off()
 
-pdf("sub3_Stromal/UMAP.Clusters.split.pdf", 8, 6)
+pdf("sub3_Stromal/UMAP.Clusters.split.pdf", 8, 3)
 DimPlot(stromal_obj,
     reduction = "umap", group.by = "seurat_clusters", split.by = "Condition", ncol = 3,
-    label = TRUE, cols = mycolor$Cluster, raster = TRUE, pt.size = 1.5
+    label = TRUE, cols = mycolor$Cluster, raster = TRUE, pt.size = 2
 ) +
     theme_classic() +
     labs(title = "UMAP plot colored by clusters")
@@ -1223,33 +1228,34 @@ DotPlot(stromal_obj,
     theme_classic() + coord_flip()
 dev.off()
 
-marker_undefined_c24 <- FindMarkers(stromal_obj,
-    ident.1 = 24,
-    min.pct = 0.25, logfc.threshold = 0.25,
-    max.cells.per.ident = 1000
-)
-marker_undefined_c24 <- marker_undefined_c24[order(marker_undefined_c24$avg_log2FC, decreasing = TRUE), ]
-head(rownames(marker_undefined_c24), 100) #  Adipocyte  markers: Adipoq Pck1
+# marker_undefined_c24 <- FindMarkers(stromal_obj,
+#     ident.1 = 24,
+#     min.pct = 0.25, logfc.threshold = 0.25,
+#     max.cells.per.ident = 1000
+# )
+# marker_undefined_c24 <- marker_undefined_c24[order(marker_undefined_c24$avg_log2FC, decreasing = TRUE), ]
+# head(rownames(marker_undefined_c24), 100) #  Adipocyte  markers: Adipoq Pck1
 
 stromal_obj$Cell_Type_2 <- "none"
-stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(8, 23))] <- "Vascular_Endothelial"
-stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(2, 11, 17, 19, 22))] <- "Lymphatic_Endothelial"
-stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(0, 1, 3:7, 9, 12:16, 18))] <- "iCAF"
-stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(10))] <- "myCAF"
-stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(21))] <- "Smooth_Muscle"
-stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(20))] <- "Schwann"
-stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(24))] <- "Adipocyte"
+stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(3, 12, 21))] <- "Vascular_Endothelial"
+stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(11, 23))] <- "Lymphatic_Endothelial"
+stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(0:2, 5,7,10,16,15, 9))] <- "iCAF"
+stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(4, 6, 8, 13, 17, 18))] <- "apCAF"
+stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(14))] <- "myCAF"
+stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(20))] <- "Smooth_Muscle"
+stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(19))] <- "Schwann"
+stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(22))] <- "Adipocyte"
 
 table(stromal_obj$seurat_clusters, stromal_obj$Cell_Type_2)
 
 stromal_obj$Cell_Type_2 <- factor(stromal_obj$Cell_Type_2, levels = c(
     "Vascular_Endothelial", "Lymphatic_Endothelial",
-    "iCAF", "myCAF", "Smooth_Muscle", "Schwann", "Adipocyte"
+    "iCAF", "myCAF", "apCAF", "Smooth_Muscle", "Schwann", "Adipocyte"
 ))
 
 mycolor$Cell_Type_2 <- c(
     mycolor$Cell_Type_2,
-    setNames(ggsci::pal_lancet()(7), levels(stromal_obj$Cell_Type_2))
+    setNames(ggsci::pal_lancet()(8), levels(stromal_obj$Cell_Type_2))
 )
 
 pdf("sub3_Stromal/UMAP.Cell_Type_2.pdf", 9, 4)
@@ -1267,7 +1273,7 @@ DimPlot(stromal_obj,
     labs(title = "UMAP plot colored by Cell_Type_2")
 dev.off()
 
-pdf("sub3_Stromal/UMAP.Cell_Type_2.split.pdf", 8, 5)
+pdf("sub3_Stromal/UMAP.Cell_Type_2.split.pdf", 8, 3)
 DimPlot(stromal_obj,
     reduction = "umap", group.by = "Cell_Type_2", split.by = "Condition",
     label = FALSE, raster = TRUE, pt.size = 3, ncol = 3,
@@ -1283,7 +1289,7 @@ p <- DimPlot(stromal_obj,
 ) +
     theme_classic()
 
-pdf("sub3_Stromal/UMAP.Cell_Type_2.split.density.pdf", 8, 5)
+pdf("sub3_Stromal/UMAP.Cell_Type_2.split.density.pdf", 8, 3)
 plot(p + stat_density_2d(aes_string(x = "umap_1", y = "umap_2", fill = "after_stat(level)"),
     linewidth = 0, geom = "density_2d_filled",
     n = 150, h = c(1.2, 1.2)
@@ -1300,17 +1306,16 @@ levels(Idents(stromal_obj))
 
 gene_selected <- c(
     "Cdh5", "Pecam1", "Prox1", "Lyve1", "Cd34", "Col1a2", "Lum",
-    "Pdgfra", "Rgs5", "Acta2", "Myh11", "Sox10", "S100b",
+    "Pdgfra", "Rgs5", "Cd74", "H2-Ab1", "Acta2", "Myh11", "Sox10", "S100b",
     "Adipoq", "Pck1"
 )
 
-pdf("sub3_Stromal/DotPlot.Cell_Type_2.pdf", 6.5, 2.6)
+pdf("sub3_Stromal/DotPlot.Cell_Type_2.pdf", 7, 2.6)
 DotPlot(stromal_obj, features = gene_selected) +
     scale_color_viridis_c() +
     theme_classic() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 dev.off()
-
 rm(gene_selected, p)
 
 ## 5.3. Percentage changes ----
@@ -1318,7 +1323,7 @@ rm(gene_selected, p)
 plot_data <- as.data.frame(table(stromal_obj$Cell_Type_2, stromal_obj$Condition))
 colnames(plot_data) <- c("Cell_Type_2", "Condition", "Count")
 
-pdf("sub3_Stromal/Barplot.Cell_Type_2.Condition.pdf", 9, 5)
+pdf("sub3_Stromal/Barplot.Cell_Type_2.Condition.pdf", 9, 4)
 patchwork::wrap_plots(
     ggplot(plot_data, aes(x = Cell_Type_2, y = Count, fill = Condition)) +
         geom_bar(stat = "identity", position = "fill") +
@@ -1362,13 +1367,55 @@ ggplot(plot_data, aes(x = Condition, y = Fraction)) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     NoLegend()
 dev.off()
+
+pdf("sub3_Stromal/Boxplot.Fraction.Merge.pdf", 4, 3)
+ggplot(
+    plot_data %>% filter(Cell_Type_2 != "Others"),
+    aes(x = Cell_Type_2, y = Fraction, fill = Condition)
+) +
+    geom_boxplot(outlier.shape = NA, alpha = 0.5) +
+    scale_fill_manual(values = mycolor$Condition) +
+    ggpubr::stat_compare_means(
+        aes(group = Condition),
+        label = "p.signif",
+        label.y.npc = 0.98,
+        size = 3
+    ) +
+    theme_classic() +
+    ylab("Fraction of all cells (%)") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+dev.off()
 rm(plot_data, temp)
 
-saveRDS(stromal_obj, file = "rds/stromal_obj.rds")
+# Roe
+roe <- Startrac::calTissueDist(
+    stromal_obj@meta.data,
+    byPatient = FALSE,
+    colname.cluster = "Cell_Type_2",
+    colname.patient = "Sample",
+    colname.tissue = "Condition",
+    method = "chisq",
+    min.rowSum = 0
+)
+roe <- roe[grep("Adipocyte|Doublet", rownames(roe), invert = TRUE), ]
+pdf("sub3_Stromal/Heatmap.Roe.Cell_Type_2.Condition.pdf", 4, 4.4)
+pheatmap::pheatmap(
+    roe,
+    color = mycolor$Roe,
+    breaks = seq(0, 2, length.out = 101),
+    scale = "none",
+    display_numbers = TRUE,
+    cluster_rows = TRUE,
+    cluster_cols = FALSE,
+)
+dev.off()
+rm(roe)
+
+saveRDS(stromal_obj, file = "../rds/stromal_obj.rds")
 rm(stromal_obj)
 
 # 6. average expression of gene sets ----
-blca_obj <- readRDS("rds/blca_obj.rds")
+blca_obj <- readRDS("../rds/blca_obj.rds")
 
 gene.selected <- c("Pdcd1", "Cd274", "Ramp1", "Igf1")
 
@@ -1423,4 +1470,4 @@ rm(plot.data, gene.selected, blca_obj)
 
 # save data ----
 save.image("01.Cell_Type.RData")
-saveRDS(mycolor, file = "rds/mycolor.rds")
+saveRDS(mycolor, file = "../rds/mycolor.rds")
