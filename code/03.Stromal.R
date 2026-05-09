@@ -9,8 +9,8 @@ library(org.Mm.eg.db)
 library(enrichplot)
 library(parallel)
 
-stromal_obj <- readRDS("../01.Cell_Type/rds/stromal_obj.rds")
-mycolor <- readRDS("../01.Cell_Type/rds/mycolor.rds")
+stromal_obj <- readRDS("../rds/stromal_obj.rds")
+mycolor <- readRDS("../rds/mycolor.rds")
 
 # load("03.Stromal.RData")
 
@@ -20,7 +20,7 @@ table(stromal_obj$Cell_Type_2, stromal_obj$Condition)
 DEG_list_conditions <- mclapply(levels(stromal_obj$Condition)[-1], function(x) {
     DEG_list <- list()
 
-    for (cell_type in levels(stromal_obj$Cell_Type_2)[1:4]) {
+    for (cell_type in levels(stromal_obj$Cell_Type_2)) {
         message(Sys.time(), ": Differential analysis: ", x, " vs Control, ", cell_type)
 
         stromal_sub <- subset(stromal_obj, subset = Cell_Type_2 == cell_type)
@@ -63,7 +63,7 @@ DEG_list_conditions <- readRDS("DEG_list_conditions.rds")
 # volcano plot
 lapply(names(DEG_list_conditions), function(x) {
     plot_data <- do.call(rbind, DEG_list_conditions[[x]]) %>% mutate(Comparison = paste0(x, "_vs_CTRL"))
-    plot_data$Cell_Type_2 <- factor(plot_data$Cell_Type_2, levels = names(mycolor$Cell_Type_2)[21:24])
+    plot_data$Cell_Type_2 <- factor(plot_data$Cell_Type_2, levels = levels(stromal_obj$Cell_Type_2))
 
     x_max <- max(abs(plot_data$avg_log2FC), na.rm = TRUE)
     y_max <- max(-log10(plot_data$p_val_adj), na.rm = TRUE)
@@ -85,7 +85,7 @@ lapply(names(DEG_list_conditions), function(x) {
             aes(x = x, y = y, label = label), inherit.aes = FALSE, size = 3
         ) +
         scale_color_manual(values = mycolor$Cell_Type_2) +
-        facet_wrap(~Cell_Type_2, ncol = 5) +
+        facet_wrap(~Cell_Type_2, ncol = 4) +
         theme_classic() +
         labs(title = paste0("Volcano plot of DEGs in each cell type, ", x, " vs CTRL")) +
         xlab("Average log2 fold change") +
@@ -94,7 +94,7 @@ lapply(names(DEG_list_conditions), function(x) {
         geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "#ec8a8a", linewidth = 0.5) +
         geom_vline(xintercept = c(-0.25, 0.25), linetype = "dashed", color = "#ec8a8a", linewidth = 0.5) +
         theme(legend.position = "none")
-    pdf(paste0("Volcano.", x, "_vs_CTRL.pdf"), 8, 3.5)
+    pdf(paste0("Volcano.", x, "_vs_CTRL.pdf"), 6.5, 4.5)
     plot(p)
     dev.off()
 })
@@ -272,6 +272,7 @@ temp$Capsaicin %>%
     setdiff(temp$anti_PD1) %>%
     setdiff(temp$Rime) %>%
     sort()
+rm(temp)
 
 # compare GO
 names(DEG_list_gene_cell_type)
@@ -315,179 +316,180 @@ lapply(names(GO_list_compare), function(x) {
         dev.off()
     }
 })
+rm(p, plot_data, label_data, x, cell_typex, temp)
 
-# 2. iCAF functions ----
-## 2.1. identify iCAF subsets ----
-dir.create("iCAF")
-iCAF_obj <- subset(stromal_obj, subset = Cell_Type_2 == "iCAF") # 7254 cells
-rm(stromal_obj)
+# # 2. iCAF functions ----
+# ## 2.1. identify iCAF subsets ----
+# dir.create("iCAF")
+# iCAF_obj <- subset(stromal_obj, subset = Cell_Type_2 == "iCAF") # 7254 cells
+# rm(stromal_obj)
 
-iCAF_obj <- iCAF_obj %>%
-    NormalizeData() %>%
-    FindVariableFeatures(selection.method = "vst", nfeatures = 2000) %>%
-    ScaleData() %>%
-    RunPCA(npcs = 30) %>%
-    FindNeighbors(dims = 1:20) %>%
-    RunUMAP(dims = 1:20)
+# iCAF_obj <- iCAF_obj %>%
+#     NormalizeData() %>%
+#     FindVariableFeatures(selection.method = "vst", nfeatures = 2000) %>%
+#     ScaleData() %>%
+#     RunPCA(npcs = 30) %>%
+#     FindNeighbors(dims = 1:20) %>%
+#     RunUMAP(dims = 1:20)
 
-iCAF_obj <- FindClusters(iCAF_obj, resolution = 0.3)
+# iCAF_obj <- FindClusters(iCAF_obj, resolution = 0.3)
 
-pdf("iCAF/UMAP_iCAF.Subclusters.pdf", 5, 4)
-DimPlot(iCAF_obj, raster = TRUE, pt.size = 2, group.by = "seurat_clusters",
- label = TRUE, cols = mycolor$Cluster) +
-    labs(title = "iCAF Subclusters")
-dev.off()
+# pdf("iCAF/UMAP_iCAF.Subclusters.pdf", 5, 4)
+# DimPlot(iCAF_obj, raster = TRUE, pt.size = 2, group.by = "seurat_clusters",
+#  label = TRUE, cols = mycolor$Cluster) +
+#     labs(title = "iCAF Subclusters")
+# dev.off()
 
-pdf("iCAF/UMAP_iCAF.Subclusters.split.pdf", 9, 6)
-DimPlot(iCAF_obj,
-    split.by = "Condition", raster = TRUE, ncol = 3,
-    cols = mycolor$Cluster, pt.size = 3, label = FALSE
-) +
-    labs(title = "iCAF Subclusters")
-dev.off()
+# pdf("iCAF/UMAP_iCAF.Subclusters.split.pdf", 9, 6)
+# DimPlot(iCAF_obj,
+#     split.by = "Condition", raster = TRUE, ncol = 3,
+#     cols = mycolor$Cluster, pt.size = 3, label = FALSE
+# ) +
+#     labs(title = "iCAF Subclusters")
+# dev.off()
 
-pdf("iCAF/UMAP_iCAF.Ramp1.split.pdf", 16, 3.2)
-FeaturePlot(
-    iCAF_obj,
-    features = c("Ramp1"), cols = c("lightgrey", "red"),
-    split.by = "Condition", order = TRUE, raster = TRUE, pt.size = 3
-)
-dev.off()
+# pdf("iCAF/UMAP_iCAF.Ramp1.split.pdf", 16, 3.2)
+# FeaturePlot(
+#     iCAF_obj,
+#     features = c("Ramp1"), cols = c("lightgrey", "red"),
+#     split.by = "Condition", order = TRUE, raster = TRUE, pt.size = 3
+# )
+# dev.off()
 
-## 2.2. functional state of iCAFs ----
-marker_iCAF_subset <- FindAllMarkers(
-    iCAF_obj,
-    only.pos = TRUE,
-    min.pct = 0.25,
-    logfc.threshold = 0.25
-)
+# ## 2.2. functional state of iCAFs ----
+# marker_iCAF_subset <- FindAllMarkers(
+#     iCAF_obj,
+#     only.pos = TRUE,
+#     min.pct = 0.25,
+#     logfc.threshold = 0.25
+# )
 
-marker_iCAF_subset %>%
-    group_by(cluster) %>%
-    slice_max(n = 100, order_by = avg_log2FC) %>%
-    as.data.frame() %>%
-    split(.$cluster) %>%
-    lapply(function(x) x$gene)
+# marker_iCAF_subset %>%
+#     group_by(cluster) %>%
+#     slice_max(n = 100, order_by = avg_log2FC) %>%
+#     as.data.frame() %>%
+#     split(.$cluster) %>%
+#     lapply(function(x) x$gene)
 
-Idents(iCAF_obj) <- iCAF_obj$seurat_clusters
-icaf_state_names_v2 <- c(
-    "0" = "c01_Matrix_Smoc2_Cxcl12",
-    "1" = "c02_Niche_Car3_Hhip",
-    "2" = "c09_Epithelial_Krt8_Lama3",
-    "3" = "c06_Myeloid_Adgre1_Mrc1",
-    "4" = "c03_Inflammatory_Ptx3_Cxcl13",
-    "5" = "c04_IFN_Ifit3_Cxcl10",
-    "6" = "c08_Lymphoid_Cd3g_Gzmb",
-    "7" = "c07_Vascular_Pecam1_Vwf",
-    "8" = "c05_Mesothelial_Upk3b_Wt1"
-)
-iCAF_obj <- RenameIdents(iCAF_obj, icaf_state_names_v2)
-iCAF_obj$iCAF_subtype <- Idents(iCAF_obj) %>%
-    as.character() %>%
-    factor(levels = c(
-        "c01_Matrix_Smoc2_Cxcl12", "c02_Niche_Car3_Hhip",
-        "c03_Inflammatory_Ptx3_Cxcl13", "c04_IFN_Ifit3_Cxcl10",
-        "c05_Mesothelial_Upk3b_Wt1", "c06_Myeloid_Adgre1_Mrc1",
-        "c07_Vascular_Pecam1_Vwf", "c08_Lymphoid_Cd3g_Gzmb", "c09_Epithelial_Krt8_Lama3"
-    ))
+# Idents(iCAF_obj) <- iCAF_obj$seurat_clusters
+# icaf_state_names_v2 <- c(
+#     "0" = "c01_Matrix_Smoc2_Cxcl12",
+#     "1" = "c02_Niche_Car3_Hhip",
+#     "2" = "c09_Epithelial_Krt8_Lama3",
+#     "3" = "c06_Myeloid_Adgre1_Mrc1",
+#     "4" = "c03_Inflammatory_Ptx3_Cxcl13",
+#     "5" = "c04_IFN_Ifit3_Cxcl10",
+#     "6" = "c08_Lymphoid_Cd3g_Gzmb",
+#     "7" = "c07_Vascular_Pecam1_Vwf",
+#     "8" = "c05_Mesothelial_Upk3b_Wt1"
+# )
+# iCAF_obj <- RenameIdents(iCAF_obj, icaf_state_names_v2)
+# iCAF_obj$iCAF_subtype <- Idents(iCAF_obj) %>%
+#     as.character() %>%
+#     factor(levels = c(
+#         "c01_Matrix_Smoc2_Cxcl12", "c02_Niche_Car3_Hhip",
+#         "c03_Inflammatory_Ptx3_Cxcl13", "c04_IFN_Ifit3_Cxcl10",
+#         "c05_Mesothelial_Upk3b_Wt1", "c06_Myeloid_Adgre1_Mrc1",
+#         "c07_Vascular_Pecam1_Vwf", "c08_Lymphoid_Cd3g_Gzmb", "c09_Epithelial_Krt8_Lama3"
+#     ))
 
-mycolor$iCAF_subtype <- setNames(
-    ggsci::pal_npg()(9),
-    levels(iCAF_obj$iCAF_subtype)
-)
+# mycolor$iCAF_subtype <- setNames(
+#     ggsci::pal_npg()(9),
+#     levels(iCAF_obj$iCAF_subtype)
+# )
 
-pdf("iCAF/UMAP_iCAF.Subtype.pdf", 7, 4)
-DimPlot(iCAF_obj,
-    raster = TRUE, pt.size = 2, group.by = "iCAF_subtype",
-    label = FALSE, cols = mycolor$iCAF_subtype
-) +
-    labs(title = "iCAF Subtypes")
-dev.off()
+# pdf("iCAF/UMAP_iCAF.Subtype.pdf", 7, 4)
+# DimPlot(iCAF_obj,
+#     raster = TRUE, pt.size = 2, group.by = "iCAF_subtype",
+#     label = FALSE, cols = mycolor$iCAF_subtype
+# ) +
+#     labs(title = "iCAF Subtypes")
+# dev.off()
 
-pdf("iCAF/UMAP_iCAF.Subtype.split.pdf", 12, 3)
-DimPlot(iCAF_obj,
-    group.by = "iCAF_subtype", split.by = "Condition", raster = TRUE,
-    pt.size = 3, cols = mycolor$iCAF_subtype
-) +
-    labs(title = "iCAF Subtypes")
-dev.off()
+# pdf("iCAF/UMAP_iCAF.Subtype.split.pdf", 12, 3)
+# DimPlot(iCAF_obj,
+#     group.by = "iCAF_subtype", split.by = "Condition", raster = TRUE,
+#     pt.size = 3, cols = mycolor$iCAF_subtype
+# ) +
+#     labs(title = "iCAF Subtypes")
+# dev.off()
 
-## 2.3. compositional changes of iCAF subtypes ----
-identical(colnames(iCAF_obj), colnames(iCAF_obj))
+# ## 2.3. compositional changes of iCAF subtypes ----
+# identical(colnames(iCAF_obj), colnames(iCAF_obj))
 
-plot_data <- as.data.frame(table(iCAF_obj$iCAF_subtype, iCAF_obj$Condition))
-colnames(plot_data) <- c("iCAF_subtype", "Condition", "Count")
-plot_data$Condition <- factor(plot_data$Condition, levels = names(mycolor$Condition))
+# plot_data <- as.data.frame(table(iCAF_obj$iCAF_subtype, iCAF_obj$Condition))
+# colnames(plot_data) <- c("iCAF_subtype", "Condition", "Count")
+# plot_data$Condition <- factor(plot_data$Condition, levels = names(mycolor$Condition))
 
-pdf("iCAF/Barplot.iCAF_subtype.Condition.pdf", 9, 5)
-patchwork::wrap_plots(
-    ggplot(plot_data, aes(x = iCAF_subtype, y = Count, fill = Condition)) +
-        geom_bar(stat = "identity", position = "fill") +
-        scale_fill_manual(values = mycolor$Condition) +
-        theme_classic() +
-        labs(title = "Cell Type composition across Conditions") +
-        theme(axis.text.x = element_text(angle = 45, hjust = 1)),
-    ggplot(plot_data, aes(x = Condition, y = Count, fill = iCAF_subtype)) +
-        geom_bar(stat = "identity", position = "fill") +
-        scale_fill_manual(values = mycolor$iCAF_subtype) +
-        theme_classic() +
-        labs(title = "Cell Type composition across Conditions") +
-        theme(axis.text.x = element_text(angle = 45, hjust = 1)),
-    ncol = 2
-)
-dev.off()
+# pdf("iCAF/Barplot.iCAF_subtype.Condition.pdf", 9, 5)
+# patchwork::wrap_plots(
+#     ggplot(plot_data, aes(x = iCAF_subtype, y = Count, fill = Condition)) +
+#         geom_bar(stat = "identity", position = "fill") +
+#         scale_fill_manual(values = mycolor$Condition) +
+#         theme_classic() +
+#         labs(title = "Cell Type composition across Conditions") +
+#         theme(axis.text.x = element_text(angle = 45, hjust = 1)),
+#     ggplot(plot_data, aes(x = Condition, y = Count, fill = iCAF_subtype)) +
+#         geom_bar(stat = "identity", position = "fill") +
+#         scale_fill_manual(values = mycolor$iCAF_subtype) +
+#         theme_classic() +
+#         labs(title = "Cell Type composition across Conditions") +
+#         theme(axis.text.x = element_text(angle = 45, hjust = 1)),
+#     ncol = 2
+# )
+# dev.off()
 
-# fraction compare
-plot_data <- as.data.frame(table(iCAF_obj$iCAF_subtype, iCAF_obj$Sample))
-colnames(plot_data) <- c("iCAF_subtype", "Sample", "Count")
-plot_data$Condition <- gsub("_[0-9]$", "", plot_data$Sample)
-table(plot_data$Condition)
-table(plot_data$Sample)
+# # fraction compare
+# plot_data <- as.data.frame(table(iCAF_obj$iCAF_subtype, iCAF_obj$Sample))
+# colnames(plot_data) <- c("iCAF_subtype", "Sample", "Count")
+# plot_data$Condition <- gsub("_[0-9]$", "", plot_data$Sample)
+# table(plot_data$Condition)
+# table(plot_data$Sample)
 
-temp <- table(iCAF_obj$Sample)
-plot_data$Fraction <- plot_data$Count / temp[plot_data$Sample] * 100
-plot_data$Condition <- factor(plot_data$Condition, levels = names(mycolor$Condition))
+# temp <- table(iCAF_obj$Sample)
+# plot_data$Fraction <- plot_data$Count / temp[plot_data$Sample] * 100
+# plot_data$Condition <- factor(plot_data$Condition, levels = names(mycolor$Condition))
 
-pdf("iCAF/Boxplot.Fraction.iCAF_subtype.pdf", 8, 5.5)
-ggplot(plot_data, aes(x = Condition, y = Fraction)) +
-    geom_boxplot(aes(fill = iCAF_subtype), outlier.shape = NA, alpha = 0.5) +
-    geom_jitter(width = 0.2, size = 0.5, alpha = 1) +
-    ggpubr::stat_compare_means(
-        label = "p.signif", label.y.npc = 0.98, size = 2.5, ref.group = "CTRL",
-    ) +
-    facet_wrap(~iCAF_subtype, ncol = 5, scales = "free") +
-    labs(title = "Cell Type composition across Samples") +
-    ylab("Fraction (%)") +
-    scale_fill_manual(values = mycolor$iCAF_subtype) +
-    theme_classic() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-    NoLegend()
-dev.off()
-rm(plot_data, temp)
+# pdf("iCAF/Boxplot.Fraction.iCAF_subtype.pdf", 8, 5.5)
+# ggplot(plot_data, aes(x = Condition, y = Fraction)) +
+#     geom_boxplot(aes(fill = iCAF_subtype), outlier.shape = NA, alpha = 0.5) +
+#     geom_jitter(width = 0.2, size = 0.5, alpha = 1) +
+#     ggpubr::stat_compare_means(
+#         label = "p.signif", label.y.npc = 0.98, size = 2.5, ref.group = "CTRL",
+#     ) +
+#     facet_wrap(~iCAF_subtype, ncol = 5, scales = "free") +
+#     labs(title = "Cell Type composition across Samples") +
+#     ylab("Fraction (%)") +
+#     scale_fill_manual(values = mycolor$iCAF_subtype) +
+#     theme_classic() +
+#     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#     NoLegend()
+# dev.off()
+# rm(plot_data, temp)
 
-# roe
-roe <- Startrac::calTissueDist(
-    iCAF_obj@meta.data,
-    byPatient = FALSE,
-    colname.cluster = "iCAF_subtype",
-    colname.patient = "Sample",
-    colname.tissue = "Condition",
-    method = "chisq",
-    min.rowSum = 0
-)
-roe <- roe[setdiff(rownames(roe), "Doublet"), ]
-pdf("iCAF/Heatmap.Roe.iCAF_subtype.Condition.pdf", 4, 3.5)
-pheatmap::pheatmap(
-    roe,
-    color = mycolor$Roe,
-    breaks = seq(0, 2, length.out = 101),
-    scale = "none",
-    display_numbers = TRUE,
-    cluster_rows = FALSE,
-    cluster_cols = FALSE,
-)
-dev.off()
-rm(roe)
+# # roe
+# roe <- Startrac::calTissueDist(
+#     iCAF_obj@meta.data,
+#     byPatient = FALSE,
+#     colname.cluster = "iCAF_subtype",
+#     colname.patient = "Sample",
+#     colname.tissue = "Condition",
+#     method = "chisq",
+#     min.rowSum = 0
+# )
+# roe <- roe[setdiff(rownames(roe), "Doublet"), ]
+# pdf("iCAF/Heatmap.Roe.iCAF_subtype.Condition.pdf", 4, 3.5)
+# pheatmap::pheatmap(
+#     roe,
+#     color = mycolor$Roe,
+#     breaks = seq(0, 2, length.out = 101),
+#     scale = "none",
+#     display_numbers = TRUE,
+#     cluster_rows = FALSE,
+#     cluster_cols = FALSE,
+# )
+# dev.off()
+# rm(roe)
 
 ## save data
 gc()

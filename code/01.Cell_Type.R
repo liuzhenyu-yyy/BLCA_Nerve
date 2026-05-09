@@ -1239,8 +1239,11 @@ dev.off()
 stromal_obj$Cell_Type_2 <- "none"
 stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(3, 12, 21))] <- "Vascular_Endothelial"
 stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(11, 23))] <- "Lymphatic_Endothelial"
-stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(0:2, 5,7,10,16,15, 9))] <- "iCAF"
-stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(4, 6, 8, 13, 17, 18))] <- "apCAF"
+stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(
+    0:2, 5, 7, 10, 16, 15, 9,
+    4, 6, 8, 13, 17, 18
+))] <- "iCAF"
+# stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c())] <- "apCAF"
 stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(14))] <- "myCAF"
 stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(20))] <- "Smooth_Muscle"
 stromal_obj$Cell_Type_2[which(stromal_obj$seurat_clusters %in% c(19))] <- "Schwann"
@@ -1250,12 +1253,12 @@ table(stromal_obj$seurat_clusters, stromal_obj$Cell_Type_2)
 
 stromal_obj$Cell_Type_2 <- factor(stromal_obj$Cell_Type_2, levels = c(
     "Vascular_Endothelial", "Lymphatic_Endothelial",
-    "iCAF", "myCAF", "apCAF", "Smooth_Muscle", "Schwann", "Adipocyte"
+    "iCAF", "myCAF", "Smooth_Muscle", "Schwann", "Adipocyte"
 ))
 
 mycolor$Cell_Type_2 <- c(
     mycolor$Cell_Type_2,
-    setNames(ggsci::pal_lancet()(8), levels(stromal_obj$Cell_Type_2))
+    setNames(ggsci::pal_lancet()(7), levels(stromal_obj$Cell_Type_2))
 )
 
 pdf("sub3_Stromal/UMAP.Cell_Type_2.pdf", 9, 4)
@@ -1306,11 +1309,11 @@ levels(Idents(stromal_obj))
 
 gene_selected <- c(
     "Cdh5", "Pecam1", "Prox1", "Lyve1", "Cd34", "Col1a2", "Lum",
-    "Pdgfra", "Rgs5", "Cd74", "H2-Ab1", "Acta2", "Myh11", "Sox10", "S100b",
+    "Pdgfra", "Rgs5", "Acta2", "Myh11", "Sox10", "S100b",
     "Adipoq", "Pck1"
 )
 
-pdf("sub3_Stromal/DotPlot.Cell_Type_2.pdf", 7, 2.6)
+pdf("sub3_Stromal/DotPlot.Cell_Type_2.pdf", 6.5, 2.6)
 DotPlot(stromal_obj, features = gene_selected) +
     scale_color_viridis_c() +
     theme_classic() +
@@ -1398,11 +1401,11 @@ roe <- Startrac::calTissueDist(
     min.rowSum = 0
 )
 roe <- roe[grep("Adipocyte|Doublet", rownames(roe), invert = TRUE), ]
-pdf("sub3_Stromal/Heatmap.Roe.Cell_Type_2.Condition.pdf", 4, 4.4)
+pdf("sub3_Stromal/Heatmap.Roe.Cell_Type_2.Condition.pdf", 4, 3.6)
 pheatmap::pheatmap(
     roe,
     color = mycolor$Roe,
-    breaks = seq(0, 2, length.out = 101),
+    # breaks = seq(0, 2, length.out = 101),
     scale = "none",
     display_numbers = TRUE,
     cluster_rows = TRUE,

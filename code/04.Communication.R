@@ -7,24 +7,24 @@ library(RColorBrewer)
 library(CellChat)
 library(parallel)
 
-# load("04.Communication.RData")
+load("04.Communication.RData")
 
 # 1. Integrate cell types ----
-blca_obj <- readRDS("../01.Cell_Type/rds/blca_obj.rds")
-mycolor <- readRDS("../01.Cell_Type/rds/mycolor.rds")
+blca_obj <- readRDS("../rds/blca_obj.rds")
+mycolor <- readRDS("../rds/mycolor.rds")
 
 ## 1.1. merge cell types from sub-objects ----
 blca_obj$Cell_Type_2 <- "none"
 
-immune_obj <- readRDS("../01.Cell_Type/rds/immune_obj.rds")
+immune_obj <- readRDS("../rds/immune_obj.rds")
 blca_obj@meta.data[immune_obj$Cell, "Cell_Type_2"] <- immune_obj$Cell_Type_2 %>% as.character()
 rm(immune_obj)
 
-cancer_obj <- readRDS("../01.Cell_Type/rds/cancer_obj.rds")
+cancer_obj <- readRDS("../rds/cancer_obj.rds")
 blca_obj@meta.data[cancer_obj$Cell, "Cell_Type_2"] <- cancer_obj$Cell_Type_1 %>% as.character()
 rm(cancer_obj)
 
-stromal_obj <- readRDS("../01.Cell_Type/rds/stromal_obj.rds")
+stromal_obj <- readRDS("../rds/stromal_obj.rds")
 blca_obj@meta.data[stromal_obj$Cell, "Cell_Type_2"] <- stromal_obj$Cell_Type_2 %>% as.character()
 rm(stromal_obj)
 
@@ -33,7 +33,7 @@ blca_obj@meta.data %>%
     pull(Cell_Type_1) %>%
     table()
 blca_obj@meta.data[blca_obj$Cell_Type_1 == "Epithelial", "Cell_Type_2"] <- "Epithelial"
-blca_obj@meta.data[blca_obj$Cell_Type_1 == "Doublet", "Cell_Type_2"] <- "Doublet"
+blca_obj@meta.data[blca_obj$Cell_Type_1 == "Others", "Cell_Type_2"] <- "Others"
 
 table(blca_obj$Cell_Type_2, blca_obj$Cell_Type_1)
 
@@ -44,26 +44,25 @@ table(blca_obj$Cell_Type_2 %in% names(mycolor$Cell_Type_2))
 
 temp <- intersect(names(mycolor$Cell_Type_2), unique(blca_obj$Cell_Type_2))
 temp <- setdiff(temp, "Doublet")
-temp <- c(temp, "Doublet")
 
 blca_obj$Cell_Type_2 <- factor(blca_obj$Cell_Type_2, levels = temp)
 rm(temp)
 
-pdf("UMAP.Cell_Type_2.pdf", 7, 3.6)
-DimPlot(blca_obj, reduction = "umap", group.by = "Cell_Type_2", label = TRUE, label.size = 2.5) +
-    scale_color_manual(values = mycolor$Cell_Type_2) +
+pdf("UMAP.Cell_Type_2.pdf", 10, 3.5)
+DimPlot(blca_obj,
+    reduction = "umap", group.by = "Cell_Type_2", label = TRUE, label.size = 2.5,
+    cols = mycolor$Cell_Type_2
+) +
     theme_classic() +
-    labs(title = "UMAP plot colored by Cell_Type_2")
+    labs(title = "UMAP plot colored by Cell_Type_2") + NoLegend() +
+    DimPlot(blca_obj,
+        reduction = "umap", group.by = "Cell_Type_2", label = FALSE, label.size = 2.5,
+        cols = mycolor$Cell_Type_2
+    ) +
+    theme_classic()
 dev.off()
 
-pdf("UMAP.Cell_Type_2.NoLabel.pdf", 7, 3.6)
-DimPlot(blca_obj, reduction = "umap", group.by = "Cell_Type_2", label = FALSE) +
-    scale_color_manual(values = mycolor$Cell_Type_2) +
-    theme_classic() +
-    labs(title = "UMAP plot colored by Cell_Type_2")
-dev.off()
-
-pdf("UMAP.Cell_Type_2.split.Condition.pdf", 10, 5.5)
+pdf("UMAP.Cell_Type_2.split.Condition.pdf", 10, 3)
 DimPlot(blca_obj,
     reduction = "umap", group.by = "Cell_Type_2", label = FALSE,
     split.by = "Condition", ncol = 3
@@ -80,7 +79,7 @@ p <- DimPlot(blca_obj,
 ) +
     theme_classic()
 
-pdf("UMAP.Cell_Type_2.split.density.pdf", 10, 5.5)
+pdf("UMAP.Cell_Type_2.split.density.pdf", 10, 3)
 plot(p + stat_density_2d(aes_string(x = "umap_1", y = "umap_2", fill = "after_stat(level)"),
     linewidth = 0, geom = "density_2d_filled",
     n = 150, h = c(1.2, 1.2)
@@ -91,8 +90,13 @@ plot(p + stat_density_2d(aes_string(x = "umap_1", y = "umap_2", fill = "after_st
 dev.off()
 rm(p)
 
+saveRDS(blca_obj, file = "../rds/blca_obj.rds")
+
 ## 1.2. cell types cross conditions ----
-plot.data <- as.data.frame(table(blca_obj$Cell_Type_2, blca_obj$Condition))
+table(blca_obj$Cell_Type_2, blca_obj$Condition)
+
+plot.data <- as.data.frame(table(blca_obj$Cell_Type_2, blca_obj$Condition)) %>%
+    filter(Var1 != "Others")
 colnames(plot.data) <- c("Cell_Type_2", "Condition", "Count")
 
 pdf("Barplot.Cell_Type_2.Condition.pdf", 11, 5)
@@ -124,13 +128,13 @@ temp <- table(blca_obj$Sample)
 plot.data$Fraction <- plot.data$Count / temp[plot.data$Sample] * 100
 plot.data$Condition <- factor(plot.data$Condition, levels = names(mycolor$Condition))
 
-pdf("Boxplot.Fraction.Cell_Type_2.pdf", 12, 9)
+pdf("Boxplot.Fraction.Cell_Type_2.pdf", 9, 10)
 ggplot(plot.data, aes(x = Condition, y = Fraction)) +
     geom_boxplot(aes(fill = Cell_Type_2), outlier.shape = NA, alpha = 0.5) +
     geom_jitter(width = 0.2, size = 0.5, alpha = 1) +
     ggpubr::stat_compare_means(
         label = "p.signif", label.y.npc = 0.98, size = 2.5, ref.group = "CTRL") +
-    facet_wrap(~Cell_Type_2, ncol = 6, scales = "free") +
+    facet_wrap(~Cell_Type_2, ncol = 5, scales = "free") +
     labs(title = "Cell Type composition across Samples") +
     ylab("Fraction of all cells (%)") +
     scale_fill_manual(values = mycolor$Cell_Type_2) +
@@ -138,6 +142,25 @@ ggplot(plot.data, aes(x = Condition, y = Fraction)) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     NoLegend()
 dev.off()
+
+pdf("Boxplot.Fraction.Cell_Type.Merge.pdf", 10, 3)
+ggplot(
+    plot.data %>% filter(Cell_Type_2 != "Cancer"),
+    aes(x = Cell_Type_2, y = Fraction, fill = Condition)
+) +
+    geom_boxplot(outlier.shape = NA, alpha = 0.5) +
+    scale_fill_manual(values = mycolor$Condition) +
+    ggpubr::stat_compare_means(
+        aes(group = Condition),
+        label = "p.signif",
+        label.y.npc = 0.98,
+        size = 3
+    ) +
+    theme_classic() +
+    ylab("Fraction of all cells (%)") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+dev.off()
+
 rm(plot.data, temp)
 
 # Ro/e
@@ -153,13 +176,14 @@ Roe <- Startrac::calTissueDist(
 )
 anno.row <- data.frame(
     Cell_Type_2 = rownames(Roe),
-    "Compartment" = rep(c("Immune", "Stromal", "Epithelial", "Doublet"), times = c(14, 7, 2, 1))
+    "Compartment" = rep(c("Immune", "Others", "Stromal", "Epithelial"), times = c(15, 1, 7, 2))
 )
 cell_type_selected <- table(blca_obj$Cell_Type_2) %>%
     .[. >= 100] %>%
-    names()
+    names() %>%
+    setdiff("Others")
 
-pdf("Heatmap.Roe.Cell_Type_2.Condition.pdf", 4.6, 5.5)
+pdf("Heatmap.Roe.Cell_Type_2.Condition.pdf", 4.5, 5.5)
 pheatmap::pheatmap(
     Roe[cell_type_selected, ],
     scale = "none",
@@ -168,7 +192,7 @@ pheatmap::pheatmap(
         filter(Cell_Type_2 %in% cell_type_selected) %>%
         tibble::column_to_rownames("Cell_Type_2"),
     annotation_colors = list(
-        Compartment = c("Immune" = "#FC8D62", "Stromal" = "#66C2A5", "Epithelial" = "#8DA0CB", "Doublet" = "gray")
+        Compartment = c("Immune" = "#FC8D62", "Stromal" = "#66C2A5", "Epithelial" = "#8DA0CB")
     ),
     display_numbers = TRUE,
     cluster_rows = TRUE,
@@ -183,7 +207,6 @@ rm(Roe, anno.row, cell_type_selected)
 
 ## 1.3. expression of selected genes ----
 dir.create("Expression_Selected")
-blca_obj <- readRDS("blca_obj.rds")
 Idents(blca_obj) <- blca_obj$Cell_Type_2
 
 # neurotrophic factor genes
@@ -429,57 +452,57 @@ ggplot(plot.data, aes(x = features.plot, y = Condition)) +
 dev.off()
 rm(plot.data, gene.selected)
 
-# additianal genes 
-gene.selected <- c(
-    "Calca", "Calcb", "Crcp",
-    "Tac1", "Tacr1", "Tacr2",
-    "Vip", "Vipr1", "Vipr2",
-    "Adcyap1", "Adcyap1r1",
-    "Gria1", "Gria2", "Gria3", "Gria4",
-    "Grin1", "Grin2a", "Grin2b", "Grin2c", "Grin2d",
-    "Grik1", "Grik2", "Grik3", "Grik4", "Grik5",
-    "Grm1", "Grm2", "Grm3", "Grm4", "Grm5", "Grm6", "Grm7", "Grm8",
-    "P2rx3", "P2rx7",
-    "P2ry1", "P2ry2", "P2ry4", "P2ry6", "P2ry12", "P2ry13", "P2ry14"
-)
+# # additianal genes
+# gene.selected <- c(
+#     "Calca", "Calcb", "Crcp",
+#     "Tac1", "Tacr1", "Tacr2",
+#     "Vip", "Vipr1", "Vipr2",
+#     "Adcyap1", "Adcyap1r1",
+#     "Gria1", "Gria2", "Gria3", "Gria4",
+#     "Grin1", "Grin2a", "Grin2b", "Grin2c", "Grin2d",
+#     "Grik1", "Grik2", "Grik3", "Grik4", "Grik5",
+#     "Grm1", "Grm2", "Grm3", "Grm4", "Grm5", "Grm6", "Grm7", "Grm8",
+#     "P2rx3", "P2rx7",
+#     "P2ry1", "P2ry2", "P2ry4", "P2ry6", "P2ry12", "P2ry13", "P2ry14"
+# )
 
-pdf("Expression_Selected/Dot.Expression.Selected2.pdf", 8, 9)
-DotPlot(blca_obj,
-    features = gene.selected %>% rev(), scale = FALSE,
-    group.by = "Cell_Type_2",
-) +
-    coord_flip() +
-    theme_classic() +
-    scale_color_viridis_c() +
-    theme(
-        axis.text.x = element_text(angle = 45, hjust = 1)
-    ) +
-    ggtitle("Expression of Cytokines")
-dev.off()
+# pdf("Expression_Selected/Dot.Expression.Selected2.pdf", 8, 9)
+# DotPlot(blca_obj,
+#     features = gene.selected %>% rev(), scale = FALSE,
+#     group.by = "Cell_Type_2",
+# ) +
+#     coord_flip() +
+#     theme_classic() +
+#     scale_color_viridis_c() +
+#     theme(
+#         axis.text.x = element_text(angle = 45, hjust = 1)
+#     ) +
+#     ggtitle("Expression of Cytokines")
+# dev.off()
 
-pdf("Expression_Selected/Dot.Expression.Selected2.scaled.pdf", 8, 9)
-DotPlot(blca_obj,
-    features = gene.selected %>% rev(), scale = TRUE,
-    group.by = "Cell_Type_2",
-) +
-    coord_flip() +
-    theme_classic() +
-    scale_color_viridis_c() +
-    theme(
-        axis.text.x = element_text(angle = 45, hjust = 1)
-    ) +
-    ggtitle("Scaled Expression of Cytokines")
-dev.off()
+# pdf("Expression_Selected/Dot.Expression.Selected2.scaled.pdf", 8, 9)
+# DotPlot(blca_obj,
+#     features = gene.selected %>% rev(), scale = TRUE,
+#     group.by = "Cell_Type_2",
+# ) +
+#     coord_flip() +
+#     theme_classic() +
+#     scale_color_viridis_c() +
+#     theme(
+#         axis.text.x = element_text(angle = 45, hjust = 1)
+#     ) +
+#     ggtitle("Scaled Expression of Cytokines")
+# dev.off()
 
 # 2. Joint CellChat analysis ----
 ## 2.1. prepare CellChat object ----
 table(blca_obj$Cell_Type_2) %>% sort()
 cell_types <- levels(blca_obj$Cell_Type_2) %>%
     grep("Cycling", ., invert = TRUE, value = TRUE) %>%
-    setdiff(c("Adipocyte", "Schwann", "Smooth_Muscle", "Doublet"))
+    setdiff(c("Adipocyte", "Schwann", "Smooth_Muscle", "Others"))
 table(blca_obj$Cell_Type_2)[cell_types] %>% sort()
 
-blca_sub <- subset(blca_obj, downsample = 2000)
+blca_sub <- subset(blca_obj, downsample = 3000)
 blca_sub <- subset(blca_sub, Cell_Type_2 %in% cell_types)
 table(blca_sub$Cell_Type_2) %>% sort()
 
@@ -487,7 +510,6 @@ Idents(blca_sub) <- blca_sub$Cell_Type_2
 
 cellchat <- createCellChat(object = blca_sub, group.by = "ident", assay = "RNA")
 
-saveRDS(blca_obj, file = "blca_obj.rds")
 rm(blca_sub, blca_obj)
 
 # primary cellchat pipeline
@@ -497,7 +519,7 @@ cellchat@DB <- CellChatDB.mouse
 # filter genes & LR pairs
 cellchat <- subsetData(cellchat)
 cellchat <- identifyOverExpressedGenes(cellchat)
-cellchat <- identifyOverExpressedInteractions(cellchat) # 3220 variable L-R pairs
+cellchat <- identifyOverExpressedInteractions(cellchat) # 3091 variable L-R pairs
 
 ## 2.2. infer communication network ----
 # communication probability
@@ -602,18 +624,19 @@ cellchat@netP$pathways %>% grep("IL", ., value = TRUE)
 cellchat@netP$pathways %>% grep("IFN", ., value = TRUE)
 
 pathways.selected <- c(
-    "TGFb", "VEGF", "EGF", "IGF", "PDGF", "FGF",
-    "CXCL", "CCL", "IL1", "IL2", "IL6", "FASLG", "MIF",
+    "TGFb", "VEGF", "EGF", "IGF", "PDGF",
+    "CXCL", "CCL", "IL1", "IL2", "FASLG", "MIF",
     "MHC-I", "MHC-II", "PD-L1", "PDL2",
     "COLLAGEN", "LAMININ"
 )
+setdiff(pathways.selected, cellchat@netP$pathways)
 
 ## Outgoing
 pdf("Global_Communication_Patterns/Elbow.Outgoing.pdf", 6, 2.5)
 selectK(cellchat, pattern = "outgoing")
 dev.off()
 
-nPatterns <- 6
+nPatterns <- 4
 
 pdf("Global_Communication_Patterns/Heatmap.Pattern.Out.pdf", 8, 4)
 cellchat <- identifyCommunicationPatterns(cellchat,
@@ -642,7 +665,7 @@ pdf("Global_Communication_Patterns/Elbow.Incoming.pdf", 6, 2.5)
 selectK(cellchat, pattern = "incoming")
 dev.off()
 
-nPatterns <- 6
+nPatterns <- 5
 
 pdf("Global_Communication_Patterns/Heatmap.Pattern.In.pdf", 8, 4)
 cellchat <- identifyCommunicationPatterns(cellchat,
@@ -672,7 +695,7 @@ dir.create("Pathway_Level")
 
 table(pathways.selected %in% cellchat@netP$pathways)
 
-lapply(pathways.selected %>% setdiff(c("FGF")), function(pathway) {
+lapply(pathways.selected, function(pathway) {
     pdf(paste0("Pathway_Level/Circle.Network.Pathway.", pathway, ".pdf"), 6.5, 7)
     netVisual_aggregate(cellchat,
         color.use = mycolor$Cell_Type_2[cell_types],
@@ -804,394 +827,394 @@ lapply(cell_types, function(cell_type) {
 })
 rm(p, cell_type)
 
-# 3. Compare signal across conditions ----
-blca_obj <- readRDS("blca_obj.rds")
-dir.create("Compare_Conditions")
-table(blca_obj$Cell_Type_2, blca_obj$Condition)
+# # 3. Compare signal across conditions ----
+# blca_obj <- readRDS("../rds/blca_obj.rds")
+# dir.create("Compare_Conditions")
+# table(blca_obj$Cell_Type_2, blca_obj$Condition)
 
-## 3.1. prepare CellChat objects ----
-blca_sub <- subset(blca_obj, downsample = 20000)
-rm(blca_obj)
+# ## 3.1. prepare CellChat objects ----
+# blca_sub <- subset(blca_obj, downsample = 20000)
+# rm(blca_obj)
 
-blca_sub <- subset(blca_sub, Cell_Type_2 %in% cell_types)
-table(blca_sub$Cell_Type_2) %>% sort()
-table(blca_sub$Condition)
+# blca_sub <- subset(blca_sub, Cell_Type_2 %in% cell_types)
+# table(blca_sub$Cell_Type_2) %>% sort()
+# table(blca_sub$Condition)
 
-temp <- subset(blca_sub, Condition %in% c("CTRL"))
-Idents(temp) <- temp$Cell_Type_2
-cellchat.ctrl <- createCellChat(object = temp, group.by = "ident", assay = "RNA")
-cellchat.ctrl@DB <- CellChatDB.mouse
+# temp <- subset(blca_sub, Condition %in% c("CTRL"))
+# Idents(temp) <- temp$Cell_Type_2
+# cellchat.ctrl <- createCellChat(object = temp, group.by = "ident", assay = "RNA")
+# cellchat.ctrl@DB <- CellChatDB.mouse
 
-temp <- subset(blca_sub, Condition %in% c("Capsaicin"))
-Idents(temp) <- temp$Cell_Type_2
-cellchat.capsaicin <- createCellChat(object = temp, group.by = "ident", assay = "RNA")
-cellchat.capsaicin@DB <- CellChatDB.mouse
+# temp <- subset(blca_sub, Condition %in% c("Capsaicin"))
+# Idents(temp) <- temp$Cell_Type_2
+# cellchat.capsaicin <- createCellChat(object = temp, group.by = "ident", assay = "RNA")
+# cellchat.capsaicin@DB <- CellChatDB.mouse
 
-temp <- subset(blca_sub, Condition %in% c("LC_6OHDA"))
-Idents(temp) <- temp$Cell_Type_2
-cellchat.lc_6ohda <- createCellChat(object = temp, group.by = "ident", assay = "RNA")
-cellchat.lc_6ohda@DB <- CellChatDB.mouse
+# temp <- subset(blca_sub, Condition %in% c("LC_6OHDA"))
+# Idents(temp) <- temp$Cell_Type_2
+# cellchat.lc_6ohda <- createCellChat(object = temp, group.by = "ident", assay = "RNA")
+# cellchat.lc_6ohda@DB <- CellChatDB.mouse
 
-temp <- subset(blca_sub, Condition %in% c("anti_PD1"))
-Idents(temp) <- temp$Cell_Type_2
-cellchat.anti_pd1 <- createCellChat(object = temp, group.by = "ident", assay = "RNA")
-cellchat.anti_pd1@DB <- CellChatDB.mouse
+# temp <- subset(blca_sub, Condition %in% c("anti_PD1"))
+# Idents(temp) <- temp$Cell_Type_2
+# cellchat.anti_pd1 <- createCellChat(object = temp, group.by = "ident", assay = "RNA")
+# cellchat.anti_pd1@DB <- CellChatDB.mouse
 
-temp <- subset(blca_sub, Condition %in% c("Rime"))
-Idents(temp) <- temp$Cell_Type_2
-cellchat.rime <- createCellChat(object = temp, group.by = "ident", assay = "RNA")
-cellchat.rime@DB <- CellChatDB.mouse
+# temp <- subset(blca_sub, Condition %in% c("Rime"))
+# Idents(temp) <- temp$Cell_Type_2
+# cellchat.rime <- createCellChat(object = temp, group.by = "ident", assay = "RNA")
+# cellchat.rime@DB <- CellChatDB.mouse
 
-rm(blca_sub, temp)
+# rm(blca_sub, temp)
 
-# processing
-cellchat.ctrl <- cellchat.ctrl %>%
-    subsetData() %>%
-    identifyOverExpressedGenes() %>%
-    identifyOverExpressedInteractions() %>%
-    computeCommunProb(type = "triMean") %>%
-    filterCommunication(min.cells = 10) %>%
-    computeCommunProbPathway() %>%
-    aggregateNet() %>%
-    netAnalysis_computeCentrality(slot.name = "netP")
+# # processing
+# cellchat.ctrl <- cellchat.ctrl %>%
+#     subsetData() %>%
+#     identifyOverExpressedGenes() %>%
+#     identifyOverExpressedInteractions() %>%
+#     computeCommunProb(type = "triMean") %>%
+#     filterCommunication(min.cells = 10) %>%
+#     computeCommunProbPathway() %>%
+#     aggregateNet() %>%
+#     netAnalysis_computeCentrality(slot.name = "netP")
 
-cellchat.capsaicin <- cellchat.capsaicin %>%
-    subsetData() %>%
-    identifyOverExpressedGenes() %>%
-    identifyOverExpressedInteractions() %>%
-    computeCommunProb(type = "triMean") %>%
-    filterCommunication(min.cells = 10) %>%
-    computeCommunProbPathway() %>%
-    aggregateNet() %>%
-    netAnalysis_computeCentrality(slot.name = "netP")
+# cellchat.capsaicin <- cellchat.capsaicin %>%
+#     subsetData() %>%
+#     identifyOverExpressedGenes() %>%
+#     identifyOverExpressedInteractions() %>%
+#     computeCommunProb(type = "triMean") %>%
+#     filterCommunication(min.cells = 10) %>%
+#     computeCommunProbPathway() %>%
+#     aggregateNet() %>%
+#     netAnalysis_computeCentrality(slot.name = "netP")
 
-cellchat.lc_6ohda <- cellchat.lc_6ohda %>%
-    subsetData() %>%
-    identifyOverExpressedGenes() %>%
-    identifyOverExpressedInteractions() %>%
-    computeCommunProb(type = "triMean") %>%
-    filterCommunication(min.cells = 10) %>%
-    computeCommunProbPathway() %>%
-    aggregateNet() %>%
-    netAnalysis_computeCentrality(slot.name = "netP")
+# cellchat.lc_6ohda <- cellchat.lc_6ohda %>%
+#     subsetData() %>%
+#     identifyOverExpressedGenes() %>%
+#     identifyOverExpressedInteractions() %>%
+#     computeCommunProb(type = "triMean") %>%
+#     filterCommunication(min.cells = 10) %>%
+#     computeCommunProbPathway() %>%
+#     aggregateNet() %>%
+#     netAnalysis_computeCentrality(slot.name = "netP")
 
-cellchat.anti_pd1 <- cellchat.anti_pd1 %>%
-    subsetData() %>%
-    identifyOverExpressedGenes() %>%
-    identifyOverExpressedInteractions() %>%
-    computeCommunProb(type = "triMean") %>%
-    filterCommunication(min.cells = 10) %>%
-    computeCommunProbPathway() %>%
-    aggregateNet() %>%
-    netAnalysis_computeCentrality(slot.name = "netP")
+# cellchat.anti_pd1 <- cellchat.anti_pd1 %>%
+#     subsetData() %>%
+#     identifyOverExpressedGenes() %>%
+#     identifyOverExpressedInteractions() %>%
+#     computeCommunProb(type = "triMean") %>%
+#     filterCommunication(min.cells = 10) %>%
+#     computeCommunProbPathway() %>%
+#     aggregateNet() %>%
+#     netAnalysis_computeCentrality(slot.name = "netP")
 
-cellchat.rime <- cellchat.rime %>%
-    subsetData() %>%
-    identifyOverExpressedGenes() %>%
-    identifyOverExpressedInteractions() %>%
-    computeCommunProb(type = "triMean") %>%
-    filterCommunication(min.cells = 10) %>%
-    computeCommunProbPathway() %>%
-    aggregateNet() %>%
-    netAnalysis_computeCentrality(slot.name = "netP")
-object.list <- list(
-    "CTRL" = cellchat.ctrl,
-    "Capsaicin" = cellchat.capsaicin,
-    "LC_6OHDA" = cellchat.lc_6ohda,
-    "anti_PD1" = cellchat.anti_pd1,
-    "Rime" = cellchat.rime
-)
+# cellchat.rime <- cellchat.rime %>%
+#     subsetData() %>%
+#     identifyOverExpressedGenes() %>%
+#     identifyOverExpressedInteractions() %>%
+#     computeCommunProb(type = "triMean") %>%
+#     filterCommunication(min.cells = 10) %>%
+#     computeCommunProbPathway() %>%
+#     aggregateNet() %>%
+#     netAnalysis_computeCentrality(slot.name = "netP")
+# object.list <- list(
+#     "CTRL" = cellchat.ctrl,
+#     "Capsaicin" = cellchat.capsaicin,
+#     "LC_6OHDA" = cellchat.lc_6ohda,
+#     "anti_PD1" = cellchat.anti_pd1,
+#     "Rime" = cellchat.rime
+# )
 
-cellchat.merge <- mergeCellChat(object.list, add.names = names(object.list))
-saveRDS(object.list, file = "object.list.rds")
-rm(cellchat.ctrl, cellchat.capsaicin, cellchat.lc_6ohda, cellchat.anti_pd1, cellchat.rime)
+# cellchat.merge <- mergeCellChat(object.list, add.names = names(object.list))
+# saveRDS(object.list, file = "../rds/object.list.rds")
+# rm(cellchat.ctrl, cellchat.capsaicin, cellchat.lc_6ohda, cellchat.anti_pd1, cellchat.rime)
 
-object.list <- readRDS("object.list.rds")
+# object.list <- readRDS("../rds/object.list.rds")
 
-pdf("Compare_Conditions/Circle.Network.All.Weight.Conditions.pdf", 15, 10)
-par(mfrow = c(2, 3), xpd = TRUE)
-lapply(names(object.list), function(x) {
-    groupSize <- as.numeric(table(object.list[[x]]@idents))
-    p <- netVisual_circle(object.list[[x]]@net$weight,
-        color.use = mycolor$Cell_Type_2[cell_types],
-        vertex.weight = groupSize, weight.scale = TRUE, label.edge = FALSE,
-        title.name = paste0("Interaction weights/strength: ", x),
-    )
-})
-dev.off()
+# pdf("Compare_Conditions/Circle.Network.All.Weight.Conditions.pdf", 15, 10)
+# par(mfrow = c(2, 3), xpd = TRUE)
+# lapply(names(object.list), function(x) {
+#     groupSize <- as.numeric(table(object.list[[x]]@idents))
+#     p <- netVisual_circle(object.list[[x]]@net$weight,
+#         color.use = mycolor$Cell_Type_2[cell_types],
+#         vertex.weight = groupSize, weight.scale = TRUE, label.edge = FALSE,
+#         title.name = paste0("Interaction weights/strength: ", x),
+#     )
+# })
+# dev.off()
 
-pdf("Compare_Conditions/Circle.Network.All.Count.Conditions.pdf", 15, 10)
-par(mfrow = c(2, 3), xpd = TRUE)
-lapply(names(object.list), function(x) {
-    groupSize <- as.numeric(table(object.list[[x]]@idents))
-    p <- netVisual_circle(object.list[[x]]@net$count,
-        color.use = mycolor$Cell_Type_2[cell_types],
-        vertex.weight = groupSize, weight.scale = TRUE, label.edge = FALSE,
-        title.name = paste0("Interaction counts: ", x),
-    )
-})
-dev.off()
+# pdf("Compare_Conditions/Circle.Network.All.Count.Conditions.pdf", 15, 10)
+# par(mfrow = c(2, 3), xpd = TRUE)
+# lapply(names(object.list), function(x) {
+#     groupSize <- as.numeric(table(object.list[[x]]@idents))
+#     p <- netVisual_circle(object.list[[x]]@net$count,
+#         color.use = mycolor$Cell_Type_2[cell_types],
+#         vertex.weight = groupSize, weight.scale = TRUE, label.edge = FALSE,
+#         title.name = paste0("Interaction counts: ", x),
+#     )
+# })
+# dev.off()
 
-## 3.2. compare overall network ----
-p1 <- compareInteractions(cellchat.merge,
-    show.legend = FALSE, color.use = mycolor$Condition %>% unname(),
-    group = 1:5
-) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
-p2 <- compareInteractions(cellchat.merge,
-    show.legend = FALSE, color.use = mycolor$Condition %>% unname(),
-    group = 1:5, measure = "weight"
-) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
-pdf("Compare_Conditions/Bar.Compare_Interactions.pdf", 5, 3)
-patchwork::wrap_plots(p1, p2, ncol = 2)
-dev.off()
-rm(p1, p2)
+# ## 3.2. compare overall network ----
+# p1 <- compareInteractions(cellchat.merge,
+#     show.legend = FALSE, color.use = mycolor$Condition %>% unname(),
+#     group = 1:5
+# ) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+# p2 <- compareInteractions(cellchat.merge,
+#     show.legend = FALSE, color.use = mycolor$Condition %>% unname(),
+#     group = 1:5, measure = "weight"
+# ) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+# pdf("Compare_Conditions/Bar.Compare_Interactions.pdf", 5, 3)
+# patchwork::wrap_plots(p1, p2, ncol = 2)
+# dev.off()
+# rm(p1, p2)
 
-pdf("Compare_Conditions/Circle.Network.Capsaicin_vs_Ctrl.Count.pdf", 8, 9)
-netVisual_diffInteraction(cellchat.merge,
-    color.use = mycolor$Cell_Type_2[cell_types], comparison = c(1, 2), weight.scale = TRUE
-)
-dev.off()
-
-pdf("Compare_Conditions/Circle.Network.LC_6OHDA_vs_Ctrl.Count.pdf", 8, 9)
-netVisual_diffInteraction(cellchat.merge,
-    color.use = mycolor$Cell_Type_2[cell_types], comparison = c(1, 3), weight.scale = TRUE
-)
-dev.off()
-
-pdf("Compare_Conditions/Circle.Network.anti_PD1_vs_Ctrl.Count.pdf", 8, 9)
-netVisual_diffInteraction(cellchat.merge,
-    color.use = mycolor$Cell_Type_2[cell_types], comparison = c(1, 4), weight.scale = TRUE
-)
-dev.off()
-
-pdf("Compare_Conditions/Circle.Network.Rime_vs_Ctrl.Count.pdf", 8, 9)
-netVisual_diffInteraction(cellchat.merge,
-    color.use = mycolor$Cell_Type_2[cell_types], comparison = c(1, 5), weight.scale = TRUE
-)
-dev.off()
-
-pdf("Compare_Conditions/Circle.Network.Capsaicin_vs_Ctrl.Weight.pdf", 8, 9)
-netVisual_diffInteraction(cellchat.merge,
-    color.use = mycolor$Cell_Type_2[cell_types], comparison = c(1, 2), weight.scale = TRUE, measure = "weight"
-)
-dev.off()
-
-pdf("Compare_Conditions/Circle.Network.LC_6OHDA_vs_Ctrl.Weight.pdf", 8, 9)
-netVisual_diffInteraction(cellchat.merge,
-    color.use = mycolor$Cell_Type_2[cell_types], comparison = c(1, 3), weight.scale = TRUE, measure = "weight"
-)
-dev.off()
-
-pdf("Compare_Conditions/Circle.Network.anti_PD1_vs_Ctrl.Weight.pdf", 8, 9)
-netVisual_diffInteraction(cellchat.merge,
-    color.use = mycolor$Cell_Type_2[cell_types], comparison = c(1, 4), weight.scale = TRUE, measure = "weight"
-)
-dev.off()
-
-pdf("Compare_Conditions/Circle.Network.Rime_vs_Ctrl.Weight.pdf", 8, 9)
-netVisual_diffInteraction(cellchat.merge,
-    color.use = mycolor$Cell_Type_2[cell_types], comparison = c(1, 5), weight.scale = TRUE, measure = "weight"
-)
-dev.off()
-
-# pdf("Compare_Conditions/Circle.Network.Capsaicin.Weight.CAF.pdf", 8, 9)
+# pdf("Compare_Conditions/Circle.Network.Capsaicin_vs_Ctrl.Count.pdf", 8, 9)
 # netVisual_diffInteraction(cellchat.merge,
-#     color.use = mycolor$Cell_Type_2[cell_types],
-#     weight.scale = TRUE, measure = "weight", comparison = c(1, 2),
-#     sources.use = c("iCAF", "myCAF", "apCAF")
+#     color.use = mycolor$Cell_Type_2[cell_types], comparison = c(1, 2), weight.scale = TRUE
 # )
 # dev.off()
 
-# pdf("Compare_Conditions/Circle.Network.LC_6OHDA.Weight.CAF.pdf", 8, 9)
+# pdf("Compare_Conditions/Circle.Network.LC_6OHDA_vs_Ctrl.Count.pdf", 8, 9)
 # netVisual_diffInteraction(cellchat.merge,
-#     color.use = mycolor$Cell_Type_2[cell_types],
-#     weight.scale = TRUE, measure = "weight", comparison = c(1, 3),
-#     sources.use = c("iCAF", "myCAF", "apCAF")
+#     color.use = mycolor$Cell_Type_2[cell_types], comparison = c(1, 3), weight.scale = TRUE
 # )
 # dev.off()
 
-pdf("Compare_Conditions/Heatmap.Capsaicin_vs_Ctrl.Weight.pdf", 6, 5.5)
-netVisual_heatmap(cellchat.merge,
-    color.use = mycolor$Cell_Type_2[cell_types],
-    comparison = c(1, 2), measure = "weight"
-)
-dev.off()
+# pdf("Compare_Conditions/Circle.Network.anti_PD1_vs_Ctrl.Count.pdf", 8, 9)
+# netVisual_diffInteraction(cellchat.merge,
+#     color.use = mycolor$Cell_Type_2[cell_types], comparison = c(1, 4), weight.scale = TRUE
+# )
+# dev.off()
 
-pdf("Compare_Conditions/Heatmap.LC_6OHDA_vs_Ctrl.Weight.pdf", 6, 5.5)
-netVisual_heatmap(cellchat.merge,
-    color.use = mycolor$Cell_Type_2[cell_types],
-    comparison = c(1, 3), measure = "weight"
-)
-dev.off()
+# pdf("Compare_Conditions/Circle.Network.Rime_vs_Ctrl.Count.pdf", 8, 9)
+# netVisual_diffInteraction(cellchat.merge,
+#     color.use = mycolor$Cell_Type_2[cell_types], comparison = c(1, 5), weight.scale = TRUE
+# )
+# dev.off()
 
-pdf("Compare_Conditions/Heatmap.anti_PD1_vs_Ctrl.Weight.pdf", 6, 5.5)
-netVisual_heatmap(cellchat.merge,
-    color.use = mycolor$Cell_Type_2[cell_types],
-    comparison = c(1, 4), measure = "weight"
-)
-dev.off()
+# pdf("Compare_Conditions/Circle.Network.Capsaicin_vs_Ctrl.Weight.pdf", 8, 9)
+# netVisual_diffInteraction(cellchat.merge,
+#     color.use = mycolor$Cell_Type_2[cell_types], comparison = c(1, 2), weight.scale = TRUE, measure = "weight"
+# )
+# dev.off()
 
-pdf("Compare_Conditions/Heatmap.Rime_vs_Ctrl.Weight.pdf", 6, 5.5)
-netVisual_heatmap(cellchat.merge,
-    color.use = mycolor$Cell_Type_2[cell_types],
-    comparison = c(1, 5), measure = "weight"
-)
-dev.off()
+# pdf("Compare_Conditions/Circle.Network.LC_6OHDA_vs_Ctrl.Weight.pdf", 8, 9)
+# netVisual_diffInteraction(cellchat.merge,
+#     color.use = mycolor$Cell_Type_2[cell_types], comparison = c(1, 3), weight.scale = TRUE, measure = "weight"
+# )
+# dev.off()
 
-num.link <- sapply(object.list, function(x) {
-    rowSums(x@net$count) + colSums(x@net$count) - diag(x@net$count)
-})
-weight.MinMax <- c(min(num.link), max(num.link)) # control the dot size in the different datasets
-p.list <- list()
-for (i in seq_along(object.list)) {
-    p.list[[i]] <- netAnalysis_signalingRole_scatter(object.list[[i]],
-        color.use = mycolor$Cell_Type_2[cell_types],
-        title = names(object.list)[i], weight.MinMax = weight.MinMax
-    ) + lims(x = c(0, 45), y = c(0, 25))
-}
+# pdf("Compare_Conditions/Circle.Network.anti_PD1_vs_Ctrl.Weight.pdf", 8, 9)
+# netVisual_diffInteraction(cellchat.merge,
+#     color.use = mycolor$Cell_Type_2[cell_types], comparison = c(1, 4), weight.scale = TRUE, measure = "weight"
+# )
+# dev.off()
 
-pdf("Compare_Conditions/Scatter.In_out.Compare.pdf", 12, 7)
-patchwork::wrap_plots(plots = p.list, ncol = 3)
-dev.off()
-rm(p.list, num.link, weight.MinMax, i)
+# pdf("Compare_Conditions/Circle.Network.Rime_vs_Ctrl.Weight.pdf", 8, 9)
+# netVisual_diffInteraction(cellchat.merge,
+#     color.use = mycolor$Cell_Type_2[cell_types], comparison = c(1, 5), weight.scale = TRUE, measure = "weight"
+# )
+# dev.off()
 
-## 3.3. identify altered pathways ----
-# scatter altered pathways
-p.list <- lapply(cell_types, function(cell_type) {
-    netAnalysis_signalingChanges_scatter(cellchat.merge,
-        comparison = c(1, 2), idents.use = cell_type
-    )
-})
-pdf("Compare_Conditions/Scatter.Signaling_Changes.Capsaicin.pdf", 20, 15)
-patchwork::wrap_plots(plots = p.list, ncol = 4)
-dev.off()
+# # pdf("Compare_Conditions/Circle.Network.Capsaicin.Weight.CAF.pdf", 8, 9)
+# # netVisual_diffInteraction(cellchat.merge,
+# #     color.use = mycolor$Cell_Type_2[cell_types],
+# #     weight.scale = TRUE, measure = "weight", comparison = c(1, 2),
+# #     sources.use = c("iCAF", "myCAF", "apCAF")
+# # )
+# # dev.off()
 
-p.list <- lapply(cell_types, function(cell_type) {
-    netAnalysis_signalingChanges_scatter(cellchat.merge,
-        signaling.exclude = c("COLLAGEN", "LAMININ"),
-        comparison = c(1, 2), idents.use = cell_type
-    )
-})
-pdf("Compare_Conditions/Scatter.Signaling_Changes.noECM.Capsaicin.pdf", 20, 15)
-patchwork::wrap_plots(plots = p.list, ncol = 4)
-dev.off()
+# # pdf("Compare_Conditions/Circle.Network.LC_6OHDA.Weight.CAF.pdf", 8, 9)
+# # netVisual_diffInteraction(cellchat.merge,
+# #     color.use = mycolor$Cell_Type_2[cell_types],
+# #     weight.scale = TRUE, measure = "weight", comparison = c(1, 3),
+# #     sources.use = c("iCAF", "myCAF", "apCAF")
+# # )
+# # dev.off()
 
-p.list <- lapply(cell_types, function(cell_type) {
-    netAnalysis_signalingChanges_scatter(cellchat.merge,
-        comparison = c(1, 3), idents.use = cell_type
-    )
-})
-pdf("Compare_Conditions/Scatter.Signaling_Changes.LC_6OHDA.pdf", 20, 15)
-patchwork::wrap_plots(plots = p.list, ncol = 4)
-dev.off()
-rm(p.list)
+# pdf("Compare_Conditions/Heatmap.Capsaicin_vs_Ctrl.Weight.pdf", 6, 5.5)
+# netVisual_heatmap(cellchat.merge,
+#     color.use = mycolor$Cell_Type_2[cell_types],
+#     comparison = c(1, 2), measure = "weight"
+# )
+# dev.off()
 
-p.list <- lapply(cell_types, function(cell_type) {
-    netAnalysis_signalingChanges_scatter(cellchat.merge,
-        signaling.exclude = c("COLLAGEN", "LAMININ"),
-        comparison = c(1, 3), idents.use = cell_type
-    )
-})
-pdf("Compare_Conditions/Scatter.Signaling_Changes.noECM.LC_6OHDA.pdf", 20, 15)
-patchwork::wrap_plots(plots = p.list, ncol = 4)
-dev.off()
-rm(p.list)
+# pdf("Compare_Conditions/Heatmap.LC_6OHDA_vs_Ctrl.Weight.pdf", 6, 5.5)
+# netVisual_heatmap(cellchat.merge,
+#     color.use = mycolor$Cell_Type_2[cell_types],
+#     comparison = c(1, 3), measure = "weight"
+# )
+# dev.off()
 
-# bar plot of ranked pathways
-p1 <- rankNet(cellchat.merge,
-    mode = "comparison", measure = "weight", sources.use = NULL, comparison = c(1, 2),
-    targets.use = NULL, stacked = TRUE, do.stat = TRUE
-) + scale_fill_manual(values = mycolor$Condition)
-p2 <- rankNet(cellchat.merge,
-    mode = "comparison", measure = "weight", sources.use = NULL, comparison = c(1, 2),
-    targets.use = NULL, stacked = FALSE, do.stat = TRUE
-) + scale_fill_manual(values = mycolor$Condition)
-pdf("Compare_Conditions/Bar.Ranked.Pathways.Capsaicin.pdf", 7.5, 15)
-patchwork::wrap_plots(p1, p2, ncol = 2)
-dev.off()
+# pdf("Compare_Conditions/Heatmap.anti_PD1_vs_Ctrl.Weight.pdf", 6, 5.5)
+# netVisual_heatmap(cellchat.merge,
+#     color.use = mycolor$Cell_Type_2[cell_types],
+#     comparison = c(1, 4), measure = "weight"
+# )
+# dev.off()
 
-p1 <- rankNet(cellchat.merge,
-    mode = "comparison", measure = "weight", sources.use = NULL, comparison = c(1, 3),
-    targets.use = NULL, stacked = TRUE, do.stat = TRUE
-) + scale_fill_manual(values = mycolor$Condition)
-p2 <- rankNet(cellchat.merge,
-    mode = "comparison", measure = "weight", sources.use = NULL, comparison = c(1, 3),
-    targets.use = NULL, stacked = FALSE, do.stat = TRUE
-) + scale_fill_manual(values = mycolor$Condition)
-pdf("Compare_Conditions/Bar.Ranked.Pathways.LC_6OHDA.pdf", 7.5, 15)
-patchwork::wrap_plots(p1, p2, ncol = 2)
-dev.off()
-rm(p1, p2)
+# pdf("Compare_Conditions/Heatmap.Rime_vs_Ctrl.Weight.pdf", 6, 5.5)
+# netVisual_heatmap(cellchat.merge,
+#     color.use = mycolor$Cell_Type_2[cell_types],
+#     comparison = c(1, 5), measure = "weight"
+# )
+# dev.off()
 
-p1 <- rankNet(cellchat.merge,
-    mode = "comparison", measure = "weight", sources.use = NULL, comparison = c(1, 4),
-    targets.use = NULL, stacked = TRUE, do.stat = TRUE
-) + scale_fill_manual(values = mycolor$Condition)
-p2 <- rankNet(cellchat.merge,
-    mode = "comparison", measure = "weight", sources.use = NULL, comparison = c(1, 4),
-    targets.use = NULL, stacked = FALSE, do.stat = TRUE
-) + scale_fill_manual(values = mycolor$Condition)
-pdf("Compare_Conditions/Bar.Ranked.Pathways.anti_PD1.pdf", 7.5, 15)
-patchwork::wrap_plots(p1, p2, ncol = 2)
-dev.off()
-rm(p1, p2)
+# num.link <- sapply(object.list, function(x) {
+#     rowSums(x@net$count) + colSums(x@net$count) - diag(x@net$count)
+# })
+# weight.MinMax <- c(min(num.link), max(num.link)) # control the dot size in the different datasets
+# p.list <- list()
+# for (i in seq_along(object.list)) {
+#     p.list[[i]] <- netAnalysis_signalingRole_scatter(object.list[[i]],
+#         color.use = mycolor$Cell_Type_2[cell_types],
+#         title = names(object.list)[i], weight.MinMax = weight.MinMax
+#     ) + lims(x = c(0, 45), y = c(0, 25))
+# }
 
-p1 <- rankNet(cellchat.merge,
-    mode = "comparison", measure = "weight", sources.use = NULL, comparison = c(1, 5),
-    targets.use = NULL, stacked = TRUE, do.stat = TRUE
-) + scale_fill_manual(values = mycolor$Condition)
-p2 <- rankNet(cellchat.merge,
-    mode = "comparison", measure = "weight", sources.use = NULL, comparison = c(1, 5),
-    targets.use = NULL, stacked = FALSE, do.stat = TRUE
-) + scale_fill_manual(values = mycolor$Condition)
-pdf("Compare_Conditions/Bar.Ranked.Pathways.Rime.pdf", 7.5, 15)
-patchwork::wrap_plots(p1, p2, ncol = 2)
-dev.off()
-rm(p1, p2)
+# pdf("Compare_Conditions/Scatter.In_out.Compare.pdf", 12, 7)
+# patchwork::wrap_plots(plots = p.list, ncol = 3)
+# dev.off()
+# rm(p.list, num.link, weight.MinMax, i)
 
-dir.create("Compare_Conditions/Pathway_Level")
+# ## 3.3. identify altered pathways ----
+# # scatter altered pathways
+# p.list <- lapply(cell_types, function(cell_type) {
+#     netAnalysis_signalingChanges_scatter(cellchat.merge,
+#         comparison = c(1, 2), idents.use = cell_type
+#     )
+# })
+# pdf("Compare_Conditions/Scatter.Signaling_Changes.Capsaicin.pdf", 20, 15)
+# patchwork::wrap_plots(plots = p.list, ncol = 4)
+# dev.off()
 
-lapply(pathways.selected %>% setdiff(c("FGF", "IL6")), function(pathways.show) {
-    weight.max <- getMaxWeight(object.list, slot.name = c("netP"), attribute = pathways.show)
+# p.list <- lapply(cell_types, function(cell_type) {
+#     netAnalysis_signalingChanges_scatter(cellchat.merge,
+#         signaling.exclude = c("COLLAGEN", "LAMININ"),
+#         comparison = c(1, 2), idents.use = cell_type
+#     )
+# })
+# pdf("Compare_Conditions/Scatter.Signaling_Changes.noECM.Capsaicin.pdf", 20, 15)
+# patchwork::wrap_plots(plots = p.list, ncol = 4)
+# dev.off()
 
-    pdf(paste0("Compare_Conditions/Pathway_Level/Circle.Network.Pathway.", pathways.show, ".pdf"), 15, 10)
-    par(mfrow = c(2, 3), xpd = TRUE)
-    for (i in seq_along(object.list)) {
-        netVisual_aggregate(object.list[[i]],
-            color.use = mycolor$Cell_Type_2[cell_types],
-            signaling = pathways.show,
-            layout = "circle", edge.weight.max = weight.max[1],
-            edge.width.max = 10, signaling.name = paste(pathways.show, names(object.list)[i])
-        )
-    }
-    dev.off()
+# p.list <- lapply(cell_types, function(cell_type) {
+#     netAnalysis_signalingChanges_scatter(cellchat.merge,
+#         comparison = c(1, 3), idents.use = cell_type
+#     )
+# })
+# pdf("Compare_Conditions/Scatter.Signaling_Changes.LC_6OHDA.pdf", 20, 15)
+# patchwork::wrap_plots(plots = p.list, ncol = 4)
+# dev.off()
+# rm(p.list)
 
-    par(mfrow = c(2, 3), xpd = TRUE)
-    ht <- list()
-    for (i in seq_along(object.list)) {
-        ht[[i]] <- netVisual_heatmap(object.list[[i]],
-            color.use = mycolor$Cell_Type_2[cell_types],
-            signaling = pathways.show, color.heatmap = "Reds",
-            title.name = paste(pathways.show, "signaling ", names(object.list)[i])
-        )
-    }
+# p.list <- lapply(cell_types, function(cell_type) {
+#     netAnalysis_signalingChanges_scatter(cellchat.merge,
+#         signaling.exclude = c("COLLAGEN", "LAMININ"),
+#         comparison = c(1, 3), idents.use = cell_type
+#     )
+# })
+# pdf("Compare_Conditions/Scatter.Signaling_Changes.noECM.LC_6OHDA.pdf", 20, 15)
+# patchwork::wrap_plots(plots = p.list, ncol = 4)
+# dev.off()
+# rm(p.list)
 
-    pdf(paste0("Compare_Conditions/Pathway_Level/Heatmap.Pathway.", pathways.show, ".pdf"), 15, 10)
-    ComplexHeatmap::draw(ht[[1]] + ht[[2]] + ht[[3]], ht_gap = unit(0.5, "cm"))
-    dev.off()
+# # bar plot of ranked pathways
+# p1 <- rankNet(cellchat.merge,
+#     mode = "comparison", measure = "weight", sources.use = NULL, comparison = c(1, 2),
+#     targets.use = NULL, stacked = TRUE, do.stat = TRUE
+# ) + scale_fill_manual(values = mycolor$Condition)
+# p2 <- rankNet(cellchat.merge,
+#     mode = "comparison", measure = "weight", sources.use = NULL, comparison = c(1, 2),
+#     targets.use = NULL, stacked = FALSE, do.stat = TRUE
+# ) + scale_fill_manual(values = mycolor$Condition)
+# pdf("Compare_Conditions/Bar.Ranked.Pathways.Capsaicin.pdf", 7.5, 15)
+# patchwork::wrap_plots(p1, p2, ncol = 2)
+# dev.off()
 
-    pdf(paste0("Compare_Conditions/Pathway_Level/Chord.Pathway.", pathways.show, ".pdf"), 15, 10)
-    par(mfrow = c(2, 3), xpd = TRUE)
-    for (i in seq_along(object.list)) {
-        netVisual_aggregate(object.list[[i]],
-            color.use = mycolor$Cell_Type_2[cell_types],
-            signaling = pathways.show,
-            layout = "chord", signaling.name = paste(pathways.show, names(object.list)[i])
-        )
-    }
-    dev.off()
-})
-rm(pathways.show, ht, i, weight.max)
+# p1 <- rankNet(cellchat.merge,
+#     mode = "comparison", measure = "weight", sources.use = NULL, comparison = c(1, 3),
+#     targets.use = NULL, stacked = TRUE, do.stat = TRUE
+# ) + scale_fill_manual(values = mycolor$Condition)
+# p2 <- rankNet(cellchat.merge,
+#     mode = "comparison", measure = "weight", sources.use = NULL, comparison = c(1, 3),
+#     targets.use = NULL, stacked = FALSE, do.stat = TRUE
+# ) + scale_fill_manual(values = mycolor$Condition)
+# pdf("Compare_Conditions/Bar.Ranked.Pathways.LC_6OHDA.pdf", 7.5, 15)
+# patchwork::wrap_plots(p1, p2, ncol = 2)
+# dev.off()
+# rm(p1, p2)
+
+# p1 <- rankNet(cellchat.merge,
+#     mode = "comparison", measure = "weight", sources.use = NULL, comparison = c(1, 4),
+#     targets.use = NULL, stacked = TRUE, do.stat = TRUE
+# ) + scale_fill_manual(values = mycolor$Condition)
+# p2 <- rankNet(cellchat.merge,
+#     mode = "comparison", measure = "weight", sources.use = NULL, comparison = c(1, 4),
+#     targets.use = NULL, stacked = FALSE, do.stat = TRUE
+# ) + scale_fill_manual(values = mycolor$Condition)
+# pdf("Compare_Conditions/Bar.Ranked.Pathways.anti_PD1.pdf", 7.5, 15)
+# patchwork::wrap_plots(p1, p2, ncol = 2)
+# dev.off()
+# rm(p1, p2)
+
+# p1 <- rankNet(cellchat.merge,
+#     mode = "comparison", measure = "weight", sources.use = NULL, comparison = c(1, 5),
+#     targets.use = NULL, stacked = TRUE, do.stat = TRUE
+# ) + scale_fill_manual(values = mycolor$Condition)
+# p2 <- rankNet(cellchat.merge,
+#     mode = "comparison", measure = "weight", sources.use = NULL, comparison = c(1, 5),
+#     targets.use = NULL, stacked = FALSE, do.stat = TRUE
+# ) + scale_fill_manual(values = mycolor$Condition)
+# pdf("Compare_Conditions/Bar.Ranked.Pathways.Rime.pdf", 7.5, 15)
+# patchwork::wrap_plots(p1, p2, ncol = 2)
+# dev.off()
+# rm(p1, p2)
+
+# dir.create("Compare_Conditions/Pathway_Level")
+
+# lapply(pathways.selected %>% setdiff(c("FGF", "IL6")), function(pathways.show) {
+#     weight.max <- getMaxWeight(object.list, slot.name = c("netP"), attribute = pathways.show)
+
+#     pdf(paste0("Compare_Conditions/Pathway_Level/Circle.Network.Pathway.", pathways.show, ".pdf"), 15, 10)
+#     par(mfrow = c(2, 3), xpd = TRUE)
+#     for (i in seq_along(object.list)) {
+#         netVisual_aggregate(object.list[[i]],
+#             color.use = mycolor$Cell_Type_2[cell_types],
+#             signaling = pathways.show,
+#             layout = "circle", edge.weight.max = weight.max[1],
+#             edge.width.max = 10, signaling.name = paste(pathways.show, names(object.list)[i])
+#         )
+#     }
+#     dev.off()
+
+#     par(mfrow = c(2, 3), xpd = TRUE)
+#     ht <- list()
+#     for (i in seq_along(object.list)) {
+#         ht[[i]] <- netVisual_heatmap(object.list[[i]],
+#             color.use = mycolor$Cell_Type_2[cell_types],
+#             signaling = pathways.show, color.heatmap = "Reds",
+#             title.name = paste(pathways.show, "signaling ", names(object.list)[i])
+#         )
+#     }
+
+#     pdf(paste0("Compare_Conditions/Pathway_Level/Heatmap.Pathway.", pathways.show, ".pdf"), 15, 10)
+#     ComplexHeatmap::draw(ht[[1]] + ht[[2]] + ht[[3]], ht_gap = unit(0.5, "cm"))
+#     dev.off()
+
+#     pdf(paste0("Compare_Conditions/Pathway_Level/Chord.Pathway.", pathways.show, ".pdf"), 15, 10)
+#     par(mfrow = c(2, 3), xpd = TRUE)
+#     for (i in seq_along(object.list)) {
+#         netVisual_aggregate(object.list[[i]],
+#             color.use = mycolor$Cell_Type_2[cell_types],
+#             signaling = pathways.show,
+#             layout = "chord", signaling.name = paste(pathways.show, names(object.list)[i])
+#         )
+#     }
+#     dev.off()
+# })
+# rm(pathways.show, ht, i, weight.max)
 
 # ## 3.4. altered interactions (Capsaicin) ----
 # dir.create("Compare_Conditions/LR_Pairs_Capsaicin")
@@ -1760,7 +1783,7 @@ rm(pathways.show, ht, i, weight.max)
 
 # save data ----
 gc()
-saveRDS(mycolor, file = "mycolor.rds")
-saveRDS(blca_obj, file = "blca_obj.rds")
+saveRDS(mycolor, file = "../rds/mycolor.rds")
+saveRDS(blca_obj, file = "../rds/blca_obj.rds")
 rm(blca_obj, object.list)
 save.image("04.Communication.RData")
