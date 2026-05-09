@@ -9,10 +9,10 @@ library(org.Mm.eg.db)
 library(enrichplot)
 library(parallel)
 
-immune_obj <- readRDS("../01.Cell_Type/rds/immune_obj.rds")
-mycolor <- readRDS("../01.Cell_Type/rds/mycolor.rds")
+immune_obj <- readRDS("../rds/immune_obj.rds")
+mycolor <- readRDS("../rds/mycolor.rds")
 
-# load("02.Immune.RData")
+load("02.Immune.RData")
 
 # 1. Differential analysis of each cell type ----
 ## 1.1. Identify DEGs ----
@@ -62,10 +62,13 @@ rm(temp, immune_sub, cell_type, x)
 saveRDS(DEG_list_conditions, file = "DEG_list_conditions.rds")
 DEG_list_conditions <- readRDS("DEG_list_conditions.rds")
 
+names(DEG_list_conditions$Capsaicin)
+
 # volcano plot
+
 lapply(names(DEG_list_conditions), function(x) {
     plot_data <- do.call(rbind, DEG_list_conditions[[x]]) %>% mutate(Comparison = paste0(x, "_vs_CTRL"))
-    plot_data$Cell_Type_2 <- factor(plot_data$Cell_Type_2, levels = names(mycolor$Cell_Type_2)[1:14])
+    plot_data$Cell_Type_2 <- factor(plot_data$Cell_Type_2, levels = levels(immune_obj$Cell_Type_2))
 
     x_max <- max(abs(plot_data$avg_log2FC), na.rm = TRUE)
 
@@ -288,7 +291,7 @@ rm(p_list, term_selected, i)
 ## 1.4. compare DEG & GO across conditions ----
 names(DEG_list_genes)
 dir.create("Compare_Conditions")
-condition_selected <- c("Capsaicin", "anti_PD1", "Rime")
+condition_selected <- c("Capsaicin", "6OHDA")
 
 DEG_list_gene_cell_type <- lapply(names(DEG_list_genes$Capsaicin), function(cell_typex) {
     list(
@@ -461,7 +464,7 @@ T_obj$T_state <- T_obj.projected$functional.cluster
 plot_data <- as.data.frame(table(T_obj.projected$functional.cluster, T_obj.projected$Condition))
 colnames(plot_data) <- c("functional.cluster", "Condition", "Count")
 
-pdf("Barplot.T_subtype.Condition.pdf", 8, 5)
+pdf("Barplot.T_subtype.Condition.pdf", 8, 4)
 patchwork::wrap_plots(
     ggplot(plot_data, aes(x = functional.cluster, y = Count, fill = Condition)) +
         geom_bar(stat = "identity", position = "fill") +
@@ -493,17 +496,35 @@ plot_data$Condition <- factor(plot_data$Condition, levels = names(mycolor$Condit
 pdf("Boxplot.Fraction.T_subtype.pdf", 8, 4.7)
 ggplot(plot_data, aes(x = Condition, y = Fraction)) +
     geom_boxplot(aes(fill = T_subtype), outlier.shape = NA, alpha = 0.5) +
-    geom_jitter(width = 0.2, size = 0.5, alpha = 1) +
+    geom_jitter(width = 0.2, height = 0, size = 0.5, alpha = 1) +
     ggpubr::stat_compare_means(
         label = "p.signif", label.y.npc = 0.98, size = 2.5, ref.group = "CTRL",
     ) +
     facet_wrap(~T_subtype, ncol = 5, scales = "free") +
     labs(title = "Cell Type composition across Samples") +
-    ylab("Fraction (%)") +
+    ylab("Fraction of T cells (%)") +
     scale_fill_manual(values = mycolor$T_subtype) +
     theme_classic() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     NoLegend()
+dev.off()
+
+pdf("Boxplot.Fraction.T_subtype.Merge.pdf", 6, 3)
+ggplot(
+    plot_data %>% filter(!T_subtype %in% c("")),
+    aes(x = T_subtype, y = Fraction, fill = Condition)
+) +
+    geom_boxplot(outlier.shape = NA, alpha = 0.5) +
+    scale_fill_manual(values = mycolor$Condition) +
+    ggpubr::stat_compare_means(
+        aes(group = Condition),
+        label = "p.signif",
+        label.y.npc = 0.98,
+        size = 3
+    ) +
+    theme_classic() +
+    ylab("Fraction of immune cells (%)") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
 dev.off()
 rm(plot_data, temp, T_obj.projected)
 
@@ -517,7 +538,7 @@ roe <- Startrac::calTissueDist(
     method = "chisq",
     min.rowSum = 0
 )
-roe <- roe[setdiff(rownames(roe), "Doublet"), ]
+roe <- roe[setdiff(rownames(roe), "CD4_NaiveLike"), ]
 pdf("Heatmap.Roe.T_state.Condition.pdf", 4, 4.5)
 pheatmap::pheatmap(
     roe,
@@ -525,7 +546,7 @@ pheatmap::pheatmap(
     breaks = seq(0, 2, length.out = 101),
     scale = "none",
     display_numbers = TRUE,
-    cluster_rows = FALSE,
+    cluster_rows = TRUE,
     cluster_cols = FALSE,
 )
 dev.off()
@@ -562,7 +583,7 @@ plot_data <- DotPlot(T_obj %>% subset(!is.na(T_state)),
     group.by = "Condition"
 )$data
 plot_data$group <- rep(rep(c("Treg(Supression)", "Cytotoxicity", "Exhaustion"), times = c(4, 5, 6)),
-    times = 5
+    times = 3
 )
 
 pdf("Dot.T_state.markers.Condition.pdf", 7, 5)
@@ -640,31 +661,31 @@ VlnPlot(T_obj %>% subset(Cell_Type_2 == "T_CD8" & !is.na(T_state)),
     ggtitle("Expression of Pdcd1 in CD8 T cells")
 dev.off()
 
-table(T_obj$T_state)
-p_list <- lapply(levels(T_obj$T_state), function(state) {
-    plot_data <- DotPlot(T_obj %>% subset(T_state == state),
-        features = gene_selected,
-        group.by = "Condition"
-    )$data
-    plot_data$group <- rep(rep(c("Treg(Supression)", "Cytotoxicity", "Exhaustion"), times = c(4, 5, 6)),
-        times = nrow(plot_data) / 15
-    )
+# table(T_obj$T_state)
+# p_list <- lapply(levels(T_obj$T_state), function(state) {
+#     plot_data <- DotPlot(T_obj %>% subset(T_state == state),
+#         features = gene_selected,
+#         group.by = "Condition"
+#     )$data
+#     plot_data$group <- rep(rep(c("Treg(Supression)", "Cytotoxicity", "Exhaustion"), times = c(4, 5, 6)),
+#         times = nrow(plot_data) / 15
+#     )
 
-    ggplot(plot_data, aes(x = features.plot, y = id)) +
-        geom_point(aes(size = pct.exp, fill = avg.exp.scaled), shape = 21) +
-        scale_fill_viridis_c() +
-        facet_grid(cols = vars(group), scales = "free_x", space = "free_x") +
-        theme_classic() +
-        labs(x = "Gene", y = "Condition") +
-        theme(
-            axis.text.x = element_text(angle = 45, hjust = 1),
-            legend.position = "none"
-        ) +
-        ggtitle(paste("Expression in", state))
-})
-pdf("Dot.T_state.markers.Condition.Split.pdf", 12, 12)
-patchwork::wrap_plots(p_list, ncol = 2)
-dev.off()
+#     ggplot(plot_data, aes(x = features.plot, y = id)) +
+#         geom_point(aes(size = pct.exp, fill = avg.exp.scaled), shape = 21) +
+#         scale_fill_viridis_c() +
+#         facet_grid(cols = vars(group), scales = "free_x", space = "free_x") +
+#         theme_classic() +
+#         labs(x = "Gene", y = "Condition") +
+#         theme(
+#             axis.text.x = element_text(angle = 45, hjust = 1),
+#             legend.position = "none"
+#         ) +
+#         ggtitle(paste("Expression in", state))
+# })
+# pdf("Dot.T_state.markers.Condition.Split.pdf", 12, 12)
+# patchwork::wrap_plots(p_list, ncol = 2)
+# dev.off()
 rm(plot_data, state, p_list)
 
 ## 2.4. T state program ----
@@ -733,6 +754,9 @@ pdf("Dot.T_state.Signatures.Condition.Split.pdf", 8, 8)
 patchwork::wrap_plots(p_list, ncol = 3)
 dev.off()
 rm(plot_data, state, p_list)
+
+saveRDS(T_obj, file = "T_obj.rds")
+rm(T_obj)
 
 # save data ----
 gc()
