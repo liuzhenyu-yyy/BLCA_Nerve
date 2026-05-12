@@ -50,23 +50,23 @@ The first stromal-specific figure set checks the expression of `Ramp1`, the CGRP
 
 Ramp1 expression is visualized directly on the UMAP split by condition.
 
-<img src="assets/03.Stromal/UMAP_Ramp1.split.png" width="100%">
+<img src="attachments/03.Stromal/UMAP_Ramp1.split.png" width="100%">
 
 The violin plot shows the condition-wise distribution of Ramp1 expression in CAFs/stromal cells.
 
-<img src="assets/03.Stromal/Violin_Ramp1.CAF.png" width="100%">
+<img src="attachments/03.Stromal/Violin_Ramp1.CAF.png" width="100%">
 
 The dot plot summarizes Ramp1 across stromal cell types and conditions in a compact matrix view.
 
-<img src="assets/03.Stromal/DotPlot_Ramp1.png" width="100%">
+<img src="attachments/03.Stromal/DotPlot_Ramp1.png" width="100%">
 
 ## Cell-Type Differential Expression
 
 For each stromal cell type, the script runs `FindMarkers` for Capsaicin vs CTRL and 6OHDA vs CTRL. The volcano plots show that the perturbations affect stromal lineages in a cell-type-specific way rather than through a single uniform stromal response.
 
-<img src="assets/03.Stromal/Volcano.Capsaicin_vs_CTRL.png" width="100%">
+<img src="attachments/03.Stromal/Volcano.Capsaicin_vs_CTRL.png" width="100%">
 
-<img src="assets/03.Stromal/Volcano.6OHDA_vs_CTRL.png" width="100%">
+<img src="attachments/03.Stromal/Volcano.6OHDA_vs_CTRL.png" width="100%">
 
 The main patterns are easiest to interpret in iCAF and vascular endothelial compartments, where condition-specific stress, remodeling, and signaling programs are strongest.
 
@@ -76,31 +76,31 @@ GO enrichment was performed separately for the regulated genes in each stromal c
 
 For Capsaicin, iCAF and vascular endothelial states show clear up-regulated and down-regulated programs, while myCAF, smooth muscle, lymphatic endothelial, and Schwann cells are dominated by down-regulated or more restricted response sets.
 
-<img src="assets/03.Stromal/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_iCAF_UP.png" width="100%">
+<img src="attachments/03.Stromal/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_iCAF_UP.png" width="100%">
 
-<img src="assets/03.Stromal/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_iCAF_DOWN.png" width="100%">
+<img src="attachments/03.Stromal/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_iCAF_DOWN.png" width="100%">
 
-<img src="assets/03.Stromal/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_Vascular_Endothelial_UP.png" width="100%">
+<img src="attachments/03.Stromal/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_Vascular_Endothelial_UP.png" width="100%">
 
-<img src="assets/03.Stromal/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_Vascular_Endothelial_DOWN.png" width="100%">
+<img src="attachments/03.Stromal/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_Vascular_Endothelial_DOWN.png" width="100%">
 
-<img src="assets/03.Stromal/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_myCAF_DOWN.png" width="100%">
+<img src="attachments/03.Stromal/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_myCAF_DOWN.png" width="100%">
 
-<img src="assets/03.Stromal/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_Smooth_Muscle_DOWN.png" width="100%">
+<img src="attachments/03.Stromal/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_Smooth_Muscle_DOWN.png" width="100%">
 
-<img src="assets/03.Stromal/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_Lymphatic_Endothelial_DOWN.png" width="100%">
+<img src="attachments/03.Stromal/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_Lymphatic_Endothelial_DOWN.png" width="100%">
 
-<img src="assets/03.Stromal/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_Schwann_DOWN.png" width="100%">
+<img src="attachments/03.Stromal/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_Schwann_DOWN.png" width="100%">
 
 The 6OHDA comparison highlights a more compact set of stromal programs, with iCAF and vascular endothelial cells again capturing the most interpretable changes.
 
-<img src="assets/03.Stromal/GO_6OHDA/Dot.GO_6OHDA_vs_CTRL_iCAF_UP.png" width="100%">
+<img src="attachments/03.Stromal/GO_6OHDA/Dot.GO_6OHDA_vs_CTRL_iCAF_UP.png" width="100%">
 
-<img src="assets/03.Stromal/GO_6OHDA/Dot.GO_6OHDA_vs_CTRL_iCAF_DOWN.png" width="100%">
+<img src="attachments/03.Stromal/GO_6OHDA/Dot.GO_6OHDA_vs_CTRL_iCAF_DOWN.png" width="100%">
 
-<img src="assets/03.Stromal/GO_6OHDA/Dot.GO_6OHDA_vs_CTRL_Vascular_Endothelial_UP.png" width="100%">
+<img src="attachments/03.Stromal/GO_6OHDA/Dot.GO_6OHDA_vs_CTRL_Vascular_Endothelial_UP.png" width="100%">
 
-<img src="assets/03.Stromal/GO_6OHDA/Dot.GO_6OHDA_vs_CTRL_Vascular_Endothelial_DOWN.png" width="100%">
+<img src="attachments/03.Stromal/GO_6OHDA/Dot.GO_6OHDA_vs_CTRL_Vascular_Endothelial_DOWN.png" width="100%">
 
 ## Cross-Condition GO Comparison
 
@@ -108,15 +108,15 @@ The `compareCluster` step contrasts condition-specific GO terms in iCAF and vasc
 
 For iCAF, both up- and down-regulated pathways show condition-sensitive shifts in stromal activation and remodeling.
 
-<img src="assets/03.Stromal/Compare_Conditions/GO_Compare_Up_iCAF.png" width="100%">
+<img src="attachments/03.Stromal/Compare_Conditions/GO_Compare_Up_iCAF.png" width="100%">
 
-<img src="assets/03.Stromal/Compare_Conditions/GO_Compare_Down_iCAF.png" width="100%">
+<img src="attachments/03.Stromal/Compare_Conditions/GO_Compare_Down_iCAF.png" width="100%">
 
 For vascular endothelial cells, the comparison likewise shows that the two perturbations do not induce identical endothelial programs.
 
-<img src="assets/03.Stromal/Compare_Conditions/GO_Compare_Up_Vascular_Endothelial.png" width="100%">
+<img src="attachments/03.Stromal/Compare_Conditions/GO_Compare_Up_Vascular_Endothelial.png" width="100%">
 
-<img src="assets/03.Stromal/Compare_Conditions/GO_Compare_Down_Vascular_Endothelial.png" width="100%">
+<img src="attachments/03.Stromal/Compare_Conditions/GO_Compare_Down_Vascular_Endothelial.png" width="100%">
 
 ## Interpretation
 

@@ -60,9 +60,9 @@ The core analysis loop in `code/02.Immune.R` runs `FindMarkers` separately withi
 
 Across both perturbations, the volcano plots show that the strongest signals are not uniform across the immune landscape. Instead, each cell type contributes its own set of up- and down-regulated genes, with clear enrichment of stress-response, interferon/inflammatory, migration, and activation programs in the more responsive compartments.
 
-<img src="assets/02.Immune/Volcano.Capsaicin_vs_CTRL.png" width="100%">
+<img src="attachments/02.Immune/Volcano.Capsaicin_vs_CTRL.png" width="100%">
 
-<img src="assets/02.Immune/Volcano.6OHDA_vs_CTRL.png" width="100%">
+<img src="attachments/02.Immune/Volcano.6OHDA_vs_CTRL.png" width="100%">
 
 ### Representative GO enrichment by cell type
 
@@ -70,129 +70,129 @@ The GO dot plots show that Capsaicin and 6OHDA drive cell-type-specific biologic
 
 For Capsaicin, the GO enrichment plots emphasize immune activation, cellular response to stress, and regulation of effector programs across T-cell and myeloid compartments.
 
-<img src="assets/02.Immune/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_T_CD4_UP.png" width="100%">
+<img src="attachments/02.Immune/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_T_CD4_UP.png" width="100%">
 
-<img src="assets/02.Immune/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_T_CD8_UP.png" width="100%">
+<img src="attachments/02.Immune/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_T_CD8_UP.png" width="100%">
 
-<img src="assets/02.Immune/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_Treg_UP.png" width="100%">
+<img src="attachments/02.Immune/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_Treg_UP.png" width="100%">
 
-<img src="assets/02.Immune/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_Neutrophil_UP.png" width="100%">
+<img src="attachments/02.Immune/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_Neutrophil_UP.png" width="100%">
 
 The corresponding downregulated terms show suppression of programs linked to homeostasis, differentiation, and basal immune maintenance in selected lineages.
 
-<img src="assets/02.Immune/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_T_CD4_DOWN.png" width="100%">
+<img src="attachments/02.Immune/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_T_CD4_DOWN.png" width="100%">
 
-<img src="assets/02.Immune/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_T_CD8_DOWN.png" width="100%">
+<img src="attachments/02.Immune/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_T_CD8_DOWN.png" width="100%">
 
-<img src="assets/02.Immune/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_Treg_DOWN.png" width="100%">
+<img src="attachments/02.Immune/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_Treg_DOWN.png" width="100%">
 
-<img src="assets/02.Immune/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_Neutrophil_DOWN.png" width="100%">
+<img src="attachments/02.Immune/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_Neutrophil_DOWN.png" width="100%">
 
 6OHDA produces a similar but not identical set of immune programs, with particularly clear changes in T cells, myeloid cells, and neutrophils.
 
-<img src="assets/02.Immune/GO_6OHDA/Dot.GO_6OHDA_vs_CTRL_T_CD4_UP.png" width="100%">
+<img src="attachments/02.Immune/GO_6OHDA/Dot.GO_6OHDA_vs_CTRL_T_CD4_UP.png" width="100%">
 
-<img src="assets/02.Immune/GO_6OHDA/Dot.GO_6OHDA_vs_CTRL_T_CD8_UP.png" width="100%">
+<img src="attachments/02.Immune/GO_6OHDA/Dot.GO_6OHDA_vs_CTRL_T_CD8_UP.png" width="100%">
 
-<img src="assets/02.Immune/GO_6OHDA/Dot.GO_6OHDA_vs_CTRL_Treg_UP.png" width="100%">
+<img src="attachments/02.Immune/GO_6OHDA/Dot.GO_6OHDA_vs_CTRL_Treg_UP.png" width="100%">
 
-<img src="assets/02.Immune/GO_6OHDA/Dot.GO_6OHDA_vs_CTRL_Neutrophil_UP.png" width="100%">
+<img src="attachments/02.Immune/GO_6OHDA/Dot.GO_6OHDA_vs_CTRL_Neutrophil_UP.png" width="100%">
 
-<img src="assets/02.Immune/GO_6OHDA/Dot.GO_6OHDA_vs_CTRL_T_CD4_DOWN.png" width="100%">
+<img src="attachments/02.Immune/GO_6OHDA/Dot.GO_6OHDA_vs_CTRL_T_CD4_DOWN.png" width="100%">
 
-<img src="assets/02.Immune/GO_6OHDA/Dot.GO_6OHDA_vs_CTRL_T_CD8_DOWN.png" width="100%">
+<img src="attachments/02.Immune/GO_6OHDA/Dot.GO_6OHDA_vs_CTRL_T_CD8_DOWN.png" width="100%">
 
-<img src="assets/02.Immune/GO_6OHDA/Dot.GO_6OHDA_vs_CTRL_Treg_DOWN.png" width="100%">
+<img src="attachments/02.Immune/GO_6OHDA/Dot.GO_6OHDA_vs_CTRL_Treg_DOWN.png" width="100%">
 
-<img src="assets/02.Immune/GO_6OHDA/Dot.GO_6OHDA_vs_CTRL_Neutrophil_DOWN.png" width="100%">
+<img src="attachments/02.Immune/GO_6OHDA/Dot.GO_6OHDA_vs_CTRL_Neutrophil_DOWN.png" width="100%">
 
 ## Cross-Condition Comparison
 
 The comparison module asks a simpler question: which DEGs are shared between conditions, and which pathways distinguish Capsaicin from 6OHDA within the same cell type? The Venn diagrams show that the overlap is cell-type dependent, with some lineages showing strong shared responses and others maintaining more condition-specific signatures.
 
-<img src="assets/02.Immune/Compare_Conditions/Venn_DEGs_Up_T_CD4.png" width="100%">
+<img src="attachments/02.Immune/Compare_Conditions/Venn_DEGs_Up_T_CD4.png" width="100%">
 
-<img src="assets/02.Immune/Compare_Conditions/Venn_DEGs_Up_T_CD8.png" width="100%">
+<img src="attachments/02.Immune/Compare_Conditions/Venn_DEGs_Up_T_CD8.png" width="100%">
 
-<img src="assets/02.Immune/Compare_Conditions/Venn_DEGs_Up_Treg.png" width="100%">
+<img src="attachments/02.Immune/Compare_Conditions/Venn_DEGs_Up_Treg.png" width="100%">
 
-<img src="assets/02.Immune/Compare_Conditions/Venn_DEGs_Up_Neutrophil.png" width="100%">
+<img src="attachments/02.Immune/Compare_Conditions/Venn_DEGs_Up_Neutrophil.png" width="100%">
 
 The downregulated Venn plots show the same cell-type specificity from the opposite direction.
 
-<img src="assets/02.Immune/Compare_Conditions/Venn_DEGs_Down_T_CD4.png" width="100%">
+<img src="attachments/02.Immune/Compare_Conditions/Venn_DEGs_Down_T_CD4.png" width="100%">
 
-<img src="assets/02.Immune/Compare_Conditions/Venn_DEGs_Down_T_CD8.png" width="100%">
+<img src="attachments/02.Immune/Compare_Conditions/Venn_DEGs_Down_T_CD8.png" width="100%">
 
-<img src="assets/02.Immune/Compare_Conditions/Venn_DEGs_Down_Treg.png" width="100%">
+<img src="attachments/02.Immune/Compare_Conditions/Venn_DEGs_Down_Treg.png" width="100%">
 
-<img src="assets/02.Immune/Compare_Conditions/Venn_DEGs_Down_Neutrophil.png" width="100%">
+<img src="attachments/02.Immune/Compare_Conditions/Venn_DEGs_Down_Neutrophil.png" width="100%">
 
 The paired GO comparison panels capture how the shared or condition-specific DEG sets translate into biological functions.
 
-<img src="assets/02.Immune/Compare_Conditions/GO_Compare_Up_T_CD4.png" width="100%">
+<img src="attachments/02.Immune/Compare_Conditions/GO_Compare_Up_T_CD4.png" width="100%">
 
-<img src="assets/02.Immune/Compare_Conditions/GO_Compare_Up_T_CD8.png" width="100%">
+<img src="attachments/02.Immune/Compare_Conditions/GO_Compare_Up_T_CD8.png" width="100%">
 
-<img src="assets/02.Immune/Compare_Conditions/GO_Compare_Up_Treg.png" width="100%">
+<img src="attachments/02.Immune/Compare_Conditions/GO_Compare_Up_Treg.png" width="100%">
 
-<img src="assets/02.Immune/Compare_Conditions/GO_Compare_Up_Neutrophil.png" width="100%">
+<img src="attachments/02.Immune/Compare_Conditions/GO_Compare_Up_Neutrophil.png" width="100%">
 
-<img src="assets/02.Immune/Compare_Conditions/GO_Compare_Down_T_CD4.png" width="100%">
+<img src="attachments/02.Immune/Compare_Conditions/GO_Compare_Down_T_CD4.png" width="100%">
 
-<img src="assets/02.Immune/Compare_Conditions/GO_Compare_Down_T_CD8.png" width="100%">
+<img src="attachments/02.Immune/Compare_Conditions/GO_Compare_Down_T_CD8.png" width="100%">
 
-<img src="assets/02.Immune/Compare_Conditions/GO_Compare_Down_Treg.png" width="100%">
+<img src="attachments/02.Immune/Compare_Conditions/GO_Compare_Down_Treg.png" width="100%">
 
-<img src="assets/02.Immune/Compare_Conditions/GO_Compare_Down_Neutrophil.png" width="100%">
+<img src="attachments/02.Immune/Compare_Conditions/GO_Compare_Down_Neutrophil.png" width="100%">
 
 ## T-Cell Atlas Projection
 
 To resolve T-cell functional states, the T-cell subset is projected onto the ProjecTILs mouse TIL atlas. This step provides an external atlas-based annotation of the T-cell compartment and places the BLCA immune cells into a familiar CD4/CD8/Treg functional framework.
 
-<img src="assets/02.Immune/Projection_of_T_cells.png" width="100%">
+<img src="attachments/02.Immune/Projection_of_T_cells.png" width="100%">
 
 The radar plot summarizes the projected state composition and makes the dominant functional axes easy to compare across the atlas reference and the query data.
 
-<img src="assets/02.Immune/Radar.T.Projection.png" width="100%">
+<img src="attachments/02.Immune/Radar.T.Projection.png" width="100%">
 
 The condition-wise fraction plots show how the projected T-cell states are redistributed across CTRL, Capsaicin, and 6OHDA.
 
-<img src="assets/02.Immune/Barplot.T_subtype.Condition.png" width="100%">
+<img src="attachments/02.Immune/Barplot.T_subtype.Condition.png" width="100%">
 
-<img src="assets/02.Immune/Boxplot.Fraction.T_subtype.png" width="100%">
+<img src="attachments/02.Immune/Boxplot.Fraction.T_subtype.png" width="100%">
 
-<img src="assets/02.Immune/Boxplot.Fraction.T_subtype.Merge.png" width="100%">
+<img src="attachments/02.Immune/Boxplot.Fraction.T_subtype.Merge.png" width="100%">
 
 The Roe heatmap provides a compact summary of whether the projected states are enriched or depleted in particular conditions.
 
-<img src="assets/02.Immune/Heatmap.Roe.T_state.Condition.png" width="100%">
+<img src="attachments/02.Immune/Heatmap.Roe.T_state.Condition.png" width="100%">
 
 ## T-State Marker Expression
 
 The marker plots support the ProjecTILs state calls. They show the expected separation between suppressive/regulatory features, cytotoxic programs, and exhaustion-associated checkpoint markers.
 
-<img src="assets/02.Immune/Dot.T_state.markers.Condition.png" width="100%">
+<img src="attachments/02.Immune/Dot.T_state.markers.Condition.png" width="100%">
 
-<img src="assets/02.Immune/Vln.T_state.marker.png" width="100%">
+<img src="attachments/02.Immune/Vln.T_state.marker.png" width="100%">
 
-<img src="assets/02.Immune/Vln.T_state.marker.split.png" width="100%">
+<img src="attachments/02.Immune/Vln.T_state.marker.split.png" width="100%">
 
 PDCD1 is shown separately for all T cells, CD8 T cells, and CD4 T cells to highlight checkpoint-related variation across conditions.
 
-<img src="assets/02.Immune/Dot.T_PDCD1.Condition.png" width="100%">
+<img src="attachments/02.Immune/Dot.T_PDCD1.Condition.png" width="100%">
 
-<img src="assets/02.Immune/Dot.T_CD8_PDCD1.Condition.png" width="100%">
+<img src="attachments/02.Immune/Dot.T_CD8_PDCD1.Condition.png" width="100%">
 
-<img src="assets/02.Immune/Dot.T_CD4_PDCD1.Condition.png" width="100%">
+<img src="attachments/02.Immune/Dot.T_CD4_PDCD1.Condition.png" width="100%">
 
-<img src="assets/02.Immune/Vln.T_CD8_PDCD1.Condition.png" width="100%">
+<img src="attachments/02.Immune/Vln.T_CD8_PDCD1.Condition.png" width="100%">
 
 ## T-Cell Program Signatures
 
 The signature-level analysis expands the marker view into broader T-cell programs. These plots are useful for separating suppressive/regulatory tendencies from cytotoxicity and exhaustion-like states.
 
-<img src="assets/02.Immune/Dot.T_state.Signature.Condition.png" width="100%">
+<img src="attachments/02.Immune/Dot.T_state.Signature.Condition.png" width="100%">
 
 The signature plots reinforce the same conclusion at both the pooled and state-specific levels: condition effects on T cells are organized around immune activation, suppression, and exhaustion-related programs rather than a single uniform shift.
 
@@ -200,15 +200,15 @@ The signature plots reinforce the same conclusion at both the pooled and state-s
 
 The Capsaicin GSEA plots provide a more focused view of pathway-level changes in selected T-cell and myeloid subsets. In the report outputs, T_CD4 and neutrophils show especially readable enrichment patterns.
 
-<img src="assets/02.Immune/GSEA_Capsaicin/Dot.GSEA_Capsaicin_in_T_CD4.png" width="100%">
+<img src="attachments/02.Immune/GSEA_Capsaicin/Dot.GSEA_Capsaicin_in_T_CD4.png" width="100%">
 
-<img src="assets/02.Immune/GSEA_Capsaicin/GSEA_Capsaicin_in_T_CD4_gseaplot_001.png" width="100%">
+<img src="attachments/02.Immune/GSEA_Capsaicin/GSEA_Capsaicin_in_T_CD4_gseaplot_001.png" width="100%">
 
-<img src="assets/02.Immune/GSEA_Capsaicin/Dot.GSEA_Capsaicin_in_Treg.png" width="100%">
+<img src="attachments/02.Immune/GSEA_Capsaicin/Dot.GSEA_Capsaicin_in_Treg.png" width="100%">
 
-<img src="assets/02.Immune/GSEA_Capsaicin/Dot.GSEA_Capsaicin_in_Neutrophil.png" width="100%">
+<img src="attachments/02.Immune/GSEA_Capsaicin/Dot.GSEA_Capsaicin_in_Neutrophil.png" width="100%">
 
-<img src="assets/02.Immune/GSEA_Capsaicin/GSEA_Capsaicin_in_Neutrophil_gseaplot_001.png" width="100%">
+<img src="attachments/02.Immune/GSEA_Capsaicin/GSEA_Capsaicin_in_Neutrophil_gseaplot_001.png" width="100%">
 
 ## Takeaway
 

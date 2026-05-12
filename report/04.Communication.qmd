@@ -61,51 +61,51 @@ The communication script first checks how the integrated `cell_type_2` annotatio
 
 The condition-level barplot summarizes how each `cell_type_2` class is represented across CTRL, Capsaicin, and 6OHDA.
 
-<img src="assets/04.Conmmunication/Barplot.Cell_Type_2.Condition.png" width="100%">
+<img src="attachments/04.Conmmunication/Barplot.Cell_Type_2.Condition.png" width="100%">
 
 The sample-level fraction boxplots show the same composition at a finer resolution, first by individual `cell_type_2` label and then with cancer excluded for a cleaner cross-condition comparison.
 
-<img src="assets/04.Conmmunication/Boxplot.Fraction.Cell_Type_2.png" width="100%">
+<img src="attachments/04.Conmmunication/Boxplot.Fraction.Cell_Type_2.png" width="100%">
 
-<img src="assets/04.Conmmunication/Boxplot.Fraction.Cell_Type.Merge.png" width="100%">
+<img src="attachments/04.Conmmunication/Boxplot.Fraction.Cell_Type.Merge.png" width="100%">
 
 The Ro/e heatmap gives a compact summary of how strongly each major `cell_type_2` class is associated with the different conditions.
 
-<img src="assets/04.Conmmunication/Heatmap.Roe.Cell_Type_2.Condition.png" width="100%">
+<img src="attachments/04.Conmmunication/Heatmap.Roe.Cell_Type_2.Condition.png" width="100%">
 
 ## Global communication context
 
 Before zooming in on individual signaling axes, the CellChat network summaries show that the inferred cell-cell communication landscape is structured and non-uniform. Interaction counts and weights provide a compact view of which cell populations participate most strongly in the overall network.
 
-<img src="assets/04.Conmmunication/Circle.Network.All.Count.png" width="100%">
+<img src="attachments/04.Conmmunication/Circle.Network.All.Count.png" width="100%">
 
-<img src="assets/04.Conmmunication/Circle.Network.All.Weight.png" width="100%">
+<img src="attachments/04.Conmmunication/Circle.Network.All.Weight.png" width="100%">
 
 The pairwise heatmap and incoming/outgoing scatter plot show the same network from complementary perspectives, making it easier to identify sender-dominated and receiver-dominated cell types.
 
-<img src="assets/04.Conmmunication/Heatmap.Interaction.png" width="100%">
+<img src="attachments/04.Conmmunication/Heatmap.Interaction.png" width="100%">
 
-<img src="assets/04.Conmmunication/Scatter.In_out.png" width="100%">
+<img src="attachments/04.Conmmunication/Scatter.In_out.png" width="100%">
 
 The split circle plots further separate outgoing and incoming contributions across cell populations.
 
-<img src="assets/04.Conmmunication/Circle.Network.Split.Weigh.Out.png" width="100%">
+<img src="attachments/04.Conmmunication/Circle.Network.Split.Weigh.Out.png" width="100%">
 
-<img src="assets/04.Conmmunication/Circle.Network.Split.Weigh.In.png" width="100%">
+<img src="attachments/04.Conmmunication/Circle.Network.Split.Weigh.In.png" width="100%">
 
 ## PD-L1 signaling
 
 PD-L1 is one of the most interesting immune-evasion-related pathways in the CellChat output. The pathway-level views below show how PD-L1 signaling is distributed across sender and receiver cell types, where the strongest connections appear, and which cell types dominate the outgoing or incoming roles.
 
-<img src="assets/04.Conmmunication/Pathway_Level/Circle.Network.Pathway.PD-L1.png" width="100%">
+<img src="attachments/04.Conmmunication/Pathway_Level/Circle.Network.Pathway.PD-L1.png" width="100%">
 
-<img src="assets/04.Conmmunication/Pathway_Level/Heatmap.Pathway.PD-L1.png" width="100%">
+<img src="attachments/04.Conmmunication/Pathway_Level/Heatmap.Pathway.PD-L1.png" width="100%">
 
-<img src="assets/04.Conmmunication/Pathway_Level/Chord.Pathway.PD-L1.png" width="100%">
+<img src="attachments/04.Conmmunication/Pathway_Level/Chord.Pathway.PD-L1.png" width="100%">
 
-<img src="assets/04.Conmmunication/Pathway_Level/Heatmap_signalingRole.PD-L1.png" width="100%">
+<img src="attachments/04.Conmmunication/Pathway_Level/Heatmap_signalingRole.PD-L1.png" width="100%">
 
-<img src="assets/04.Conmmunication/Pathway_Level/Bar.LR_Contribution.PD-L1.png" width="100%">
+<img src="attachments/04.Conmmunication/Pathway_Level/Bar.LR_Contribution.PD-L1.png" width="100%">
 
 Together, these figures indicate how PD-L1-related communication is organized at the network level rather than being restricted to a single isolated pair of populations. That makes PD-L1 a useful readout for identifying cell states that may contribute to local immune suppression in the BLCA microenvironment.
 
@@ -113,15 +113,15 @@ Together, these figures indicate how PD-L1-related communication is organized at
 
 The IGF axis is the second pathway I keep in the report because it captures a growth-factor program that is often linked to stromal support, survival, and tumor-associated remodeling. In the CellChat output, the IGF pathway also shows a clear, structured communication architecture across the major cell groups.
 
-<img src="assets/04.Conmmunication/Pathway_Level/Circle.Network.Pathway.IGF.png" width="100%">
+<img src="attachments/04.Conmmunication/Pathway_Level/Circle.Network.Pathway.IGF.png" width="100%">
 
-<img src="assets/04.Conmmunication/Pathway_Level/Heatmap.Pathway.IGF.png" width="100%">
+<img src="attachments/04.Conmmunication/Pathway_Level/Heatmap.Pathway.IGF.png" width="100%">
 
-<img src="assets/04.Conmmunication/Pathway_Level/Chord.Pathway.IGF.png" width="100%">
+<img src="attachments/04.Conmmunication/Pathway_Level/Chord.Pathway.IGF.png" width="100%">
 
-<img src="assets/04.Conmmunication/Pathway_Level/Heatmap_signalingRole.IGF.png" width="100%">
+<img src="attachments/04.Conmmunication/Pathway_Level/Heatmap_signalingRole.IGF.png" width="100%">
 
-<img src="assets/04.Conmmunication/Pathway_Level/Bar.LR_Contribution.IGF.png" width="100%">
+<img src="attachments/04.Conmmunication/Pathway_Level/Bar.LR_Contribution.IGF.png" width="100%">
 
 The IGF pathway is especially useful for contrasting with PD-L1 because it reflects a growth and survival axis rather than an immune checkpoint axis. Reading the two together helps separate suppressive immune communication from stromal or proliferative signaling.
 
