@@ -1,0 +1,130 @@
+---
+title: "Cell-Cell Communication in Mouse BLCA"
+subtitle: "Focused report for PD-L1 and IGF signaling"
+format:
+  html:
+    toc: true
+    number-sections: true
+    theme: cosmo
+    code-fold: false
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+library(dplyr)
+
+blca_obj <- readRDS("../../results/rds/blca_obj.rds")
+
+count_tbl <- function(x) {
+  out <- as.data.frame(table(x), stringsAsFactors = FALSE)
+  colnames(out) <- c("Class", "Cells")
+  out <- out %>% arrange(desc(Cells))
+  out$Share <- sprintf("%.1f%%", out$Cells / sum(out$Cells) * 100)
+  out
+}
+
+cell_type_tbl <- count_tbl(blca_obj$Cell_Type_2)
+condition_tbl <- count_tbl(blca_obj$Condition)
+
+cellchat_cell_types <- levels(blca_obj$Cell_Type_2) %>%
+  grep("Cycling", ., invert = TRUE, value = TRUE) %>%
+  setdiff(c("Adipocyte", "Schwann", "Smooth_Muscle", "Others"))
+cellchat_cell_tbl <- count_tbl(blca_obj$Cell_Type_2[blca_obj$Cell_Type_2 %in% cellchat_cell_types])
+
+total_cells <- ncol(blca_obj)
+```
+
+## Overview
+
+This report summarizes the CellChat-based communication analysis implemented in `code/04.Communication.R` and narrows the presentation to two pathways of interest: PD-L1 and IGF signaling. The full analysis in the script computes a global cell-cell interaction network, global communication patterns, and pathway-level networks; here I keep the report focused on the pathway outputs that best support biological interpretation.
+
+The integrated BLCA object contains `r total_cells` cells. Its annotation structure provides the cellular context for the communication model:
+
+`r knitr::kable(cell_type_tbl, align = c("l", "r", "r"))`
+
+The CellChat model does not use every `cell_type_2` label. In the script, cycling populations and a small set of rare or less informative lineages are excluded before inference, leaving the following communication input set:
+
+`r knitr::kable(cellchat_cell_tbl, align = c("l", "r", "r"))`
+
+The excluded labels are `Cycling`, `Adipocyte`, `Schwann`, `Smooth_Muscle`, and `Others`.
+
+Condition balance is also preserved in the integrated object and is important for interpreting the perturbation-specific communication patterns:
+
+`r knitr::kable(condition_tbl, align = c("l", "r", "r"))`
+
+## Cell_Type_2 Across Conditions
+
+The communication script first checks how the integrated `cell_type_2` annotation is distributed across conditions and samples. These figures provide the composition context for the downstream CellChat inference.
+
+The condition-level barplot summarizes how each `cell_type_2` class is represented across CTRL, Capsaicin, and 6OHDA.
+
+<img src="assets/04.Conmmunication/Barplot.Cell_Type_2.Condition.png" width="100%">
+
+The sample-level fraction boxplots show the same composition at a finer resolution, first by individual `cell_type_2` label and then with cancer excluded for a cleaner cross-condition comparison.
+
+<img src="assets/04.Conmmunication/Boxplot.Fraction.Cell_Type_2.png" width="100%">
+
+<img src="assets/04.Conmmunication/Boxplot.Fraction.Cell_Type.Merge.png" width="100%">
+
+The Ro/e heatmap gives a compact summary of how strongly each major `cell_type_2` class is associated with the different conditions.
+
+<img src="assets/04.Conmmunication/Heatmap.Roe.Cell_Type_2.Condition.png" width="100%">
+
+## Global communication context
+
+Before zooming in on individual signaling axes, the CellChat network summaries show that the inferred cell-cell communication landscape is structured and non-uniform. Interaction counts and weights provide a compact view of which cell populations participate most strongly in the overall network.
+
+<img src="assets/04.Conmmunication/Circle.Network.All.Count.png" width="100%">
+
+<img src="assets/04.Conmmunication/Circle.Network.All.Weight.png" width="100%">
+
+The pairwise heatmap and incoming/outgoing scatter plot show the same network from complementary perspectives, making it easier to identify sender-dominated and receiver-dominated cell types.
+
+<img src="assets/04.Conmmunication/Heatmap.Interaction.png" width="100%">
+
+<img src="assets/04.Conmmunication/Scatter.In_out.png" width="100%">
+
+The split circle plots further separate outgoing and incoming contributions across cell populations.
+
+<img src="assets/04.Conmmunication/Circle.Network.Split.Weigh.Out.png" width="100%">
+
+<img src="assets/04.Conmmunication/Circle.Network.Split.Weigh.In.png" width="100%">
+
+## PD-L1 signaling
+
+PD-L1 is one of the most interesting immune-evasion-related pathways in the CellChat output. The pathway-level views below show how PD-L1 signaling is distributed across sender and receiver cell types, where the strongest connections appear, and which cell types dominate the outgoing or incoming roles.
+
+<img src="assets/04.Conmmunication/Pathway_Level/Circle.Network.Pathway.PD-L1.png" width="100%">
+
+<img src="assets/04.Conmmunication/Pathway_Level/Heatmap.Pathway.PD-L1.png" width="100%">
+
+<img src="assets/04.Conmmunication/Pathway_Level/Chord.Pathway.PD-L1.png" width="100%">
+
+<img src="assets/04.Conmmunication/Pathway_Level/Heatmap_signalingRole.PD-L1.png" width="100%">
+
+<img src="assets/04.Conmmunication/Pathway_Level/Bar.LR_Contribution.PD-L1.png" width="100%">
+
+Together, these figures indicate how PD-L1-related communication is organized at the network level rather than being restricted to a single isolated pair of populations. That makes PD-L1 a useful readout for identifying cell states that may contribute to local immune suppression in the BLCA microenvironment.
+
+## IGF signaling
+
+The IGF axis is the second pathway I keep in the report because it captures a growth-factor program that is often linked to stromal support, survival, and tumor-associated remodeling. In the CellChat output, the IGF pathway also shows a clear, structured communication architecture across the major cell groups.
+
+<img src="assets/04.Conmmunication/Pathway_Level/Circle.Network.Pathway.IGF.png" width="100%">
+
+<img src="assets/04.Conmmunication/Pathway_Level/Heatmap.Pathway.IGF.png" width="100%">
+
+<img src="assets/04.Conmmunication/Pathway_Level/Chord.Pathway.IGF.png" width="100%">
+
+<img src="assets/04.Conmmunication/Pathway_Level/Heatmap_signalingRole.IGF.png" width="100%">
+
+<img src="assets/04.Conmmunication/Pathway_Level/Bar.LR_Contribution.IGF.png" width="100%">
+
+The IGF pathway is especially useful for contrasting with PD-L1 because it reflects a growth and survival axis rather than an immune checkpoint axis. Reading the two together helps separate suppressive immune communication from stromal or proliferative signaling.
+
+## Takeaway
+
+The communication analysis supports two complementary conclusions. First, the global CellChat network shows that intercellular signaling in BLCA is organized and cell-type specific rather than diffuse. Second, the PD-L1 and IGF pathway panels isolate two biologically distinct communication modes: one linked to immune regulation and one linked to growth-factor signaling. Keeping the report focused on these two axes makes the pathway interpretation clearer than presenting the full set of CellChat pathways.

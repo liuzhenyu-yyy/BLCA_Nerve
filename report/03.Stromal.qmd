@@ -1,0 +1,123 @@
+---
+title: "Functional Analysis of Stromal Cells in Mouse BLCA"
+subtitle: "Report for the 03.Stromal analysis"
+format:
+  html:
+    toc: true
+    number-sections: true
+    theme: cosmo
+    code-fold: false
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+library(dplyr)
+
+stromal_obj <- readRDS("../../results/rds/stromal_obj.rds")
+
+count_tbl <- function(x) {
+  out <- as.data.frame(table(x), stringsAsFactors = FALSE)
+  colnames(out) <- c("Class", "Cells")
+  out <- out %>% arrange(desc(Cells))
+  out$Share <- sprintf("%.1f%%", out$Cells / sum(out$Cells) * 100)
+  out
+}
+
+stromal_cell_tbl <- count_tbl(stromal_obj$Cell_Type_2)
+stromal_condition_tbl <- count_tbl(stromal_obj$Condition)
+
+stromal_cells <- ncol(stromal_obj)
+``` 
+
+## Overview
+
+This report summarizes the stromal-cell functional analysis implemented in `code/03.Stromal.R`. The workflow starts from the stromal subset, runs differential expression for each stromal cell type across conditions, performs GO enrichment for the regulated gene sets, and then focuses on CGRP receptor-related expression and condition-wise comparisons in iCAF- and vascular-endothelial-like compartments.
+
+The stromal subset contains `r stromal_cells` cells. The refined stromal annotation resolves the expected endothelial, fibroblast/CAF, contractile, neuronal, and adipocyte-like states:
+
+`r knitr::kable(stromal_cell_tbl, align = c("l", "r", "r"))`
+
+The condition balance is captured in the following table and is carried through all downstream comparisons:
+
+`r knitr::kable(stromal_condition_tbl, align = c("l", "r", "r"))`
+
+## CGRP Receptor Expression in Stromal Cells
+
+The first stromal-specific figure set checks the expression of `Ramp1`, the CGRP receptor component, across stromal cell types and conditions. This is a useful anchor because the downstream functional comparisons are built around stromal responsiveness to the perturbations.
+
+Ramp1 expression is visualized directly on the UMAP split by condition.
+
+<img src="assets/03.Stromal/UMAP_Ramp1.split.png" width="100%">
+
+The violin plot shows the condition-wise distribution of Ramp1 expression in CAFs/stromal cells.
+
+<img src="assets/03.Stromal/Violin_Ramp1.CAF.png" width="100%">
+
+The dot plot summarizes Ramp1 across stromal cell types and conditions in a compact matrix view.
+
+<img src="assets/03.Stromal/DotPlot_Ramp1.png" width="100%">
+
+## Cell-Type Differential Expression
+
+For each stromal cell type, the script runs `FindMarkers` for Capsaicin vs CTRL and 6OHDA vs CTRL. The volcano plots show that the perturbations affect stromal lineages in a cell-type-specific way rather than through a single uniform stromal response.
+
+<img src="assets/03.Stromal/Volcano.Capsaicin_vs_CTRL.png" width="100%">
+
+<img src="assets/03.Stromal/Volcano.6OHDA_vs_CTRL.png" width="100%">
+
+The main patterns are easiest to interpret in iCAF and vascular endothelial compartments, where condition-specific stress, remodeling, and signaling programs are strongest.
+
+## GO Enrichment by Stromal Cell Type
+
+GO enrichment was performed separately for the regulated genes in each stromal cell type. The converted figure set shows that Capsaicin and 6OHDA do not simply trigger the same pathway program in all stromal cells; instead, the strongest terms are cell-type dependent.
+
+For Capsaicin, iCAF and vascular endothelial states show clear up-regulated and down-regulated programs, while myCAF, smooth muscle, lymphatic endothelial, and Schwann cells are dominated by down-regulated or more restricted response sets.
+
+<img src="assets/03.Stromal/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_iCAF_UP.png" width="100%">
+
+<img src="assets/03.Stromal/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_iCAF_DOWN.png" width="100%">
+
+<img src="assets/03.Stromal/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_Vascular_Endothelial_UP.png" width="100%">
+
+<img src="assets/03.Stromal/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_Vascular_Endothelial_DOWN.png" width="100%">
+
+<img src="assets/03.Stromal/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_myCAF_DOWN.png" width="100%">
+
+<img src="assets/03.Stromal/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_Smooth_Muscle_DOWN.png" width="100%">
+
+<img src="assets/03.Stromal/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_Lymphatic_Endothelial_DOWN.png" width="100%">
+
+<img src="assets/03.Stromal/GO_Capsaicin/Dot.GO_Capsaicin_vs_CTRL_Schwann_DOWN.png" width="100%">
+
+The 6OHDA comparison highlights a more compact set of stromal programs, with iCAF and vascular endothelial cells again capturing the most interpretable changes.
+
+<img src="assets/03.Stromal/GO_6OHDA/Dot.GO_6OHDA_vs_CTRL_iCAF_UP.png" width="100%">
+
+<img src="assets/03.Stromal/GO_6OHDA/Dot.GO_6OHDA_vs_CTRL_iCAF_DOWN.png" width="100%">
+
+<img src="assets/03.Stromal/GO_6OHDA/Dot.GO_6OHDA_vs_CTRL_Vascular_Endothelial_UP.png" width="100%">
+
+<img src="assets/03.Stromal/GO_6OHDA/Dot.GO_6OHDA_vs_CTRL_Vascular_Endothelial_DOWN.png" width="100%">
+
+## Cross-Condition GO Comparison
+
+The `compareCluster` step contrasts condition-specific GO terms in iCAF and vascular endothelial cells. This section is especially useful because it turns the DEGs into direct pathway comparisons between Capsaicin and 6OHDA.
+
+For iCAF, both up- and down-regulated pathways show condition-sensitive shifts in stromal activation and remodeling.
+
+<img src="assets/03.Stromal/Compare_Conditions/GO_Compare_Up_iCAF.png" width="100%">
+
+<img src="assets/03.Stromal/Compare_Conditions/GO_Compare_Down_iCAF.png" width="100%">
+
+For vascular endothelial cells, the comparison likewise shows that the two perturbations do not induce identical endothelial programs.
+
+<img src="assets/03.Stromal/Compare_Conditions/GO_Compare_Up_Vascular_Endothelial.png" width="100%">
+
+<img src="assets/03.Stromal/Compare_Conditions/GO_Compare_Down_Vascular_Endothelial.png" width="100%">
+
+## Interpretation
+
+Taken together, the stromal analysis shows that the BLCA microenvironment contains a structured stromal compartment in which iCAF and vascular endothelial cells are the most responsive groups. Capsaicin and 6OHDA reshape stromal signaling through distinct GO programs, while Ramp1 expression provides an additional link to CGRP-related stromal responsiveness. The strongest message from the report is that stromal changes are not generic: endothelial and fibroblast-like cells follow different transcriptional and pathway trajectories under the two perturbations.
