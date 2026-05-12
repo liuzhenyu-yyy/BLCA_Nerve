@@ -1,0 +1,269 @@
+---
+title: "Cell Type Annotation of Mouse BLCA scRNA-seq"
+subtitle: "Report for the 01.Cell_Type analysis"
+format:
+  html:
+    toc: true
+    number-sections: true
+    theme: cosmo
+    code-fold: false
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+library(dplyr)
+
+blca_obj <- readRDS("../../results/rds/blca_obj.rds")
+immune_obj <- readRDS("../../results/rds/immune_obj.rds")
+cancer_obj <- readRDS("../../results/rds/cancer_obj.rds")
+stromal_obj <- readRDS("../../results/rds/stromal_obj.rds")
+
+count_tbl <- function(x) {
+  out <- as.data.frame(table(x), stringsAsFactors = FALSE)
+  colnames(out) <- c("Class", "Cells")
+  out$Share <- sprintf("%.1f%%", out$Cells / sum(out$Cells) * 100)
+  out
+}
+
+broad_tbl <- count_tbl(blca_obj$Cell_Type_0)
+detailed_tbl <- count_tbl(blca_obj$Cell_Type_1)
+immune_tbl <- count_tbl(immune_obj$Cell_Type_2)
+cancer_tbl <- count_tbl(cancer_obj$Cell_Type_2)
+stromal_tbl <- count_tbl(stromal_obj$Cell_Type_2)
+
+total_cells <- ncol(blca_obj)
+immune_cells <- ncol(immune_obj)
+cancer_cells <- ncol(cancer_obj)
+stromal_cells <- ncol(stromal_obj)
+```
+
+## Overview
+
+This report summarizes the cell-typing workflow in `code/01.Cell_Type.R` and the figures already generated under `results/01.Cell_Type/`. The analysis starts from the raw 10x matrices, applies quality control and doublet removal, then performs integrated clustering and manual annotation at three levels of granularity:
+
+1. Broad compartments (`Cell_Type_0`): epithelial, stromal, immune, and others.
+2. Detailed major classes (`Cell_Type_1`): cancer, T, B, NK, myeloid, fibroblast, endothelial, and others.
+3. Refined lineage/state labels (`Cell_Type_2`) within immune, cancer, and stromal compartments.
+
+The saved integrated object contains `r total_cells` cells after filtering, with the following broad composition:
+
+`r knitr::kable(broad_tbl, align = c("l", "r", "r"))`
+
+At the detailed level, the dominant classes are cancer cells, T cells, and myeloid cells, which is consistent with a tumor microenvironment enriched for both malignant and immune compartments.
+
+`r knitr::kable(detailed_tbl, align = c("l", "r", "r"))`
+
+## Quality Control and Clustering
+
+The QC strategy follows the script exactly: cells are filtered by feature count, UMI count, and mitochondrial fraction, then doublets are identified and removed on a sample-by-sample basis with DoubletFinder. After normalization, highly variable feature selection, scaling, PCA, neighborhood graph construction, and UMAP, the major cellular structure becomes visible and provides the basis for all subsequent annotations.
+
+The QC metrics show the expected single-cell distributions, with a visible cutoff strategy for low-feature cells, low-UMI cells, and high-mitochondrial outliers.
+
+![](assets/01.Cell_Type/Hist.QC.Metrics.png){width=100%}
+
+![](assets/01.Cell_Type/Scatter.QC.png){width=100%}
+
+The PCA elbow plot is used to support the choice of dimensions for downstream neighborhood construction and UMAP.
+
+![](assets/01.Cell_Type/ElbowPlot.PCA.png){width=100%}
+
+Condition-level separation on the UMAP is modest rather than absolute, which is expected for a mixed tumor microenvironment data set. Cluster structure is more informative than condition alone at this stage.
+
+![](assets/01.Cell_Type/UMAP.Condition.png){width=100%}
+
+![](assets/01.Cell_Type/UMAP.Clusters.png){width=100%}
+
+![](assets/01.Cell_Type/UMAP.Clusters.split.Condition.png){width=100%}
+
+## Initial Annotation
+
+SingleR annotations were transferred into the Seurat metadata and used as an initial sanity check. Marker-gene plots confirm the expected major lineages: epithelial and cancer markers, endothelial markers, T/NK and B-cell markers, myeloid markers, and stromal markers.
+
+![](assets/01.Cell_Type/UMAP.SingleR.png){width=100%}
+
+![](assets/01.Cell_Type/UMAP.MarkerGenes.png){width=100%}
+
+![](assets/01.Cell_Type/DotPlot.MarkerGenes.png){width=100%}
+
+## Broad Cell-Type Annotation
+
+At the first manual annotation layer, the data are consolidated into epithelial, cancer, endothelial, fibroblast, T, B, NK, neutrophil, macrophage/monocyte, DC, and others. This is the compartment map used to drive the more detailed downstream analyses.
+
+![](assets/01.Cell_Type/UMAP.Cell_Type_0.png){width=100%}
+
+![](assets/01.Cell_Type/UMAP.Cell_Type_0.split.Condition.png){width=100%}
+
+![](assets/01.Cell_Type/UMAP.Cell_Type_1.png){width=100%}
+
+![](assets/01.Cell_Type/UMAP.Cell_Type_1.split.Condition.png){width=100%}
+
+The marker-gene dot plot supports the assignment of the detailed major classes.
+
+![](assets/01.Cell_Type/DotPlot.Cell_Type_1.png){width=100%}
+
+Cell-type composition across conditions is summarized both by bar plots and by per-sample fractions. These plots are the main check for whether the three treatment groups are enriched for distinct cellular compartments.
+
+![](assets/01.Cell_Type/Barplot.Cell_Type_1.Condition.png){width=100%}
+
+![](assets/01.Cell_Type/Boxplot.Fraction.Cell_Type_1.png){width=100%}
+
+![](assets/01.Cell_Type/Boxplot.Fraction.Cell_Type_1.Merge.png){width=100%}
+
+The Roe heatmap provides a compact condition-by-cell-type enrichment summary.
+
+![](assets/01.Cell_Type/Heatmap.Roe.Cell_Type_1.Condition.png){width=100%}
+
+## Immune Compartment
+
+The immune subset is reclustered to resolve T-cell, NK/NKT, B-cell, macrophage, monocyte, dendritic, pDC, MDSC, neutrophil, and cycling states. The immune map is one of the most interpretable parts of the analysis because the lineage markers are strong and the subset is large enough to support stable re-clustering.
+
+The immune subset contains `r immune_cells` cells after filtering and reclustering.
+
+![](assets/01.Cell_Type/sub1_Immune/ElbowPlot.PCA.png){width=100%}
+
+![](assets/01.Cell_Type/sub1_Immune/UMAP.Clusters.png){width=100%}
+
+![](assets/01.Cell_Type/sub1_Immune/UMAP.Clusters.split.png){width=100%}
+
+![](assets/01.Cell_Type/sub1_Immune/UMAP.SingleR.png){width=100%}
+
+![](assets/01.Cell_Type/sub1_Immune/UMAP.Cell_Type_1.png){width=100%}
+
+The immune marker-gene panels emphasize T-cell receptor genes, cytotoxic genes, B-cell markers, monocyte/macrophage markers, dendritic-cell markers, and proliferation markers.
+
+![](assets/01.Cell_Type/sub1_Immune/UMAP.MarkerGenes.png){width=100%}
+
+![](assets/01.Cell_Type/sub1_Immune/DotPlot.MarkerGenes.png){width=100%}
+
+At the refined level (`Cell_Type_2`), the immune compartment is partitioned into T_CD4, Treg, T_CD8, cycling T cells, NK, NKT, B cells, macrophage, monocyte, cDC, pDC, MDSC, neutrophil, and cycling myeloid cells.
+
+![](assets/01.Cell_Type/sub1_Immune/UMAP.Cell_Type_2.png){width=100%}
+
+![](assets/01.Cell_Type/sub1_Immune/UMAP.Cell_Type_2.split.png){width=100%}
+
+![](assets/01.Cell_Type/sub1_Immune/UMAP.Cell_Type_2.split.density.png){width=100%}
+
+![](assets/01.Cell_Type/sub1_Immune/DotPlot.Cell_Type_2.png){width=100%}
+
+Immune composition by condition is summarized below the refined labels, allowing the report to compare treatment-associated shifts in lymphoid versus myeloid states.
+
+![](assets/01.Cell_Type/sub1_Immune/Barplot.Cell_Type_2.Condition.png){width=100%}
+
+![](assets/01.Cell_Type/sub1_Immune/Boxplot.Fraction.png){width=100%}
+
+![](assets/01.Cell_Type/sub1_Immune/Boxplot.Fraction.Merge.png){width=100%}
+
+![](assets/01.Cell_Type/sub1_Immune/Heatmap.Roe.Cell_Type_2.Condition.png){width=100%}
+
+## Cancer Compartment
+
+Cancer cells are reclustered at finer resolution and assigned to four major states: hypoxic, inflammatory, proliferative, and plastic/EMT-like. This is the main malignant-compartment result of the analysis.
+
+The cancer subset contains `r cancer_cells` cells after filtering and reclustering.
+
+![](assets/01.Cell_Type/sub2_Cancer/ElbowPlot.PCA.png){width=100%}
+
+![](assets/01.Cell_Type/sub2_Cancer/UMAP.Clusters.png){width=100%}
+
+![](assets/01.Cell_Type/sub2_Cancer/UMAP.Clusters.split.png){width=100%}
+
+![](assets/01.Cell_Type/sub2_Cancer/UMAP.SingleR.png){width=100%}
+
+![](assets/01.Cell_Type/sub2_Cancer/UMAP.Cell_Type_1.png){width=100%}
+
+
+The cancer `Cell_Type_2` states separate the data into biologically interpretable programs rather than treating the malignant compartment as one homogeneous population.
+
+![](assets/01.Cell_Type/sub2_Cancer/UMAP.Cell_Type_2.png){width=100%}
+
+![](assets/01.Cell_Type/sub2_Cancer/Barplot.Cell_Type_2.Condition.png){width=100%}
+
+![](assets/01.Cell_Type/sub2_Cancer/Boxplot.Fraction.png){width=100%}
+
+![](assets/01.Cell_Type/sub2_Cancer/Boxplot.Fraction.Merge.png){width=100%}
+
+![](assets/01.Cell_Type/sub2_Cancer/Heatmap.Roe.Cell_Type_2.Condition.png){width=100%}
+
+### Cancer Differential Expression
+
+The cancer-subset differential expression analysis compares Capsaicin and 6OHDA against CTRL. The top upregulated genes differ between the two perturbations:
+
+- Capsaicin: Mir6236, H4c4, Slpi, Gm11867, Tubb3, Hes1, Cryab, Rrad, and stress- and remodeling-associated genes.
+- 6OHDA: Hsph1, Cxcl1, Hspb1, Slpi, Orm3, Bag3, Ahsa2, Atf3, Gadd45g, Dnaja1, and Scand1.
+
+The volcano plot summarizes the full differential-expression landscape.
+
+![](assets/01.Cell_Type/sub2_Cancer/Volcano.Condition_vs_CTRL.png){width=100%}
+
+### Cancer GO Enrichment
+
+GO enrichment clarifies the biological programs associated with each perturbation.
+
+For **Capsaicin-upregulated** genes, the strongest terms include cell-cycle progression, positive regulation of cell cycle, oxidative-stress response, ROS metabolism, hypoxia response, fibroblast proliferation, vascular development, and sprouting angiogenesis. In the plotted terms, this points to a proliferative, remodeling, and stress-adaptation signature.
+
+![](assets/01.Cell_Type/sub2_Cancer/GO_Capsaicin_vs_CTRL_up.png){width=100%}
+
+Capsaicin-downregulated genes are enriched for hypoxia response, antiviral and LPS-response programs, neuroinflammatory response, leukocyte proliferation, immune-effector regulation, apoptotic signaling, chemotaxis, and xenobiotic response.
+
+![](assets/01.Cell_Type/sub2_Cancer/GO_Capsaicin_vs_CTRL_down.png){width=100%}
+
+For **6OHDA-upregulated** genes, the strongest terms include protein folding, response to lipopolysaccharide, chemotaxis, response to heat, ERK1/2 cascade, p38MAPK cascade, connective tissue development, smooth-muscle proliferation, and response to hypoxia. This profile is consistent with strong cellular stress and inflammatory signaling.
+
+![](assets/01.Cell_Type/sub2_Cancer/GO_6OHDA_vs_CTRL_up.png){width=100%}
+
+6OHDA-downregulated genes are enriched for mitochondrial respiration, proton transmembrane transport, electron transport chain organization, vacuolar and lysosomal transport, small GTPase signaling, protein secretion, polyol metabolism, vasculogenesis, and temperature homeostasis. This suggests suppression of core metabolic and organelle-transport programs in the 6OHDA condition.
+
+![](assets/01.Cell_Type/sub2_Cancer/GO_6OHDA_vs_CTRL_down.png){width=100%}
+
+## Stromal Compartment
+
+The stromal subset is partitioned into vascular endothelial, lymphatic endothelial, iCAF, myCAF, smooth muscle, Schwann, and adipocyte-like states. This compartment is comparatively smaller than the epithelial and immune compartments, but it is important for understanding the structural microenvironment around the tumor.
+
+The stromal subset contains `r stromal_cells` cells after filtering and reclustering.
+
+![](assets/01.Cell_Type/sub3_Stromal/ElbowPlot.PCA.png){width=100%}
+
+![](assets/01.Cell_Type/sub3_Stromal/UMAP.Clusters.png){width=100%}
+
+![](assets/01.Cell_Type/sub3_Stromal/UMAP.Clusters.split.png){width=100%}
+
+![](assets/01.Cell_Type/sub3_Stromal/UMAP.SingleR.png){width=100%}
+
+![](assets/01.Cell_Type/sub3_Stromal/UMAP.Cell_Type_1.png){width=100%}
+
+![](assets/01.Cell_Type/sub3_Stromal/UMAP.MarkerGenes.png){width=100%}
+
+![](assets/01.Cell_Type/sub3_Stromal/DotPlot.MarkerGenes.png){width=100%}
+
+The refined stromal labels reveal vascular and lymphatic endothelial subtypes, fibroblast-like CAF states, contractile myCAF/smooth-muscle-like cells, and smaller Schwann and adipocyte-like populations.
+
+![](assets/01.Cell_Type/sub3_Stromal/UMAP.Cell_Type_2.png){width=100%}
+
+![](assets/01.Cell_Type/sub3_Stromal/UMAP.Cell_Type_2.split.png){width=100%}
+
+![](assets/01.Cell_Type/sub3_Stromal/UMAP.Cell_Type_2.split.density.png){width=100%}
+
+![](assets/01.Cell_Type/sub3_Stromal/DotPlot.Cell_Type_2.png){width=100%}
+
+![](assets/01.Cell_Type/sub3_Stromal/Barplot.Cell_Type_2.Condition.png){width=100%}
+
+![](assets/01.Cell_Type/sub3_Stromal/Boxplot.Fraction.png){width=100%}
+
+![](assets/01.Cell_Type/sub3_Stromal/Boxplot.Fraction.Merge.png){width=100%}
+
+![](assets/01.Cell_Type/sub3_Stromal/Heatmap.Roe.Cell_Type_2.Condition.png){width=100%}
+
+## Gene-Set Averages Across Samples
+
+The final section in the script compares sample-level average expression for a compact marker set including Pdcd1, Cd274, Ramp1, and Igf1. These plots provide a lightweight summary of immune-checkpoint and signaling-related gene expression across conditions.
+
+![](assets/01.Cell_Type/Dot.Sample.Gene.png){width=100%}
+
+![](assets/01.Cell_Type/Box.Sample.Gene.png){width=100%}
+
+## Takeaway
+
+The analysis resolves a BLCA microenvironment dominated by malignant epithelial/cancer cells, substantial immune infiltration, and a smaller but clearly structured stromal compartment. The broad and detailed annotations are supported by marker expression, SingleR labels, UMAP organization, and condition-wise composition summaries. At the malignant-compartment level, Capsaicin and 6OHDA are associated with distinct stress, proliferation, inflammatory, and metabolic programs, which are clearly separated by the DEG, volcano, and GO-enrichment results.
