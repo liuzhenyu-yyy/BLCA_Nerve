@@ -262,8 +262,6 @@ The final section in the script compares sample-level average expression for a c
 
 ![](attachments/01.Cell_Type/Dot.Sample.Gene.png){width=100%}
 
-![](attachments/01.Cell_Type/Box.Sample.Gene.png){width=100%}
-
 ## Takeaway
 
 The analysis resolves a BLCA microenvironment dominated by malignant epithelial/cancer cells, substantial immune infiltration, and a smaller but clearly structured stromal compartment. The broad and detailed annotations are supported by marker expression, SingleR labels, UMAP organization, and condition-wise composition summaries. At the malignant-compartment level, Capsaicin and 6OHDA are associated with distinct stress, proliferation, inflammatory, and metabolic programs, which are clearly separated by the DEG, volcano, and GO-enrichment results.
