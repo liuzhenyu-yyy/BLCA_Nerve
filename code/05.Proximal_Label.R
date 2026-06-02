@@ -13,6 +13,8 @@ library(cli)
 
 mycolor <- readRDS("../rds/mycolor.rds")
 
+load("05.Proximal_Label.RData")
+
 # 1. load data ----
 data_dir <- "/Users/zhenyuliu/Research/Project/BLCA_Nerve/data/CellRanger_Proximal"
 samples <- list.dirs(data_dir, recursive = FALSE, full.names = FALSE)
@@ -213,6 +215,28 @@ patchwork::wrap_plots(
 )
 dev.off()
 
+plot_data <- as.data.frame(table(blca_proximal$Cell_Type_2, blca_proximal$Condition)) %>%
+    filter(Var1 != "Others")
+colnames(plot_data) <- c("Cell_Type_2", "Condition", "Count")
+
+pdf("Barplot.Cell_Type_2.Condition.pdf", 10, 6)
+patchwork::wrap_plots(
+    ggplot(plot_data, aes(x = Cell_Type_2, y = Count, fill = Condition)) +
+        geom_bar(stat = "identity", position = "fill") +
+        scale_fill_manual(values = mycolor$Condition) +
+        theme_classic() +
+        labs(title = "Cell Type composition across Conditions") +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1)),
+    ggplot(plot_data, aes(x = Condition, y = Count, fill = Cell_Type_2)) +
+        geom_bar(stat = "identity", position = "fill") +
+        scale_fill_manual(values = mycolor$Cell_Type_2) +
+        theme_classic() +
+        labs(title = "Cell Type composition across Conditions") +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1)),
+    ncol = 2
+)
+dev.off()
+
 plot_data <- as.data.frame(table(blca_proximal$Cell_Type_1, blca_proximal$Sample)) %>%
     filter(Var1 != "Others")
 colnames(plot_data) <- c("Cell_Type_1", "Sample", "Count")
@@ -234,6 +258,29 @@ patchwork::wrap_plots(
     ncol = 2
 )
 dev.off()
+
+plot_data <- as.data.frame(table(blca_proximal$Cell_Type_2, blca_proximal$Sample)) %>%
+    filter(Var1 != "Others")
+colnames(plot_data) <- c("Cell_Type_2", "Sample", "Count")
+
+pdf("Barplot.Cell_Type_2.Sample.pdf", 10, 6)
+patchwork::wrap_plots(
+    ggplot(plot_data, aes(x = Cell_Type_2, y = Count, fill = Sample)) +
+        geom_bar(stat = "identity", position = "fill") +
+        scale_fill_manual(values = mycolor$Cell_Type_2 %>% unname()) +
+        theme_classic() +
+        labs(title = "Cell Type composition across Samples") +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1)),
+    ggplot(plot_data, aes(x = Sample, y = Count, fill = Cell_Type_2)) +
+        geom_bar(stat = "identity", position = "fill") +
+        scale_fill_manual(values = mycolor$Cell_Type_2) +
+        theme_classic() +
+        labs(title = "Cell Type composition across Samples") +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1)),
+    ncol = 2
+)
+dev.off()
+
 rm(plot_data)
 
 # fraction compare
