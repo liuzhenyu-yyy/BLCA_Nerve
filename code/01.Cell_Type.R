@@ -14,7 +14,7 @@ library(cli)
 load("01.Cell_Type.RData")
 
 # 1. Load data & QC ----
-data_dir <- "/Users/zhenyuliu/Research/Project/BLCA_Nerve/data/CellRanger_Out"
+data_dir <- "/Users/zhenyuliu/Research/Project/BLCA_Nerve/data/CellRanger_1"
 data_dir <- "/thinker/tb269store/user/liuzhenyu/Project/BLCA_Nerve/data/CellRanger_Out"
 samples <- list.dirs(data_dir, recursive = FALSE, full.names = FALSE)
 mycolor <- list()
