@@ -574,6 +574,15 @@ DimPlot(immune_obj,
     labs(title = "UMAP plot colored by Cell_Type_1")
 dev.off()
 
+pdf("sub1_Immune/UMAP.Cell_Type_1.split.pdf", 8, 3)
+DimPlot(immune_obj,
+    reduction = "umap", group.by = "Cell_Type_1", split.by = "Condition", ncol = 3,
+    label = FALSE, raster = TRUE, pt.size = 1.2,
+    cols = mycolor$Cell_Type_1
+) +
+    theme_classic()
+dev.off()
+
 marker_genes[["Immune"]] <- c(
     "Cd3d", "Cd3g", "Cd4", "Foxp3", "Trdc", "Trac", "Trbc1", "Trbc2",
     "Cd8a", "Gzma", "Gzmb", "Havcr2", "Pdcd1",
@@ -654,7 +663,7 @@ dev.off()
 pdf("sub1_Immune/UMAP.Cell_Type_2.split.pdf", 8, 3)
 DimPlot(immune_obj,
     reduction = "umap", group.by = "Cell_Type_2", split.by = "Condition", ncol = 3,
-    label = FALSE, raster = TRUE, pt.size = 2,
+    label = FALSE, raster = TRUE, pt.size = 1.2,
     cols = mycolor$Cell_Type_2
 ) +
     theme_classic()

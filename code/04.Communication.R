@@ -349,6 +349,32 @@ plot.data <- DotPlot(blca_obj,
     group.by = "Cell_Type_2_Condition"
 )$data
 
+# Top gene from cytokine array
+gene.selected <- c(
+    "Igf1", "Egf", "Ccl11", "Igfbp5", "Cxcl5",
+    "Igfbp6", "Cd40", "Selp", "Tnfrsf18", "Ccl19"
+)
+pdf("Expression_Selected/Dot.Expression.Growth_factor.scaled_2.pdf", 6, 4)
+DotPlot(blca_obj,
+    features = gene.selected %>% rev(), scale = TRUE,
+    idents = setdiff(
+        levels(blca_obj$Cell_Type_2),
+        c(
+            "T_CD4_Cycling", "T_CD8_Cycling", "NKT", "Myeloid_Cycling", "Others",
+            "Schwann", "Adipocyte", "MDSC", "Smooth_Muscle"
+        )
+    ),
+    group.by = "Cell_Type_2",
+) +
+    coord_flip() +
+    theme_classic() +
+    scale_color_viridis_c() +
+    theme(
+        axis.text.x = element_text(angle = 45, hjust = 1)
+    ) +
+    ggtitle("Expression of Growth Factors")
+dev.off()
+
 plot.data$Condition <- gsub("^.+?-", "", plot.data$id)
 plot.data$Condition <- factor(plot.data$Condition, levels = names(mycolor$Condition))
 plot.data$Cell_Type_2 <- gsub("-.+?*$", "", plot.data$id)
