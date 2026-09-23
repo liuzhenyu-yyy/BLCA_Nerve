@@ -247,36 +247,6 @@ DotPlot(blca_obj,
     ggtitle("Expression of Neurotrophic Factors")
 dev.off()
 
-pdf("Expression_Selected/Violin.Expression.Igf1r.pdf", 5, 4)
-VlnPlot(blca_obj,
-    features = "Igf1r", cols = mycolor$Cell_Type_2, pt.size = 0, alpha = 0.5,
-    idents = setdiff(
-        levels(blca_obj$Cell_Type_2),
-        c(
-            "T_CD4_Cycling", "T_CD8_Cycling", "NKT", "Myeloid_Cycling", "Others",
-            "Schwann", "Adipocyte", "MDSC", "Smooth_Muscle"
-        )
-    )
-) +
-    stat_summary(fun = mean, geom = "point", size = 1.2, color = "gray20") +
-    NoLegend()
-dev.off()
-
-pdf("Expression_Selected/Violin.Expression.Igf1.pdf", 5, 4)
-VlnPlot(blca_obj,
-    features = "Igf1", cols = mycolor$Cell_Type_2, pt.size = 0, alpha = 0.7,
-    idents = setdiff(
-        levels(blca_obj$Cell_Type_2),
-        c(
-            "T_CD4_Cycling", "T_CD8_Cycling", "NKT", "Myeloid_Cycling", "Others",
-            "Schwann", "Adipocyte", "MDSC", "Smooth_Muscle"
-        )
-    )
-) +
-    stat_summary(fun = mean, geom = "point", size = 1.2, color = "gray20") +
-    NoLegend()
-dev.off()
-
 pdf("Expression_Selected/Dot.Expression.Neuro_factor.scaled.pdf", 7, 5)
 DotPlot(blca_obj,
     features = gene.selected %>% rev(), scale = TRUE,
@@ -426,6 +396,36 @@ ggplot(plot.data, aes(x = features.plot, y = Condition)) +
     ggtitle("Expression of Growth Factors")
 dev.off()
 rm(plot.data, gene.selected)
+
+pdf("Expression_Selected/Violin.Expression.Igf1r.pdf", 5, 4)
+VlnPlot(blca_obj,
+    features = "Igf1r", cols = mycolor$Cell_Type_2, pt.size = 0, alpha = 0.5,
+    idents = setdiff(
+        levels(blca_obj$Cell_Type_2),
+        c(
+            "T_CD4_Cycling", "T_CD8_Cycling", "NKT", "Myeloid_Cycling", "Others",
+            "Schwann", "Adipocyte", "MDSC", "Smooth_Muscle"
+        )
+    )
+) +
+    stat_summary(fun = mean, geom = "point", size = 1.2, color = "gray20") +
+    NoLegend()
+dev.off()
+
+pdf("Expression_Selected/Violin.Expression.Igf1.pdf", 5, 4)
+VlnPlot(blca_obj,
+    features = "Igf1", cols = mycolor$Cell_Type_2, pt.size = 0, alpha = 0.7,
+    idents = setdiff(
+        levels(blca_obj$Cell_Type_2),
+        c(
+            "T_CD4_Cycling", "T_CD8_Cycling", "NKT", "Myeloid_Cycling", "Others",
+            "Schwann", "Adipocyte", "MDSC", "Smooth_Muscle"
+        )
+    )
+) +
+    stat_summary(fun = mean, geom = "point", size = 1.2, color = "gray20") +
+    NoLegend()
+dev.off()
 
 # cytokines and chemokines
 gene.selected <- c(
