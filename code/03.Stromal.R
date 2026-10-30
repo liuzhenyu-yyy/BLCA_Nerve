@@ -178,6 +178,40 @@ lapply(names(GO_list), function(x) {
     })
 })
 
+# plot selected cell types
+dir.create("GO_Capsaicin_Selected")
+
+# iCAF
+
+term.selected <- c("GO:0030098", "GO:0051963", "GO:0045787", "GO:0071772", "GO:0048009", "GO:0050670")
+plot.data <- GO_list$Capsaicin$iCAF$up@result[term.selected, ] %>%
+    arrange(FoldEnrichment) %>%
+    mutate(
+        Description = stringr::str_wrap(Description, width = 42),
+        Description = factor(Description, levels = Description),
+        logP = -log10(p.adjust)
+    )
+pdf("GO_Capsaicin_Selected/Dot.GO_Capsaicin_in_iCAF_UP.pdf", 6, 2.5)
+ggplot(plot.data, aes(x = FoldEnrichment, y = Description)) +
+    geom_segment(aes(x = 0, xend = FoldEnrichment, yend = Description),
+        color = "grey80", linewidth = 0.7
+    ) +
+    geom_point(aes(fill = logP),
+        shape = 21, size = 4, color = "grey80", stroke = 0.4
+    ) +
+    scale_fill_gradient(
+        low = "#bcd8c3", high = "#367a80",
+        name = expression(-log[10]("adjusted P"))
+    ) +
+    scale_x_continuous(expand = expansion(mult = c(0, 0.08))) +
+    labs(
+        title = "iCAF Upregulated genes",
+        subtitle = "Capsaicin vs. CTRL",
+        x = "Fold enrichment", y = NULL
+    ) +
+    theme_classic(base_size = 11)
+dev.off()
+
 ## 1.3. expression of CGRP receptor ----
 pdf("UMAP_Ramp1.split.pdf", 16, 3.5)
 FeaturePlot(

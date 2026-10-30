@@ -179,6 +179,99 @@ lapply(names(GO_list), function(x) {
     })
 })
 
+# plot selected cell types
+dir.create("GO_Capsaicin_Selected")
+
+# Neutrophil
+term.selected <- c("GO:0002695", "GO:0097193", "GO:1900015", "GO:0032944", "GO:0050672")
+plot.data <- GO_list$Capsaicin$Neutrophil$down@result[term.selected, ] %>%
+    arrange(FoldEnrichment) %>%
+    mutate(
+        Description = stringr::str_wrap(Description, width = 42),
+        Description = factor(Description, levels = Description),
+        logP = -log10(p.adjust)
+    )
+pdf("GO_Capsaicin_Selected/Dot.GO_Capsaicin_in_Neutrophil_DOWN.pdf", 6, 2.5)
+ggplot(plot.data, aes(x = FoldEnrichment, y = Description)) +
+    geom_segment(aes(x = 0, xend = FoldEnrichment, yend = Description),
+        color = "grey80", linewidth = 0.7
+    ) +
+    geom_point(aes(fill = logP),
+        shape = 21, size = 4, color = "grey80", stroke = 0.4
+    ) +
+    scale_fill_gradient(
+        low = "#bcd8c3", high = "#367a80",
+        name = expression(-log[10]("adjusted P"))
+    ) +
+    scale_x_continuous(expand = expansion(mult = c(0, 0.08))) +
+    labs(
+        title = "Neutrophil Downregulated genes",
+        subtitle = "Capsaicin vs. CTRL",
+        x = "Fold enrichment", y = NULL
+    ) +
+    theme_classic(base_size = 11)
+dev.off()
+
+# CD4 T
+term.selected <- c("GO:0046632", "GO:0046631", "GO:0002429", "GO:0070482", "GO:0070661")
+plot.data <- GO_list$Capsaicin$T_CD4$up@result[term.selected, ] %>%
+    arrange(FoldEnrichment) %>%
+    mutate(
+        Description = stringr::str_wrap(Description, width = 42),
+        Description = factor(Description, levels = Description),
+        logP = -log10(p.adjust)
+    )
+pdf("GO_Capsaicin_Selected/Dot.GO_Capsaicin_in_T_CD4_UP.pdf", 6, 2.5)
+ggplot(plot.data, aes(x = FoldEnrichment, y = Description)) +
+    geom_segment(aes(x = 0, xend = FoldEnrichment, yend = Description),
+        color = "grey80", linewidth = 0.7
+    ) +
+    geom_point(aes(fill = logP),
+        shape = 21, size = 4, color = "grey80", stroke = 0.4
+    ) +
+    scale_fill_gradient(
+        low = "#bcd8c3", high = "#367a80",
+        name = expression(-log[10]("adjusted P"))
+    ) +
+    scale_x_continuous(expand = expansion(mult = c(0, 0.08))) +
+    labs(
+        title = "CD4 T Cell Upregulated genes",
+        subtitle = "Capsaicin vs. CTRL",
+        x = "Fold enrichment", y = NULL
+    ) +
+    theme_classic(base_size = 11)
+dev.off()
+
+# CD8 T
+term.selected <- c("GO:0030217", "GO:0046631", "GO:0010586", "GO:0002429", "GO:0070661")
+plot.data <- GO_list$Capsaicin$T_CD8$up@result[term.selected, ] %>%
+    arrange(FoldEnrichment) %>%
+    mutate(
+        Description = stringr::str_wrap(Description, width = 42),
+        Description = factor(Description, levels = Description),
+        logP = -log10(p.adjust)
+    )
+pdf("GO_Capsaicin_Selected/Dot.GO_Capsaicin_in_T_CD8_UP.pdf", 6, 2.5)
+ggplot(plot.data, aes(x = FoldEnrichment, y = Description)) +
+    geom_segment(aes(x = 0, xend = FoldEnrichment, yend = Description),
+        color = "grey80", linewidth = 0.7
+    ) +
+    geom_point(aes(fill = logP),
+        shape = 21, size = 4, color = "grey80", stroke = 0.4
+    ) +
+    scale_fill_gradient(
+        low = "#bcd8c3", high = "#367a80",
+        name = expression(-log[10]("adjusted P"))
+    ) +
+    scale_x_continuous(expand = expansion(mult = c(0, 0.08))) +
+    labs(
+        title = "CD8 T Cell Upregulated genes",
+        subtitle = "Capsaicin vs. CTRL",
+        x = "Fold enrichment", y = NULL
+    ) +
+    theme_classic(base_size = 11)
+dev.off()
+
 ## 1.3. GSEA on specific cell types ----
 dir.create("GSEA_Capsaicin")
 
@@ -287,6 +380,41 @@ for (i in seq_along(p_list)) {
 }
 dev.off()
 rm(p_list, term_selected, i)
+
+## 1.4. Neutrophil signature genes ----
+neu.gene <- list(
+    N1 = c("Tnf", "Icam1", "Fas", "Nos2", "Ccl3", "Ccl4", "Cd86", "Tnfsf9"),
+    N2 = c("Arg1", "Cxcr4", "Vegfa", "Mmp9", "Ccl2", "Ccl17", "Cd274", "Tgfb1"),
+    PMN_MDSC = c("Olr1", "Arg1", "S100a8", "S100a9", "Il1b", "Ptgs2",
+                 "Il1r2", "Trem1", "Stat3", "Cd274")
+)
+neu.obj <- subset(immune_obj, subset = Cell_Type_2 == "Neutrophil")
+
+neu.obj <- AddModuleScore(neu.obj, features = neu.gene, name = names(neu.gene), search = FALSE)
+colnames(neu.obj@meta.data)[16:18] <- paste0(names(neu.gene), "_Score")
+
+plot.data <- neu.obj@meta.data %>%
+    dplyr::select(Sample, Condition, N1_Score, N2_Score, PMN_MDSC_Score) %>%
+    filter(Condition %in% c("Capsaicin", "CTRL"))
+plot.data <- reshape2::melt(plot.data,
+    id.vars = c("Sample", "Condition"), variable.name = "Signature", value.name = "Score"
+)
+
+pdf("GSEA_Capsaicin/Boxplot.Neutrophil_Signature_Score.pdf", 6, 2.6)
+ggplot(plot.data, aes(x = Condition, y = Score)) +
+    geom_violin(aes(fill = Condition), alpha = 0.5) +
+    geom_boxplot(, outlier.shape = NA, alpha = 1, width = 0.2) +
+    # geom_jitter(width = 0.2, height = 0, size = 0.00001, alpha = 0.3) +
+    facet_wrap(~Signature, ncol = 3, scales = "free") +
+    scale_fill_manual(values = mycolor$Condition) +
+    ggpubr::stat_compare_means(
+        label = "p.format", label.x.npc = 0.3, size = 2.5,
+        method = "wilcox.test",
+        ref.group = "CTRL", hide.ns = FALSE
+    ) +
+    labs(x = "Condition", y = "Neutrophil Signature Score") +
+    theme_classic()
+dev.off()
 
 ## 1.4. compare DEG & GO across conditions ----
 names(DEG_list_genes)
