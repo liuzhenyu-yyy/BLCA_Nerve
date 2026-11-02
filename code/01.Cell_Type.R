@@ -1161,7 +1161,7 @@ stromal_obj <- FindNeighbors(stromal_obj, dims = 1:30)
 stromal_obj <- FindClusters(stromal_obj, resolution = 1.0)
 
 stromal_obj <- RunUMAP(stromal_obj, dims = 1:30)
-# stromal_obj <- readRDS("rds/stromal_obj.rds")
+# stromal_obj <- readRDS("../rds/stromal_obj.rds")
 
 pdf("sub3_Stromal/UMAP.Clusters.pdf", 5.5, 4)
 DimPlot(stromal_obj,
@@ -1317,13 +1317,21 @@ Idents(stromal_obj) <- stromal_obj$Cell_Type_2
 levels(Idents(stromal_obj))
 
 gene_selected <- c(
-    "Cdh5", "Pecam1", "Prox1", "Lyve1", "Cd34", "Col1a2", "Lum",
+    "Cdh5", "Pecam1", "Prox1", "Lyve1", "Cd34", "Col1a1", "Lum",
     "Pdgfra", "Rgs5", "Acta2", "Myh11", "Sox10", "S100b",
     "Adipoq", "Pck1"
 )
 
 pdf("sub3_Stromal/DotPlot.Cell_Type_2.pdf", 6.5, 2.6)
 DotPlot(stromal_obj, features = gene_selected) +
+    scale_color_viridis_c() +
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+dev.off()
+
+pdf("sub3_Stromal/DotPlot.Cell_Type_2_CAF.pdf", 4, 2)
+DotPlot(stromal_obj, features = c("Col1a1", "Lum",
+    "Pdgfra", "Rgs5"), idents = c("iCAF", "myCAF")) +
     scale_color_viridis_c() +
     theme_classic() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
