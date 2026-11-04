@@ -99,6 +99,33 @@ lapply(names(DEG_list_conditions), function(x) {
     dev.off()
 })
 
+# only iCAF
+plot.data <- do.call(rbind, DEG_list_conditions$Capsaicin) %>%
+    filter(Cell_Type_2 == "iCAF") %>%
+    mutate(Comparison = paste0("Capsaicin_vs_CTRL"))
+plot.data$label <- ifelse(plot.data$gene %in% c("Pdgfd", "Runx2", "Gas6"), plot.data$gene, NA)
+
+pdf(paste0("Volcano.iCAF.Capsaicin_vs_CTRL.pdf"), 6.5, 4.5)
+ggplot(plot.data, aes(x = avg_log2FC, y = -log10(p_val_adj))) +
+    geom_point(aes(color = is.na(plot.data$label) %>% as.numeric() %>% as.character()), alpha = 0.5, size = 0.5) +
+    scale_color_manual(values = c("0" = "red", "1" = "gray")) +
+    ggrepel::geom_text_repel(
+        aes(label = label),
+        na.rm = TRUE,
+        box.padding = 0.5,
+        point.padding = 0.5,
+        segment.color = "grey50",
+        size = 3
+    ) +
+    theme_classic() +
+    xlab("Average log2 fold change") +
+    ylab("-log10 adjusted p value") +
+    geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "#ec8a8a", linewidth = 0.5) +
+    geom_vline(xintercept = c(-0.25, 0.25), linetype = "dashed", color = "#ec8a8a", linewidth = 0.5) +
+    theme(legend.position = "none")
+dev.off()
+rm(plot.data)
+
 ## 1.2. GO enrichment analysis ----
 DEG_list_genes <- lapply(DEG_list_conditions, function(x) {
     lapply(x, function(y) {
