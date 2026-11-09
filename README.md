@@ -67,7 +67,7 @@ The `report/` directory includes sources summarize the generated outputs.
 | [`01.Cell_Typing.qmd`](report/01.Cell_Typing.qmd) | QC, clustering, and broad/refined cell-type annotation |
 | [`02.Immune.qmd`](report/02.Immune.qmd) | Immune-cell differential expression, enrichment, and T-cell analysis |
 | [`03.Stromal.qmd`](report/03.Stromal.qmd) | Stromal expression, differential expression, and enrichment |
-| [`04.Communication.qmd`](report/04.Communication.qmd) | CellChat networks, PD-L1 signaling, and IGF signaling |
+| [`04.Communication.qmd`](report/04.Communication.qmd) | CellChat networks, specific signaling pathways |
 
 After the required private data and intermediate objects are available, reports
 can be rendered with:
