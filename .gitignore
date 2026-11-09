@@ -1,5 +1,5 @@
 data
 results
 .DS_Store
-report/*
-!report/*.qmd
+report*/*
+!report*/*.qmd
