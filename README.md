@@ -19,11 +19,13 @@ report/
   04.Communication.qmd
 sessionInfo
 ```
-## Analysis scripts (`code/`)
+### Analysis scripts
+
+The `code/` directory harbors code for primary data analysis.
 
 #### `01.Cell_Type.R`
 
-Reads the main 10x scRNA-seq data, performs QC and sample-wise DoubletFinder
+Reads the main 10x scRNA-seq data, performs QC and sample-wise doublet
 filtering, and generates Seurat PCA/UMAP clusters. Assigns broad and
 refined cell-type labels, reclusters immune, cancer, and stromal subsets, and
 performs cancer-cell GO enrichment.
@@ -38,13 +40,13 @@ GSEA, and evaluates T-cell states, markers, and signatures.
 
 Analyzes treatment-associated expression changes in each annotated stromal
 cell type. Performs GO enrichment, compares treatment-associated genes and
-pathways, and examines CGRP-receptor-related expression.
+pathways, and examines expression of key signaling genes.
 
 #### `04.Communication.R`
 
 Combines the immune, cancer, and stromal annotations and infers mouse
 cell-cell communication with CellChat. Summarizes global networks and
-focuses on PD-L1 and IGF signaling.
+focuses on specific signaling.
 
 #### `05.Proximal_Label.R`
 
@@ -56,9 +58,9 @@ summarizes cell-type composition across conditions.
 
 Contains independent TCGA-BLCA analysis and visualization code.
 
-## Reports (`report/`)
+### Reports 
 
-The report sources summarize the generated outputs.
+The `report/` directory includes sources summarize the generated outputs.
 
 | Source | Scope |
 |---|---|
