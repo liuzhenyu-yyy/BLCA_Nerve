@@ -1,7 +1,6 @@
 # BLCA_Nerve
 
-Code and Quarto report for scRNA-seq analysis of mouse MB49 orthotopic bladder cancer 
-model under distinct nerve blockade conditions.
+Code and Quarto report for the bladder cancer (BLCA) nerve blockade project.
 
 ## Repository contents
 
@@ -20,47 +19,46 @@ report/
   04.Communication.qmd
 sessionInfo
 ```
-## Analysis scripts
+## Analysis scripts (`code/`)
 
-### `code/01.Cell_Type.R`
+#### `01.Cell_Type.R`
 
 Reads the main 10x scRNA-seq data, performs QC and sample-wise DoubletFinder
 filtering, and generates Seurat PCA/UMAP clusters. Assigns broad and
 refined cell-type labels, reclusters immune, cancer, and stromal subsets, and
 performs cancer-cell GO enrichment.
 
-### `code/02.Immune.R`
+#### `02.Immune.R`
 
 Analyzes the annotated immune subset by testing treatment-versus-control
 expression changes within each immune cell type. Performs GO enrichment and
 GSEA, and evaluates T-cell states, markers, and signatures.
 
-### `code/03.Stromal.R`
+#### `03.Stromal.R`
 
 Analyzes treatment-associated expression changes in each annotated stromal
 cell type. Performs GO enrichment, compares treatment-associated genes and
 pathways, and examines CGRP-receptor-related expression.
 
-### `code/04.Communication.R`
+#### `04.Communication.R`
 
 Combines the immune, cancer, and stromal annotations and infers mouse
 cell-cell communication with CellChat. Summarizes global networks and
 focuses on PD-L1 and IGF signaling.
 
-### `code/05.Proximal_Label.R`
+#### `05.Proximal_Label.R`
 
 Processes the separate proximal-tissue 10x dataset using the same general QC
 and sample-wise doublet-removal workflow. Assigns cell labels and
 summarizes cell-type composition across conditions.
 
-### `code/TCGA_an_vis.R`
+#### `TCGA_an_vis.R`
 
 Contains independent TCGA-BLCA analysis and visualization code.
 
-## Reports
+## Reports (`report/`)
 
-The report sources summarize the generated outputs; they do not download data
-or regenerate missing intermediate objects by themselves.
+The report sources summarize the generated outputs.
 
 | Source | Scope |
 |---|---|
