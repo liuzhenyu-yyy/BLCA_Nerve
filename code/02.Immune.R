@@ -333,7 +333,7 @@ gseGO_Capsaicin$T_CD4@result %>%
     filter(grepl("T cell", Description)) %>%
     arrange(-NES) %>%
     dplyr::select(Description, NES, pvalue, p.adjust)
-term_selected <- c("GO:0050798", "GO:2000406", "GO:0045582", "GO:0002294", "GO:0050870")
+term_selected <- c("GO:0050798", "GO:2000406", "GO:0045582", "GO:0002294", "GO:0050870", "GO:0071706")
 
 p_list <- lapply(term_selected, function(term) {
     gseaplot2(gseGO_Capsaicin$T_CD4,
